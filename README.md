@@ -47,18 +47,32 @@ manages, edit it, back it up, or version-control it.
 
 ## Installation
 
-### Prerequisites
+### Quick Install (Recommended)
 
-- A stable Rust toolchain (`rustup` + `cargo`)
+Run the automated installer script:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/fusoras/geico/main/install.sh | bash
+```
+
+Or from a cloned repository:
+
+```sh
+./install.sh
+```
+
+The script installs `geico` into `~/.local/bin/geico`, automatically wires shell completions, and prints Bun-style configuration guidance if manual `$PATH` setup is needed.
 
 ### Build from source
+
+Prerequisites:
+- A stable Rust toolchain (`rustup` + `cargo`)
 
 ```sh
 cargo build --release
 ```
 
-The binary is produced at `target/release/geico` (stripped and LTO-optimized for
-small size).
+The binary is produced at `target/release/geico` (stripped and LTO-optimized for small size).
 
 ### Install with Cargo
 
@@ -66,8 +80,7 @@ small size).
 cargo install --path .
 ```
 
-This installs `geico` into `~/.cargo/bin/`, which is normally already on your
-`$PATH`.
+This installs `geico` into `~/.cargo/bin/`, which is normally already on your `$PATH`.
 
 ### Verify
 
