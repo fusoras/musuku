@@ -4,6 +4,7 @@ pub mod colors;
 pub mod completions;
 pub mod config;
 pub mod desktop;
+pub mod image;
 pub mod manager;
 pub mod models;
 pub mod symlink;
