@@ -13,6 +13,8 @@ mkdir -p "$BIN_DIR"
 # 1. Locate or obtain the geico binary
 if [ -f "$SCRIPT_DIR/target/release/geico" ]; then
     cp "$SCRIPT_DIR/target/release/geico" "$TARGET_BIN"
+elif [ -f "$SCRIPT_DIR/target/debug/geico" ]; then
+    cp "$SCRIPT_DIR/target/debug/geico" "$TARGET_BIN"
 elif [ -f "$SCRIPT_DIR/geico" ]; then
     cp "$SCRIPT_DIR/geico" "$TARGET_BIN"
 elif [ -f "$SCRIPT_DIR/Cargo.toml" ] && command -v cargo >/dev/null 2>&1; then
