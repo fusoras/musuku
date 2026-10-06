@@ -104,14 +104,18 @@ geico show <ID_OR_NAME> [OPTIONS]
 | `--icon` | Print only the copied icon path. |
 | `--symlink` | Print only the terminal symlink path. |
 | `--json` | Print the entire application record as formatted JSON. |
+| `-a, --absolute` | Print full absolute paths instead of collapsing home directory to `~` (alias: `--full-path`). |
 | `-i, --image` | Display application icon preview in the terminal (Kitty graphics protocol). |
 | `--no-image` | Suppress the terminal image preview even if supported by the terminal. |
 
 ### Examples
 
 ```sh
-# Full inspection card (renders icon preview in Kitty/Ghostty/WezTerm/Herdr)
+# Full inspection card (collapses home directory to ~/ by default)
 geico show obsidian
+
+# Show full absolute paths with username instead of ~/
+geico show obsidian --absolute
 
 # Force or toggle image preview
 geico show obsidian -i

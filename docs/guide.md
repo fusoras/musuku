@@ -77,12 +77,19 @@ geico show obsidian
 Output:
 ```text
 Obsidian (obsidian)
-  Executable:  /home/user/Downloads/Obsidian-1.5.8.AppImage [ok]
-  Desktop:     /home/user/.local/share/applications/obsidian.desktop [ok]
-  Icon:        /home/user/.local/share/icons/obsidian.png [ok]
-  Symlink:     /home/user/.local/bin/obsidian [ok]
+  Executable:  ~/Downloads/Obsidian-1.5.8.AppImage [ok]
+  Desktop:     ~/.local/share/applications/obsidian.desktop [ok]
+  Icon:        ~/.local/share/icons/obsidian.png [ok]
+  Symlink:     ~/.local/bin/obsidian [ok]
   Categories:  Office, Utility
   Registered:  2026-10-06 14:00:00 UTC
+```
+
+By default, paths located within your home directory are shortened with `~/` for clean, readable output. To display the full absolute path including your username, pass `-a` or `--absolute`:
+
+```sh
+# Display full paths without ~/
+geico show obsidian --absolute
 ```
 
 You can also extract a single path for scripts or terminal shortcuts:

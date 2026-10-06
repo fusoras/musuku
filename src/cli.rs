@@ -104,6 +104,9 @@ pub struct Show {
     /// Print the application entry as JSON.
     #[arg(long)]
     pub json: bool,
+    /// Print full absolute paths instead of collapsing home directory to ~/.
+    #[arg(long, short = 'a', visible_alias = "full-path")]
+    pub absolute: bool,
     /// Display application icon preview in the terminal (default in Kitty/Ghostty).
     #[arg(short = 'i', long)]
     pub image: bool,

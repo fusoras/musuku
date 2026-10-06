@@ -44,6 +44,7 @@ pub struct ShowOptions {
     pub icon: bool,
     pub symlink: bool,
     pub json: bool,
+    pub absolute: bool,
     pub image: bool,
     pub no_image: bool,
 }
@@ -59,6 +60,7 @@ pub struct Manager {
     config_path: PathBuf,
     data_dir: PathBuf,
     bin_dir: PathBuf,
+    home_dir: Option<PathBuf>,
 }
 
 impl Manager {
@@ -67,7 +69,13 @@ impl Manager {
             config_path,
             data_dir,
             bin_dir,
+            home_dir: dirs::home_dir(),
         }
+    }
+
+    pub fn with_home(mut self, home: PathBuf) -> Self {
+        self.home_dir = Some(home);
+        self
     }
 
     pub fn add(&self, options: AddOptions) -> Result<AppEntry> {
@@ -201,26 +209,38 @@ impl Manager {
         writeln!(
             output,
             "  Executable:  {} [{}]",
-            app.target_bin.display(),
+            collapse_path(&app.target_bin, self.home_dir.as_deref(), options.absolute),
             status(&app.target_bin)
         )
         .unwrap();
         writeln!(
             output,
             "  Desktop:     {}",
-            optional_path_status(app.desktop_file.as_deref())
+            optional_path_status(
+                app.desktop_file.as_deref(),
+                self.home_dir.as_deref(),
+                options.absolute
+            )
         )
         .unwrap();
         writeln!(
             output,
             "  Icon:        {}",
-            optional_path_status(app.icon_path.as_deref())
+            optional_path_status(
+                app.icon_path.as_deref(),
+                self.home_dir.as_deref(),
+                options.absolute
+            )
         )
         .unwrap();
         writeln!(
             output,
             "  Symlink:     {}",
-            optional_path_status(app.symlink.as_deref())
+            optional_path_status(
+                app.symlink.as_deref(),
+                self.home_dir.as_deref(),
+                options.absolute
+            )
         )
         .unwrap();
         writeln!(output, "  Categories:  {categories}").unwrap();
@@ -361,9 +381,28 @@ fn optional_status(path: Option<&Path>) -> String {
     })
 }
 
-fn optional_path_status(path: Option<&Path>) -> String {
+fn collapse_path(path: &Path, home_dir: Option<&Path>, absolute: bool) -> String {
+    if absolute {
+        return path.display().to_string();
+    }
+    if let Some(home) = home_dir
+        && let Ok(suffix) = path.strip_prefix(home)
+    {
+        if suffix.as_os_str().is_empty() {
+            return "~".to_string();
+        }
+        return format!("~/{}", suffix.display());
+    }
+    path.display().to_string()
+}
+
+fn optional_path_status(path: Option<&Path>, home_dir: Option<&Path>, absolute: bool) -> String {
     match path {
-        Some(path) => format!("{} [{}]", path.display(), status(path)),
+        Some(path) => format!(
+            "{} [{}]",
+            collapse_path(path, home_dir, absolute),
+            status(path)
+        ),
         None => format!(
             "{}disabled{}",
             crate::colors::BOLD_YELLOW,

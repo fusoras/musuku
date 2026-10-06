@@ -666,3 +666,110 @@ fn test_show_with_image_flag_forces_preview() {
         "geico show with image=true should contain Kitty escape sequence even in non-TTY test, got: {output}"
     );
 }
+
+#[test]
+fn test_show_collapses_home_directory_to_tilde_by_default() {
+    let temp = tempdir().unwrap();
+    let home = temp.path().join("fakehome");
+    let apps_dir = home.join("Apps");
+    fs::create_dir_all(&apps_dir).unwrap();
+
+    let target = apps_dir.join("sample_tool");
+    executable(&target);
+
+    let manager = Manager::new(
+        home.join(".config/geico/apps.toml"),
+        home.join(".local/share"),
+        home.join(".local/bin"),
+    )
+    .with_home(home);
+
+    let entry = manager
+        .add(AddOptions {
+            target,
+            name: Some("SampleTool".to_string()),
+            ..AddOptions::default()
+        })
+        .unwrap();
+
+    let output = manager.show(&entry.id, ShowOptions::default()).unwrap();
+
+    assert!(
+        output.contains("~/Apps/sample_tool"),
+        "Expected show to collapse $HOME into ~/ by default, got: {output}"
+    );
+    assert!(
+        output.contains("~/.local/share/applications/sampletool.desktop"),
+        "Expected desktop path to collapse into ~/.local/share, got: {output}"
+    );
+    assert!(
+        output.contains("~/.local/bin/sampletool"),
+        "Expected symlink path to collapse into ~/.local/bin, got: {output}"
+    );
+}
+
+#[test]
+fn test_show_with_absolute_flag_prints_full_path() {
+    let temp = tempdir().unwrap();
+    let home = temp.path().join("fakehome");
+    let apps_dir = home.join("Apps");
+    fs::create_dir_all(&apps_dir).unwrap();
+
+    let target = apps_dir.join("sample_tool");
+    executable(&target);
+
+    let manager = Manager::new(
+        home.join(".config/geico/apps.toml"),
+        home.join(".local/share"),
+        home.join(".local/bin"),
+    )
+    .with_home(home.clone());
+
+    let entry = manager
+        .add(AddOptions {
+            target: target.clone(),
+            name: Some("SampleTool".to_string()),
+            ..AddOptions::default()
+        })
+        .unwrap();
+
+    let output = manager
+        .show(
+            &entry.id,
+            ShowOptions {
+                absolute: true,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+
+    let expected_target = target.display().to_string();
+    assert!(
+        output.contains(&expected_target),
+        "Expected show with absolute=true to print full path {expected_target}, got: {output}"
+    );
+}
+
+#[test]
+fn test_show_cli_accepts_absolute_and_full_path_flags() {
+    let cli_abs = Cli::try_parse_from(["geico", "show", "app", "--absolute"])
+        .expect("geico show must accept --absolute");
+    match cli_abs.command {
+        Command::Show(args) => assert!(args.absolute),
+        other => panic!("expected Show command, got {other:?}"),
+    }
+
+    let cli_full = Cli::try_parse_from(["geico", "show", "app", "--full-path"])
+        .expect("geico show must accept --full-path alias");
+    match cli_full.command {
+        Command::Show(args) => assert!(args.absolute),
+        other => panic!("expected Show command, got {other:?}"),
+    }
+
+    let cli_short = Cli::try_parse_from(["geico", "show", "app", "-a"])
+        .expect("geico show must accept -a flag");
+    match cli_short.command {
+        Command::Show(args) => assert!(args.absolute),
+        other => panic!("expected Show command, got {other:?}"),
+    }
+}

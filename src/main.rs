@@ -46,6 +46,7 @@ fn main() -> Result<()> {
                     icon: args.icon,
                     symlink: args.symlink,
                     json: args.json,
+                    absolute: args.absolute,
                     image: args.image,
                     no_image: args.no_image,
                 },
