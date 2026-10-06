@@ -258,10 +258,8 @@ geico completions fish > ~/.config/fish/completions/geico.fish
 
 ## Documentation
 
-- [`docs/architecture.md`](docs/architecture.md) — detailed design: FreeDesktop/XDG
-  integration, directory layout, sudo policy, and the `apps.toml` schema.
-- [`docs/cli-reference.md`](docs/cli-reference.md) — per-command reference with
-  examples and troubleshooting.
+- [`docs/guide.md`](docs/guide.md) — User guide: everyday workflows, desktop integration, and troubleshooting.
+- [`docs/cli-reference.md`](docs/cli-reference.md) — Complete command reference and options cheatsheet.
 
 ## Development
 
