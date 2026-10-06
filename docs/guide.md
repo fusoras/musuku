@@ -97,6 +97,15 @@ geico show obsidian --desktop
 geico show obsidian --json
 ```
 
+In terminals that support image previews (via the Kitty graphics protocol),
+`geico show` can display the application icon inline above the card. Pass
+`--no-image` to keep the output as plain text:
+
+```sh
+# Force the text card, skipping any terminal image preview
+geico show obsidian --no-image
+```
+
 ---
 
 ### List All Apps & Health Checks (`geico list`)

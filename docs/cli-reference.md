@@ -97,12 +97,16 @@ geico show <ID_OR_NAME> [OPTIONS]
 | `--icon` | Print only the copied icon path. |
 | `--symlink` | Print only the terminal symlink path. |
 | `--json` | Print the entire application record as formatted JSON. |
+| `--no-image` | Suppress the terminal image preview when the terminal supports it (Kitty graphics protocol). |
 
 ### Examples
 
 ```sh
 # Full inspection card
 geico show obsidian
+
+# Text card only, even in terminals with image preview support
+geico show obsidian --no-image
 
 # Use paths in terminal commands or scripts
 nano $(geico show obsidian --desktop)

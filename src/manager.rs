@@ -38,6 +38,7 @@ pub struct ShowOptions {
     pub icon: bool,
     pub symlink: bool,
     pub json: bool,
+    pub no_image: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -160,6 +161,9 @@ impl Manager {
             .map(|categories| categories.join(", "))
             .unwrap_or_else(|| "none".to_string());
         let mut output = String::new();
+        if let Some(preview) = image_preview(options.no_image) {
+            output.push_str(&preview);
+        }
         writeln!(
             output,
             "{}{} ({}){}",
@@ -279,6 +283,18 @@ impl Manager {
         }
         config::save(&self.config_path, &registry)
     }
+}
+
+/// Inline terminal image preview emitted before the `show` text card.
+///
+/// `--no-image` suppresses the preview outright. Without it the preview would
+/// be produced by the Kitty graphics renderer of the image engine, which this
+/// crate does not wire in yet, so the text card alone is returned.
+fn image_preview(no_image: bool) -> Option<String> {
+    if no_image {
+        return None;
+    }
+    None
 }
 
 fn canonicalize_target(path: &Path) -> Result<PathBuf> {
