@@ -43,3 +43,17 @@ fn test_install_completions_writes_valid_script() {
     assert!(content.contains("#compdef geico"));
     assert!(content.contains("_geico"));
 }
+
+#[test]
+fn test_generate_carapace_spec_creates_valid_yaml() {
+    let temp = tempdir().unwrap();
+    let home = temp.path();
+
+    let path = geico::completions::install_carapace_spec(home).unwrap();
+    assert!(path.exists());
+    assert_eq!(path, home.join(".config/carapace/specs/geico.yaml"));
+    let content = std::fs::read_to_string(&path).unwrap();
+    assert!(content.contains("name: geico"));
+    assert!(content.contains("name: add"));
+    assert!(content.contains("AudioVideo"));
+}
