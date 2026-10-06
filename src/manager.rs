@@ -53,8 +53,8 @@ impl Manager {
     }
 
     pub fn add(&self, options: AddOptions) -> Result<AppEntry> {
-        validate_target(&options.target)?;
-        let mut entry = AppEntry::new(options.name.as_deref(), options.target);
+        let canonical_target = canonicalize_target(&options.target)?;
+        let mut entry = AppEntry::new(options.name.as_deref(), canonical_target);
         entry.categories = options.categories;
         if !options.no_desktop {
             let (desktop_file, icon_path) = desktop::install(
@@ -113,8 +113,8 @@ impl Manager {
         }
         let mut entry = old.clone();
         if let Some(target) = options.target {
-            validate_target(&target)?;
-            entry.target_bin = target;
+            let canonical = canonicalize_target(&target)?;
+            entry.target_bin = canonical;
         }
         if let Some(name) = options.name {
             entry.name = name;
@@ -139,12 +139,15 @@ impl Manager {
         }
         if let Some(link) = old.symlink.as_deref() {
             symlink::remove(link)?;
+            let link_name = match link.file_name().and_then(|name| name.to_str()) {
+                Some(prev_name) if prev_name == old.id => &entry.id,
+                Some(prev_name) => prev_name,
+                None => &entry.id,
+            };
             entry.symlink = Some(symlink::install(
                 &self.bin_dir,
                 &entry.target_bin,
-                link.file_name()
-                    .and_then(|name| name.to_str())
-                    .unwrap_or(&entry.id),
+                link_name,
             )?);
         }
         let updated = registry
@@ -168,16 +171,17 @@ impl Manager {
     }
 }
 
-fn validate_target(path: &Path) -> Result<()> {
-    let metadata =
-        fs::metadata(path).with_context(|| format!("target does not exist: {}", path.display()))?;
+fn canonicalize_target(path: &Path) -> Result<PathBuf> {
+    let canonical = fs::canonicalize(path)
+        .with_context(|| format!("target does not exist: {}", path.display()))?;
+    let metadata = fs::metadata(&canonical)?;
     if !metadata.is_file() {
-        bail!("target is not a file: {}", path.display());
+        bail!("target is not a file: {}", canonical.display());
     }
     if metadata.permissions().mode() & 0o111 == 0 {
-        bail!("target is not executable: {}", path.display());
+        bail!("target is not executable: {}", canonical.display());
     }
-    Ok(())
+    Ok(canonical)
 }
 
 fn status(path: &Path) -> String {

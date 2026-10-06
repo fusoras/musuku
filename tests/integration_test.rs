@@ -207,3 +207,92 @@ fn test_list_formats_id_with_dim_gray_color() {
         "Expected list output to contain dim gray id badge: {expected_id_badge}, but got: {output}"
     );
 }
+
+#[test]
+fn test_add_relative_target_path_is_canonicalized_to_absolute() {
+    let temp = tempdir().unwrap();
+    let rel_target = std::path::PathBuf::from("target/test_rel_tool");
+    executable(&rel_target);
+
+    let manager = Manager::new(
+        temp.path().join("config/apps.toml"),
+        temp.path().join("share"),
+        temp.path().join("bin"),
+    );
+
+    let entry = manager
+        .add(AddOptions {
+            target: rel_target.clone(),
+            ..AddOptions::default()
+        })
+        .unwrap();
+
+    assert!(
+        entry.target_bin.is_absolute(),
+        "Expected target_bin to be canonicalized to an absolute path, got: {:?}",
+        entry.target_bin
+    );
+    assert_eq!(
+        entry.name, "test_rel_tool",
+        "Display name should still derive from the filename"
+    );
+
+    let symlink = entry.symlink.expect("symlink should be created");
+    assert!(symlink.exists(), "Symlink in bin_dir should exist");
+    let link_dest = fs::read_link(&symlink).unwrap();
+    assert!(
+        link_dest.is_absolute(),
+        "Symlink destination should be absolute, got: {:?}",
+        link_dest
+    );
+
+    let _ = fs::remove_file(&rel_target);
+}
+
+#[test]
+fn test_update_name_updates_symlink_name_when_using_default_id() {
+    let temp = tempdir().unwrap();
+    let target = temp.path().join("mytool");
+    executable(&target);
+
+    let manager = Manager::new(
+        temp.path().join("config/apps.toml"),
+        temp.path().join("share"),
+        temp.path().join("bin"),
+    );
+
+    let entry = manager
+        .add(AddOptions {
+            target,
+            name: Some("Old Tool".to_string()),
+            ..AddOptions::default()
+        })
+        .unwrap();
+
+    assert_eq!(entry.id, "old-tool");
+    let old_symlink = temp.path().join("bin/old-tool");
+    assert!(old_symlink.exists());
+
+    let outcome = manager
+        .update(
+            "old-tool",
+            UpdateOptions {
+                name: Some("New Tool".to_string()),
+                ..UpdateOptions::default()
+            },
+        )
+        .unwrap();
+
+    let updated = match outcome {
+        UpdateOutcome::Updated { entry } => entry,
+        UpdateOutcome::NoChanges { .. } => panic!("expected updated entry"),
+    };
+
+    assert_eq!(updated.id, "new-tool");
+    assert!(
+        !old_symlink.exists(),
+        "Old symlink should have been removed"
+    );
+    let new_symlink = temp.path().join("bin/new-tool");
+    assert!(new_symlink.exists(), "New symlink should have been created");
+}
