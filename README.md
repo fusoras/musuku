@@ -79,7 +79,7 @@ geico --help
 
 ```sh
 # integrate an AppImage with desktop launcher and custom icon
-geico add ~/Downloads/cursor.AppImage --icon ~/Pictures/cursor.png
+geico add ~/Downloads/myapp.AppImage --icon ~/Pictures/myapp.png
 
 # integrate a binary from tar.xz into terminal PATH only (no desktop file)
 geico add /opt/tools/my-cli --no-desktop
@@ -91,10 +91,10 @@ geico add /opt/blender/blender --no-symlink --icon /opt/blender/icon.png
 geico list
 
 # update application target executable path
-geico update cursor --target ~/Downloads/cursor-v2.AppImage
+geico update myapp --target ~/Downloads/myapp-v2.AppImage
 
 # safely remove desktop launcher and symlink (original binary is NEVER deleted)
-geico remove cursor
+geico remove myapp
 ```
 
 ## Commands
@@ -132,7 +132,7 @@ By default `add` creates **both** a desktop launcher and a terminal symlink; use
 
 ```sh
 # GUI app: desktop launcher + icon + terminal symlink
-geico add ~/Downloads/cursor.AppImage --name "Cursor" --icon ~/Pictures/cursor.png
+geico add ~/Downloads/myapp.AppImage --name "My App" --icon ~/Pictures/myapp.png
 
 # CLI tool extracted from a tar.xz: PATH only
 geico add ~/tools/bin/jq --no-desktop --bin-name jq
@@ -151,7 +151,7 @@ symlink:
   (`--no-desktop` / `--no-symlink`).
 
 ```text
-Cursor (cursor) target=ok desktop=ok symlink=ok
+My App (my-app) target=ok desktop=ok symlink=ok
 jq (jq) target=ok desktop=disabled symlink=ok
 ```
 
@@ -175,7 +175,7 @@ application unchanged.
 
 ```sh
 # point to a new AppImage release
-geico update cursor --target ~/Downloads/cursor-v2.AppImage
+geico update my-app --target ~/Downloads/myapp-v2.AppImage
 
 # rename an app (also renames its .desktop file)
 geico update "My Tool" --name "My Tool Pro"
@@ -190,8 +190,8 @@ case-insensitive by id or name.
 **The original AppImage or binary file is never deleted.**
 
 ```sh
-geico remove cursor        # by id
-geico remove "Cursor"      # by display name
+geico remove my-app        # by id
+geico remove "My App"      # by display name
 ```
 
 ## Documentation
