@@ -161,7 +161,7 @@ impl Manager {
             .map(|categories| categories.join(", "))
             .unwrap_or_else(|| "none".to_string());
         let mut output = String::new();
-        if let Some(preview) = image_preview(options.no_image) {
+        if let Some(preview) = image_preview(app.icon_path.as_deref(), options.no_image) {
             output.push_str(&preview);
         }
         writeln!(
@@ -290,11 +290,15 @@ impl Manager {
 /// `--no-image` suppresses the preview outright. Without it the preview would
 /// be produced by the Kitty graphics renderer of the image engine, which this
 /// crate does not wire in yet, so the text card alone is returned.
-fn image_preview(no_image: bool) -> Option<String> {
+fn image_preview(icon_path: Option<&Path>, no_image: bool) -> Option<String> {
     if no_image {
         return None;
     }
-    None
+    let icon = icon_path?;
+    crate::image::render_icon_preview(icon, 10, 5).map(|mut esc| {
+        esc.push('\n');
+        esc
+    })
 }
 
 fn canonicalize_target(path: &Path) -> Result<PathBuf> {
