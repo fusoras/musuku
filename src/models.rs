@@ -31,8 +31,9 @@ impl AppEntry {
     /// Build a new entry for `target_bin`.
     ///
     /// When `name` is `None` the display name is derived from the binary
-    /// filename (e.g. `/path/to/blender-4.2/blender` -> `blender`), and the
-    /// `id` is the slug of the resulting name.
+    /// filename (e.g. `/path/to/blender-4.2/blender` -> `blender` or
+    /// `Firefox.AppImage` -> `Firefox`), and the `id` is the slug of the
+    /// resulting name.
     pub fn new(name: Option<&str>, target_bin: PathBuf) -> Self {
         let name = name
             .map(str::to_string)
@@ -51,12 +52,20 @@ impl AppEntry {
     }
 }
 
-/// Derive the fallback display name from a binary path: its final component.
+/// Derive the fallback display name from a binary path, stripping a trailing
+/// `.appimage` extension case-insensitively.
 pub fn fallback_name(target_bin: &Path) -> String {
-    target_bin
+    let name = target_bin
         .file_name()
         .map(|name| name.to_string_lossy().into_owned())
-        .unwrap_or_default()
+        .unwrap_or_default();
+    let suffix = ".appimage";
+    if name.len() >= suffix.len() && name[name.len() - suffix.len()..].eq_ignore_ascii_case(suffix)
+    {
+        name[..name.len() - suffix.len()].to_string()
+    } else {
+        name
+    }
 }
 
 /// Slugify `input` into a filesystem/id-friendly token: ASCII lowercase with

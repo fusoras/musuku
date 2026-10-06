@@ -38,7 +38,11 @@ fn test_model_fallback_name_derived_from_target_bin_filename() {
     );
     assert_eq!(
         fallback_name(Path::new("/home/user/Downloads/Firefox.AppImage")),
-        "Firefox.AppImage"
+        "Firefox"
+    );
+    assert_eq!(
+        fallback_name(Path::new("/home/user/Downloads/kdenlive.appimage")),
+        "kdenlive"
     );
 
     let entry = AppEntry::new(None, PathBuf::from("/opt/tools/foo"));

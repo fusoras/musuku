@@ -145,9 +145,10 @@ Registers an executable file and integrates it into the system.
 | `--dest-bin <PATH>`   | Custom directory for the binary symlink; prompts for `sudo` if outside `$HOME`. | `~/.local/bin`                   |
 
 **Fallback name behavior:** if `--name` is not given, the display name is the
-final component of the executable path — e.g. `/opt/blender-4.2/blender` →
-`blender`, `~/Downloads/Firefox.AppImage` → `Firefox.AppImage`. The **id** is
-always the slugified display name: ASCII lowercase, runs of non-alphanumeric
+final component of the executable path, excluding a trailing `.appimage`
+extension case-insensitively — e.g. `/opt/blender-4.2/blender` →
+`blender`, `~/Downloads/Firefox.AppImage` → `Firefox`. The **id** is always the
+slugified display name: ASCII lowercase, runs of non-alphanumeric
 characters collapsed to `-` (e.g. `My Cool App!` → `my-cool-app`). The id is used
 for the `.desktop` filename (`my-cool-app.desktop`), as the default symlink name,
 and as a lookup key for `update`/`remove`.

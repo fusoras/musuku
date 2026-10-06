@@ -59,9 +59,10 @@ Usage: geico add [OPTIONS] <EXECUTABLE>
 ### Name and id fallback
 
 - Without `--name`, the display name is the **final path component** of the
-  executable:
+  executable, excluding a trailing `.appimage` extension
+  case-insensitively:
   - `/opt/blender-4.2/blender` → name `blender`, id `blender`
-  - `~/Downloads/Firefox.AppImage` → name `Firefox.AppImage`, id `firefox-appimage`
+  - `~/Downloads/Firefox.AppImage` → name `Firefox`, id `firefox`
 - The **id** is always the slug of the display name: ASCII lowercase, every run
   of non-alphanumeric characters collapsed into a single `-`, with no leading or
   trailing `-`. Example: `Foo Bar 2.0` → `foo-bar-2-0`.
