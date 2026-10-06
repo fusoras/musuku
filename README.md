@@ -196,6 +196,8 @@ case-insensitively.
 
 Changing `--target`, `--name`, or `--icon` regenerates the `.desktop` file and
 re-points the terminal symlink automatically when those artifacts exist.
+Running `update` without any of these options displays a notice and leaves the
+application unchanged.
 
 ```sh
 # point to a new AppImage release

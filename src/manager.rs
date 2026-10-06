@@ -30,6 +30,12 @@ pub struct UpdateOptions {
     pub name: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum UpdateOutcome {
+    NoChanges { name: String },
+    Updated { entry: AppEntry },
+}
+
 #[derive(Debug, Clone)]
 pub struct Manager {
     config_path: PathBuf,
@@ -94,12 +100,15 @@ impl Manager {
         Ok(output)
     }
 
-    pub fn update(&self, query: &str, options: UpdateOptions) -> Result<AppEntry> {
+    pub fn update(&self, query: &str, options: UpdateOptions) -> Result<UpdateOutcome> {
         let mut registry = config::load(&self.config_path)?;
         let old = registry
             .find(query)
             .cloned()
             .ok_or_else(|| anyhow!("application not found: {query}"))?;
+        if options.target.is_none() && options.name.is_none() && options.icon.is_none() {
+            return Ok(UpdateOutcome::NoChanges { name: old.name });
+        }
         let mut entry = old.clone();
         if let Some(target) = options.target {
             validate_target(&target)?;
@@ -141,7 +150,7 @@ impl Manager {
             .ok_or_else(|| anyhow!("application not found: {query}"))?
             .clone();
         config::save(&self.config_path, &registry)?;
-        Ok(updated)
+        Ok(UpdateOutcome::Updated { entry: updated })
     }
 
     pub fn remove(&self, query: &str) -> Result<()> {

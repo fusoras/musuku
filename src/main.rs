@@ -3,7 +3,7 @@ use clap::Parser;
 use geico::{
     cli::{Cli, Command},
     config, desktop,
-    manager::{AddOptions, Manager, UpdateOptions},
+    manager::{AddOptions, Manager, UpdateOptions, UpdateOutcome},
     symlink,
 };
 
@@ -29,7 +29,7 @@ fn main() -> Result<()> {
         }
         Command::List => print!("{}", manager.list()?),
         Command::Update(args) => {
-            manager.update(
+            let outcome = manager.update(
                 &args.id_or_name,
                 UpdateOptions {
                     target: args.target,
@@ -37,6 +37,20 @@ fn main() -> Result<()> {
                     name: args.name,
                 },
             )?;
+            match outcome {
+                UpdateOutcome::NoChanges { name } => println!(
+                    "{}No changes specified for '{}'. Use --target, --name, or --icon to update.{}",
+                    geico::colors::BOLD_YELLOW,
+                    name,
+                    geico::colors::RESET
+                ),
+                UpdateOutcome::Updated { entry } => println!(
+                    "{}Updated '{}' successfully.{}",
+                    geico::colors::BOLD_GREEN,
+                    entry.name,
+                    geico::colors::RESET
+                ),
+            }
         }
         Command::Remove(args) => manager.remove(&args.id_or_name)?,
     }

@@ -182,6 +182,9 @@ Usage: geico update [OPTIONS] <ID_OR_NAME>
 ### Behavior
 
 - The entry is found by id or name; otherwise: `application not found: <query>`.
+- If `--target`, `--name`, and `--icon` are all omitted, `update` prints
+  `No changes specified for '<name>'. Use --target, --name, or --icon to update.`
+  and leaves the entry and generated artifacts unchanged.
 - If the app has a `.desktop` file, it is **regenerated** with the new
   name/id/target/icon.
 - If the app has a terminal symlink, it is removed and re-created pointing at the

@@ -1,4 +1,4 @@
-use geico::manager::{AddOptions, Manager, UpdateOptions};
+use geico::manager::{AddOptions, Manager, UpdateOptions, UpdateOutcome};
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use tempfile::tempdir;
@@ -133,7 +133,7 @@ fn test_update_retargets_desktop_and_symlink() {
         })
         .unwrap();
 
-    let updated = manager
+    let outcome = manager
         .update(
             &entry.id,
             UpdateOptions {
@@ -144,8 +144,35 @@ fn test_update_retargets_desktop_and_symlink() {
         )
         .unwrap();
 
+    let updated = match outcome {
+        UpdateOutcome::Updated { entry } => entry,
+        UpdateOutcome::NoChanges { .. } => panic!("expected update outcome"),
+    };
     assert_eq!(updated.name, "Renamed");
     assert_eq!(updated.target_bin, new_target);
     assert!(updated.desktop_file.unwrap().exists());
     assert!(updated.symlink.unwrap().exists());
+}
+
+#[test]
+fn test_update_with_no_options_returns_no_changes_outcome_and_does_not_mutate() {
+    let temp = tempdir().unwrap();
+    let target = temp.path().join("tool");
+    executable(&target);
+    let manager = Manager::new(
+        temp.path().join("config/apps.toml"),
+        temp.path().join("share"),
+        temp.path().join("bin"),
+    );
+    let entry = manager
+        .add(AddOptions {
+            target,
+            name: Some("Tool".to_string()),
+            ..AddOptions::default()
+        })
+        .unwrap();
+
+    let outcome = manager.update(&entry.id, UpdateOptions::default()).unwrap();
+
+    assert!(matches!(outcome, UpdateOutcome::NoChanges { .. }));
 }
