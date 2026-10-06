@@ -161,14 +161,15 @@ Updates the metadata, target binary path, or icon of a registered application
 without re-registering it. The application is looked up by id **or** display name,
 case-insensitively.
 
-| Option              | Description                                                       | Default              |
-| ------------------- | ----------------------------------------------------------------- | -------------------- |
-| `<ID_OR_NAME>`      | ID or name of the registered application to update.               | required             |
-| `--target <PATH>`   | New path to the executable (validated exactly like `add`).        | target unchanged     |
-| `--icon <PATH>`     | New icon file; the previously copied icon is removed first.       | icon unchanged       |
-| `--name <NAME>`     | New display name; the id is re-derived (slug) from it.            | name unchanged       |
+| Option                | Description                                                       | Default              |
+| --------------------- | ----------------------------------------------------------------- | -------------------- |
+| `<ID_OR_NAME>`        | ID or name of the registered application to update.               | required             |
+| `--target <PATH>`     | New path to the executable (validated exactly like `add`).        | target unchanged     |
+| `--icon <PATH>`       | New icon file; the previously copied icon is removed first.       | icon unchanged       |
+| `--name <NAME>`       | New display name; the id is re-derived (slug) from it.            | name unchanged       |
+| `--categories <LIST>` | New desktop categories (e.g. `AudioVideo,Development`).           | categories unchanged |
 
-Changing `--target`, `--name`, or `--icon` regenerates the `.desktop` file and
+Changing `--target`, `--name`, `--icon`, or `--categories` regenerates the `.desktop` file and
 re-points the terminal symlink automatically when those artifacts exist.
 Running `update` without any of these options displays a notice and leaves the
 application unchanged.
@@ -177,8 +178,11 @@ application unchanged.
 # point to a new AppImage release
 geico update my-app --target ~/Downloads/myapp-v2.AppImage
 
-# rename an app (also renames its .desktop file)
+# rename an app (also renames its .desktop file and symlink)
 geico update "My Tool" --name "My Tool Pro"
+
+# assign categories (with smart alias normalization, e.g. dev -> Development)
+geico update my-app --categories Development,Utility
 ```
 
 ### `geico remove <ID_OR_NAME>`
@@ -193,6 +197,25 @@ case-insensitive by id or name.
 geico remove my-app        # by id
 geico remove "My App"      # by display name
 ```
+
+### `geico categories`
+
+Displays the predefined FreeDesktop application categories with human-readable descriptions and common examples. Useful for discovering the right categories to use with `--categories`.
+
+```sh
+geico categories
+```
+
+### `geico completions <SHELL>`
+
+Generates a shell completion script for tab autocompletion (`bash`, `zsh`, `fish`, `elvish`, `powershell`).
+
+```sh
+# Example for Bash
+geico completions bash > ~/.local/share/bash-completion/completions/geico
+
+# Example for Fish
+geico completions fish > ~/.config/fish/completions/geico.fish
 
 ## Documentation
 

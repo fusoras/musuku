@@ -28,6 +28,7 @@ pub struct UpdateOptions {
     pub target: Option<PathBuf>,
     pub icon: Option<PathBuf>,
     pub name: Option<String>,
+    pub categories: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -55,7 +56,12 @@ impl Manager {
     pub fn add(&self, options: AddOptions) -> Result<AppEntry> {
         let canonical_target = canonicalize_target(&options.target)?;
         let mut entry = AppEntry::new(options.name.as_deref(), canonical_target);
-        entry.categories = options.categories;
+        entry.categories = options.categories.map(|cats| {
+            cats.into_iter()
+                .map(|c| crate::categories::normalize_category(&c))
+                .filter(|c| !c.is_empty())
+                .collect()
+        });
         if !options.no_desktop {
             let (desktop_file, icon_path) = desktop::install(
                 &self.data_dir,
@@ -108,7 +114,11 @@ impl Manager {
             .find(query)
             .cloned()
             .ok_or_else(|| anyhow!("application not found: {query}"))?;
-        if options.target.is_none() && options.name.is_none() && options.icon.is_none() {
+        if options.target.is_none()
+            && options.name.is_none()
+            && options.icon.is_none()
+            && options.categories.is_none()
+        {
             return Ok(UpdateOutcome::NoChanges { name: old.name });
         }
         let mut entry = old.clone();
@@ -119,6 +129,15 @@ impl Manager {
         if let Some(name) = options.name {
             entry.name = name;
             entry.id = slugify(&entry.name);
+        }
+        if let Some(categories) = options.categories {
+            entry.categories = Some(
+                categories
+                    .into_iter()
+                    .map(|c| crate::categories::normalize_category(&c))
+                    .filter(|c| !c.is_empty())
+                    .collect(),
+            );
         }
         if options.icon.is_some() {
             desktop::remove(None, entry.icon_path.as_deref())?;

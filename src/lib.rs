@@ -1,3 +1,4 @@
+pub mod categories;
 pub mod cli;
 pub mod colors;
 pub mod config;

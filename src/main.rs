@@ -1,8 +1,9 @@
 use anyhow::Result;
-use clap::Parser;
+use clap::{CommandFactory, Parser};
 use geico::{
+    categories,
     cli::{Cli, Command},
-    config, desktop,
+    colors, config, desktop,
     manager::{AddOptions, Manager, UpdateOptions, UpdateOutcome},
     symlink,
 };
@@ -35,24 +36,34 @@ fn main() -> Result<()> {
                     target: args.target,
                     icon: args.icon,
                     name: args.name,
+                    categories: args.categories,
                 },
             )?;
             match outcome {
                 UpdateOutcome::NoChanges { name } => println!(
-                    "{}No changes specified for '{}'. Use --target, --name, or --icon to update.{}",
-                    geico::colors::BOLD_YELLOW,
+                    "{}No changes specified for '{}'. Use --target, --name, --icon, or --categories to update.{}",
+                    colors::BOLD_YELLOW,
                     name,
-                    geico::colors::RESET
+                    colors::RESET
                 ),
                 UpdateOutcome::Updated { entry } => println!(
                     "{}Updated '{}' successfully.{}",
-                    geico::colors::BOLD_GREEN,
+                    colors::BOLD_GREEN,
                     entry.name,
-                    geico::colors::RESET
+                    colors::RESET
                 ),
             }
         }
         Command::Remove(args) => manager.remove(&args.id_or_name)?,
+        Command::Categories => print!("{}", categories::format_categories_table()),
+        Command::Completions(args) => {
+            clap_complete::generate(
+                args.shell,
+                &mut Cli::command(),
+                "geico",
+                &mut std::io::stdout(),
+            );
+        }
     }
     Ok(())
 }

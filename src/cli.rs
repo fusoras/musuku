@@ -17,10 +17,14 @@ pub enum Command {
     Add(Add),
     /// List all managed applications with health checks.
     List,
-    /// Update metadata, target executable, or icon of a registered application.
+    /// Update metadata, target executable, icon, or categories of a registered application.
     Update(Update),
     /// Safely remove desktop launcher and symlink (preserves original executable).
     Remove(Remove),
+    /// List standard FreeDesktop application categories with descriptions and examples.
+    Categories,
+    /// Generate shell completion script (bash, zsh, fish, elvish, powershell).
+    Completions(Completions),
 }
 
 #[derive(Debug, Args)]
@@ -33,7 +37,7 @@ pub struct Add {
     /// Path to the icon file (copied to ~/.local/share/icons).
     #[arg(long)]
     pub icon: Option<PathBuf>,
-    /// Desktop categories separated by commas (e.g. Development,Utility).
+    /// Desktop categories separated by commas (e.g. AudioVideo,Development).
     #[arg(long, value_delimiter = ',')]
     pub categories: Option<Vec<String>>,
     /// Custom command name for the terminal symlink.
@@ -63,10 +67,19 @@ pub struct Update {
     /// New display name.
     #[arg(long)]
     pub name: Option<String>,
+    /// New desktop categories separated by commas (e.g. AudioVideo,Development).
+    #[arg(long, value_delimiter = ',')]
+    pub categories: Option<Vec<String>>,
 }
 
 #[derive(Debug, Args)]
 pub struct Remove {
     /// ID or name of the registered application to remove.
     pub id_or_name: String,
+}
+
+#[derive(Debug, Args)]
+pub struct Completions {
+    /// Shell to generate completions for.
+    pub shell: clap_complete::Shell,
 }

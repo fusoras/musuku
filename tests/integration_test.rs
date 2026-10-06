@@ -296,3 +296,49 @@ fn test_update_name_updates_symlink_name_when_using_default_id() {
     let new_symlink = temp.path().join("bin/new-tool");
     assert!(new_symlink.exists(), "New symlink should have been created");
 }
+
+#[test]
+fn test_update_categories_modifies_desktop_file_and_normalizes() {
+    let temp = tempdir().unwrap();
+    let target = temp.path().join("shotcut");
+    executable(&target);
+
+    let manager = Manager::new(
+        temp.path().join("config/apps.toml"),
+        temp.path().join("share"),
+        temp.path().join("bin"),
+    );
+
+    let entry = manager
+        .add(AddOptions {
+            target,
+            name: Some("Shotcut".to_string()),
+            ..AddOptions::default()
+        })
+        .unwrap();
+
+    let outcome = manager
+        .update(
+            &entry.id,
+            UpdateOptions {
+                categories: Some(vec!["video".to_string(), "audiovideo".to_string()]),
+                ..UpdateOptions::default()
+            },
+        )
+        .unwrap();
+
+    let updated = match outcome {
+        UpdateOutcome::Updated { entry } => entry,
+        UpdateOutcome::NoChanges { .. } => panic!("expected updated entry"),
+    };
+
+    assert_eq!(
+        updated.categories,
+        Some(vec!["Video".to_string(), "AudioVideo".to_string()])
+    );
+    let desktop_content = fs::read_to_string(updated.desktop_file.unwrap()).unwrap();
+    assert!(
+        desktop_content.contains("Categories=Video;AudioVideo;\n"),
+        "Expected Categories in .desktop file, got:\n{desktop_content}"
+    );
+}
