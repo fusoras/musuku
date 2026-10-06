@@ -16,7 +16,7 @@ pub enum Command {
     /// Register an executable and integrate it into the desktop and PATH.
     Add(Add),
     /// List all managed applications with health checks.
-    List,
+    List(List),
     /// Show detailed information and paths for a registered application.
     #[command(alias = "info")]
     Show(Show),
@@ -57,6 +57,16 @@ pub struct Add {
     pub dest_bin: Option<PathBuf>,
 }
 
+#[derive(Debug, Args, Default)]
+pub struct List {
+    /// Display application icon previews in compatible terminals.
+    #[arg(short = 'i', long)]
+    pub image: bool,
+    /// Suppress application icon previews even if supported by the terminal.
+    #[arg(long)]
+    pub no_image: bool,
+}
+
 #[derive(Debug, Args)]
 pub struct Update {
     /// ID or name of the registered application to update.
@@ -94,6 +104,9 @@ pub struct Show {
     /// Print the application entry as JSON.
     #[arg(long)]
     pub json: bool,
+    /// Display application icon preview in the terminal (default in Kitty/Ghostty).
+    #[arg(short = 'i', long)]
+    pub image: bool,
     /// Suppress terminal image preview even if supported by the terminal.
     #[arg(long)]
     pub no_image: bool,

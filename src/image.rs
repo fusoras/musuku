@@ -2,7 +2,7 @@ use std::env;
 use std::fs;
 use std::io::{self, IsTerminal};
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 const BASE64_ALPHABET: &[u8; 64] =
@@ -36,29 +36,31 @@ pub fn encode_base64(data: &[u8]) -> String {
     encoded
 }
 
-pub fn supports_kitty_graphics() -> bool {
-    if !io::stdout().is_terminal() {
-        return false;
-    }
-
-    env::var_os("KITTY_WINDOW_ID").is_some()
+pub fn is_kitty_compatible_terminal() -> bool {
+    env::var_os("GEICO_IMAGE").is_some()
+        || env::var_os("KITTY_WINDOW_ID").is_some()
+        || env::var_os("KITTY_PID").is_some()
+        || env::var_os("KITTY_INSTALLATION_DIR").is_some()
         || env::var_os("GHOSTTY_RESOURCES_DIR").is_some()
         || env::var("TERM")
-            .map(|term| term.ends_with("kitty"))
+            .map(|term| term.contains("kitty") || term.contains("ghostty"))
             .unwrap_or(false)
         || matches!(
             env::var("TERM_PROGRAM").as_deref(),
-            Ok("WezTerm") | Ok("ghostty")
+            Ok("WezTerm") | Ok("ghostty") | Ok("herdr")
         )
 }
 
+pub fn supports_kitty_graphics() -> bool {
+    io::stdout().is_terminal() && is_kitty_compatible_terminal()
+}
+
 pub fn generate_kitty_escape(data: &[u8], cols: u32, rows: u32) -> String {
+    if data.is_empty() {
+        return String::new();
+    }
+
     let chunks: Vec<String> = data.chunks(KITTY_CHUNK_SIZE).map(encode_base64).collect();
-    let chunks = if chunks.is_empty() {
-        vec![String::new()]
-    } else {
-        chunks
-    };
     let mut escape = String::new();
 
     for (index, chunk) in chunks.iter().enumerate() {
@@ -76,7 +78,11 @@ pub fn rasterize_svg_if_needed(path: &Path) -> Option<PathBuf> {
         return None;
     }
 
-    let tool = ["rsvg-convert", "magick"]
+    if path.metadata().map(|m| m.len() == 0).unwrap_or(true) {
+        return None;
+    }
+
+    let tool = ["rsvg-convert", "magick", "convert"]
         .into_iter()
         .find_map(find_in_path)?;
     let output = env::temp_dir().join(format!("geico-icon-{}.png", unique_suffix()));
@@ -84,15 +90,22 @@ pub fn rasterize_svg_if_needed(path: &Path) -> Option<PathBuf> {
     let status = if tool.file_name().and_then(|name| name.to_str()) == Some("rsvg-convert") {
         Command::new(&tool)
             .args(["-o", output.to_str()?, path.to_str()?])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
             .status()
     } else {
         Command::new(&tool)
             .args([path.to_str()?, output.to_str()?])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
             .status()
     }
     .ok()?;
 
-    if status.success() && output.is_file() {
+    if status.success()
+        && output.is_file()
+        && output.metadata().map(|m| m.len() > 0).unwrap_or(false)
+    {
         Some(output)
     } else {
         let _ = fs::remove_file(output);
@@ -100,18 +113,38 @@ pub fn rasterize_svg_if_needed(path: &Path) -> Option<PathBuf> {
     }
 }
 
-pub fn render_icon_preview(icon_path: &Path, cols: u32, rows: u32) -> Option<String> {
-    if !supports_kitty_graphics() || !icon_path.is_file() {
+pub fn render_icon_preview(icon_path: &Path, cols: u32, rows: u32, force: bool) -> Option<String> {
+    if (!force && !supports_kitty_graphics()) || !icon_path.is_file() {
         return None;
     }
 
-    let rasterized = rasterize_svg_if_needed(icon_path);
+    if icon_path.metadata().map(|m| m.len() == 0).unwrap_or(true) {
+        return None;
+    }
+
+    let is_svg = icon_path
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| ext.eq_ignore_ascii_case("svg"))
+        .unwrap_or(false);
+
+    let rasterized = if is_svg {
+        Some(rasterize_svg_if_needed(icon_path)?)
+    } else {
+        None
+    };
+
     let image_path = rasterized.as_deref().unwrap_or(icon_path);
-    let data = fs::read(image_path).ok();
+    let data = fs::read(image_path).ok()?;
     if let Some(path) = rasterized {
         let _ = fs::remove_file(path);
     }
-    data.map(|bytes| generate_kitty_escape(&bytes, cols, rows))
+
+    if data.is_empty() {
+        return None;
+    }
+
+    Some(generate_kitty_escape(&data, cols, rows))
 }
 
 fn find_in_path(command: &str) -> Option<PathBuf> {
