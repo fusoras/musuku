@@ -507,3 +507,102 @@ fn test_show_no_image_flag_outputs_text_card() {
     assert!(output.contains("Categories:  Development"), "got: {output}");
     assert!(output.contains("Registered:"), "got: {output}");
 }
+
+#[test]
+fn test_list_cli_accepts_image_and_no_image_flags() {
+    let cli_img = Cli::try_parse_from(["geico", "list", "--image"])
+        .expect("geico list must accept --image flag");
+    match cli_img.command {
+        Command::List(args) => assert!(args.image),
+        other => panic!("expected List command, got {other:?}"),
+    }
+
+    let cli_short =
+        Cli::try_parse_from(["geico", "list", "-i"]).expect("geico list must accept -i flag");
+    match cli_short.command {
+        Command::List(args) => assert!(args.image),
+        other => panic!("expected List command, got {other:?}"),
+    }
+
+    let cli_no_img = Cli::try_parse_from(["geico", "list", "--no-image"])
+        .expect("geico list must accept --no-image flag");
+    match cli_no_img.command {
+        Command::List(args) => assert!(args.no_image),
+        other => panic!("expected List command, got {other:?}"),
+    }
+}
+
+#[test]
+fn test_list_with_image_flag_outputs_image_preview() {
+    let temp = tempdir().unwrap();
+    let target = temp.path().join("tool.sh");
+    executable(&target);
+    let icon = temp.path().join("icon.png");
+    fs::write(&icon, b"dummy-png-data").unwrap();
+
+    let manager = Manager::new(
+        temp.path().join("apps.toml"),
+        temp.path().join("share"),
+        temp.path().join("bin"),
+    );
+
+    manager
+        .add(AddOptions {
+            target,
+            name: Some("ImageApp".to_string()),
+            icon: Some(icon),
+            ..AddOptions::default()
+        })
+        .unwrap();
+
+    let output = manager
+        .list_with_options(geico::manager::ListOptions {
+            image: true,
+            no_image: false,
+        })
+        .unwrap();
+
+    assert!(
+        output.contains("\x1b_Ga=T,f=100"),
+        "geico list with image=true should contain Kitty escape sequence, got: {output}"
+    );
+}
+
+#[test]
+fn test_show_with_image_flag_forces_preview() {
+    let temp = tempdir().unwrap();
+    let target = temp.path().join("tool.sh");
+    executable(&target);
+    let icon = temp.path().join("icon.png");
+    fs::write(&icon, b"dummy-png-data").unwrap();
+
+    let manager = Manager::new(
+        temp.path().join("apps.toml"),
+        temp.path().join("share"),
+        temp.path().join("bin"),
+    );
+
+    let entry = manager
+        .add(AddOptions {
+            target,
+            name: Some("ShowImageApp".to_string()),
+            icon: Some(icon),
+            ..AddOptions::default()
+        })
+        .unwrap();
+
+    let output = manager
+        .show(
+            &entry.id,
+            ShowOptions {
+                image: true,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+
+    assert!(
+        output.contains("\x1b_Ga=T,f=100"),
+        "geico show with image=true should contain Kitty escape sequence even in non-TTY test, got: {output}"
+    );
+}

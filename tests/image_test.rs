@@ -32,7 +32,7 @@ fn test_render_icon_preview_raster_and_svg() {
     let png = temp.path().join("icon.png");
     std::fs::write(&png, b"not a real png").unwrap();
 
-    assert!(render_icon_preview(&png, 1, 1).is_none() || supports_kitty_graphics());
+    assert!(render_icon_preview(&png, 1, 1, false).is_none() || supports_kitty_graphics());
 
     let svg = temp.path().join("icon.svg");
     std::fs::write(&svg, "<svg xmlns=\"http://www.w3.org/2000/svg\"/>").unwrap();
@@ -44,4 +44,34 @@ fn test_render_icon_preview_raster_and_svg() {
         assert!(converted.exists());
         let _ = std::fs::remove_file(converted);
     }
+}
+
+#[test]
+fn test_render_icon_preview_empty_file_returns_none() {
+    let temp = tempdir().unwrap();
+    let empty = temp.path().join("empty.png");
+    std::fs::write(&empty, b"").unwrap();
+
+    let result = render_icon_preview(&empty, 1, 1, true);
+    assert!(result.is_none(), "empty icon files must return None");
+
+    let empty_svg = temp.path().join("empty.svg");
+    std::fs::write(&empty_svg, b"").unwrap();
+    let svg_result = render_icon_preview(&empty_svg, 1, 1, true);
+    assert!(
+        svg_result.is_none(),
+        "empty svg icon files must return None"
+    );
+}
+
+#[test]
+fn test_render_icon_preview_with_force_renders_png() {
+    let temp = tempdir().unwrap();
+    let png = temp.path().join("test.png");
+    std::fs::write(&png, b"fake-png-content").unwrap();
+
+    let result = render_icon_preview(&png, 4, 2, true);
+    assert!(result.is_some(), "force=true should render icon preview");
+    let escape = result.unwrap();
+    assert!(escape.starts_with("\x1b_Ga=T,f=100,c=4,r=2,m=0;"));
 }

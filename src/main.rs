@@ -29,7 +29,13 @@ fn main() -> Result<()> {
                 dest_bin: args.dest_bin,
             })?;
         }
-        Command::List => print!("{}", manager.list()?),
+        Command::List(args) => print!(
+            "{}",
+            manager.list_with_options(geico::manager::ListOptions {
+                image: args.image,
+                no_image: args.no_image,
+            })?
+        ),
         Command::Show(args) => print!(
             "{}",
             manager.show(
@@ -40,6 +46,7 @@ fn main() -> Result<()> {
                     icon: args.icon,
                     symlink: args.symlink,
                     json: args.json,
+                    image: args.image,
                     no_image: args.no_image,
                 },
             )?

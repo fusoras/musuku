@@ -31,13 +31,20 @@ pub struct UpdateOptions {
     pub categories: Option<Vec<String>>,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ListOptions {
+    pub image: bool,
+    pub no_image: bool,
+}
+
+#[derive(Debug, Clone, Copy, Default)]
 pub struct ShowOptions {
     pub desktop: bool,
     pub bin: bool,
     pub icon: bool,
     pub symlink: bool,
     pub json: bool,
+    pub image: bool,
     pub no_image: bool,
 }
 
@@ -98,9 +105,23 @@ impl Manager {
     }
 
     pub fn list(&self) -> Result<String> {
+        self.list_with_options(ListOptions::default())
+    }
+
+    pub fn list_with_options(&self, options: ListOptions) -> Result<String> {
         let registry = config::load(&self.config_path)?;
         let mut output = String::new();
         for app in registry.apps {
+            if options.image
+                && !options.no_image
+                && let Some(preview) = app
+                    .icon_path
+                    .as_deref()
+                    .and_then(|icon| crate::image::render_icon_preview(icon, 8, 4, true))
+            {
+                output.push_str(&preview);
+                output.push('\n');
+            }
             writeln!(
                 output,
                 "{} {}({}){} target={} desktop={} symlink={}{}",
@@ -161,7 +182,9 @@ impl Manager {
             .map(|categories| categories.join(", "))
             .unwrap_or_else(|| "none".to_string());
         let mut output = String::new();
-        if let Some(preview) = image_preview(app.icon_path.as_deref(), options.no_image) {
+        if let Some(preview) =
+            image_preview(app.icon_path.as_deref(), options.image, options.no_image)
+        {
             output.push_str(&preview);
         }
         writeln!(
@@ -290,12 +313,12 @@ impl Manager {
 /// `--no-image` suppresses the preview outright. Without it the preview would
 /// be produced by the Kitty graphics renderer of the image engine, which this
 /// crate does not wire in yet, so the text card alone is returned.
-fn image_preview(icon_path: Option<&Path>, no_image: bool) -> Option<String> {
+fn image_preview(icon_path: Option<&Path>, force_image: bool, no_image: bool) -> Option<String> {
     if no_image {
         return None;
     }
     let icon = icon_path?;
-    crate::image::render_icon_preview(icon, 10, 5).map(|mut esc| {
+    crate::image::render_icon_preview(icon, 10, 5, force_image).map(|mut esc| {
         esc.push('\n');
         esc
     })

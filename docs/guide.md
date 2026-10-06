@@ -97,13 +97,16 @@ geico show obsidian --desktop
 geico show obsidian --json
 ```
 
-In terminals that support image previews (via the Kitty graphics protocol),
-`geico show` can display the application icon inline above the card. Pass
-`--no-image` to keep the output as plain text:
+In terminals that support image previews (such as Kitty, Ghostty, WezTerm, and Herdr),
+`geico show` displays the application icon inline above the card by default. Pass
+`--no-image` to keep the output as plain text, or `-i` to force it:
 
 ```sh
 # Force the text card, skipping any terminal image preview
 geico show obsidian --no-image
+
+# Explicitly request icon preview
+geico show obsidian -i
 ```
 
 ---
@@ -119,6 +122,13 @@ geico list
 ```text
 Obsidian (obsidian) target=ok desktop=ok symlink=ok
 Blender (blender) target=ok desktop=ok symlink=ok
+```
+
+You can also pass `-i` or `--image` to display icon previews for listed applications in compatible terminals:
+
+```sh
+# List applications with terminal icon previews
+geico list -i
 ```
 
 If you move or delete an AppImage, `geico list` flags it as `missing/broken` in red so you can easily update or fix it.

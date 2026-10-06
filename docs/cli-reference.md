@@ -63,8 +63,15 @@ geico add ~/Apps/Blender/blender --bin-name blender-4
 Lists all managed applications with color-coded health checks.
 
 ```sh
-geico list
+geico list [OPTIONS]
 ```
+
+### Options
+
+| Option | Description |
+| --- | --- |
+| `-i, --image` | Display application icon previews in compatible terminals (Kitty graphics protocol). |
+| `--no-image` | Suppress application icon previews even in compatible terminals. |
 
 ### Output Format
 
@@ -97,13 +104,17 @@ geico show <ID_OR_NAME> [OPTIONS]
 | `--icon` | Print only the copied icon path. |
 | `--symlink` | Print only the terminal symlink path. |
 | `--json` | Print the entire application record as formatted JSON. |
-| `--no-image` | Suppress the terminal image preview when the terminal supports it (Kitty graphics protocol). |
+| `-i, --image` | Display application icon preview in the terminal (Kitty graphics protocol). |
+| `--no-image` | Suppress the terminal image preview even if supported by the terminal. |
 
 ### Examples
 
 ```sh
-# Full inspection card
+# Full inspection card (renders icon preview in Kitty/Ghostty/WezTerm/Herdr)
 geico show obsidian
+
+# Force or toggle image preview
+geico show obsidian -i
 
 # Text card only, even in terminals with image preview support
 geico show obsidian --no-image
