@@ -89,3 +89,60 @@ fn test_is_carapace_installed_in_paths() {
     std::fs::write(&fake_carapace, "#!/bin/sh\nexit 0\n").unwrap();
     assert!(geico::completions::is_carapace_in_dirs(&[&empty_bin]));
 }
+
+#[test]
+fn test_is_dir_in_path_list() {
+    let temp = tempdir().unwrap();
+    let bin1 = temp.path().join("bin1");
+    let bin2 = temp.path().join("bin2");
+    std::fs::create_dir_all(&bin1).unwrap();
+    std::fs::create_dir_all(&bin2).unwrap();
+
+    let paths = vec![bin1.clone()];
+    assert!(geico::completions::is_dir_in_paths(&bin1, &paths));
+    assert!(!geico::completions::is_dir_in_paths(&bin2, &paths));
+}
+
+#[test]
+fn test_format_install_notice_not_in_path() {
+    let bin_path = std::path::Path::new("/home/user/.local/bin/geico");
+    let output = geico::completions::format_install_notice(
+        bin_path,
+        clap_complete::Shell::Zsh,
+        false,
+        Some(std::path::Path::new("/home/user")),
+    );
+    assert!(output.contains(
+        "######################################################################## 100.0%"
+    ));
+    assert!(output.contains("geico was installed successfully to ~/.local/bin/geico"));
+    assert!(output.contains("Manually add the directory to ~/.zshrc (or similar):"));
+    assert!(output.contains("  export PATH=\"$HOME/.local/bin:$PATH\""));
+    assert!(output.contains("To get started, run:\n\n  geico --help"));
+}
+
+#[test]
+fn test_format_install_notice_already_in_path() {
+    let bin_path = std::path::Path::new("/home/user/.local/bin/geico");
+    let output = geico::completions::format_install_notice(
+        bin_path,
+        clap_complete::Shell::Zsh,
+        true,
+        Some(std::path::Path::new("/home/user")),
+    );
+    assert!(output.contains(
+        "######################################################################## 100.0%"
+    ));
+    assert!(output.contains("geico was installed successfully to ~/.local/bin/geico"));
+    assert!(!output.contains("Manually add the directory"));
+    assert!(output.contains("To get started, run:\n\n  geico --help"));
+}
+
+#[test]
+fn test_format_manual_completion_notice() {
+    let output = geico::completions::format_manual_completion_notice(clap_complete::Shell::Zsh);
+    assert!(output.contains("Manually add the completion to ~/.zshrc (or similar):"));
+    assert!(output.contains(
+        r#"[ -s "$HOME/.local/share/zsh/site-functions/_geico" ] && source "$HOME/.local/share/zsh/site-functions/_geico""#
+    ));
+}

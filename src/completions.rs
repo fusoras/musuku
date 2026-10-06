@@ -257,3 +257,104 @@ pub fn ensure_completions_installed() -> Result<Option<PathBuf>> {
 
     Ok(installed_path)
 }
+
+/// Checks if a directory is present in a list of paths.
+pub fn is_dir_in_paths(dir: &Path, paths: &[PathBuf]) -> bool {
+    let canonical_dir = dir.canonicalize().ok();
+    for p in paths {
+        if p == dir {
+            return true;
+        }
+        if let (Some(c_dir), Ok(c_p)) = (&canonical_dir, p.canonicalize())
+            && c_dir == &c_p
+        {
+            return true;
+        }
+    }
+    false
+}
+
+/// Checks if a directory is in the system PATH environment variable.
+pub fn is_dir_in_path_env(dir: &Path) -> bool {
+    if let Ok(path_var) = std::env::var("PATH") {
+        let paths: Vec<PathBuf> = std::env::split_paths(&path_var).collect();
+        return is_dir_in_paths(dir, &paths);
+    }
+    false
+}
+
+/// Formats a Bun-style manual completion source line notification for the given shell.
+pub fn format_manual_completion_notice(shell: Shell) -> String {
+    match shell {
+        Shell::Zsh => {
+            "Manually add the completion to ~/.zshrc (or similar):\n  [ -s \"$HOME/.local/share/zsh/site-functions/_geico\" ] && source \"$HOME/.local/share/zsh/site-functions/_geico\"".to_string()
+        }
+        Shell::Bash => {
+            "Manually add the completion to ~/.bashrc (or similar):\n  [ -s \"$HOME/.local/share/bash-completion/completions/geico\" ] && source \"$HOME/.local/share/bash-completion/completions/geico\"".to_string()
+        }
+        _ => String::new(),
+    }
+}
+
+/// Formats the Bun-style installation success message, including manual PATH configuration if needed.
+pub fn format_install_notice(
+    bin_path: &Path,
+    shell: Shell,
+    in_path: bool,
+    home_override: Option<&Path>,
+) -> String {
+    let user_home = dirs::home_dir();
+    let home = home_override.or(user_home.as_deref());
+
+    let display_path = if let Some(h) = home {
+        if let Ok(rel) = bin_path.strip_prefix(h) {
+            format!("~/{}", rel.display())
+        } else {
+            bin_path.display().to_string()
+        }
+    } else {
+        bin_path.display().to_string()
+    };
+
+    let bin_dir = bin_path.parent().unwrap_or(bin_path);
+    let display_dir = if let Some(h) = home {
+        if let Ok(rel) = bin_dir.strip_prefix(h) {
+            format!("$HOME/{}", rel.display())
+        } else {
+            bin_dir.display().to_string()
+        }
+    } else {
+        bin_dir.display().to_string()
+    };
+
+    let rc_file = match shell {
+        Shell::Zsh => "~/.zshrc",
+        Shell::Fish => "~/.config/fish/config.fish",
+        Shell::Bash => "~/.bashrc",
+        _ => "~/.profile",
+    };
+
+    let mut out = String::new();
+    out.push_str(
+        "######################################################################## 100.0%\n",
+    );
+    out.push_str(&format!(
+        "geico was installed successfully to {}\n\n",
+        display_path
+    ));
+
+    if !in_path {
+        out.push_str(&format!(
+            "Manually add the directory to {} (or similar):\n",
+            rc_file
+        ));
+        if shell == Shell::Fish {
+            out.push_str(&format!("  fish_add_path \"{}\"\n\n", display_dir));
+        } else {
+            out.push_str(&format!("  export PATH=\"{}:$PATH\"\n\n", display_dir));
+        }
+    }
+
+    out.push_str("To get started, run:\n\n  geico --help\n");
+    out
+}

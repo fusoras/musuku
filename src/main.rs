@@ -78,6 +78,13 @@ fn main() -> Result<()> {
                     path.display(),
                     colors::RESET
                 );
+                if shell == clap_complete::Shell::Zsh {
+                    let zshrc = geico::completions::find_zshrc_path(&home);
+                    let _ = geico::completions::ensure_zshrc_source_line(&zshrc);
+                }
+                if geico::completions::is_carapace_installed() {
+                    let _ = geico::completions::install_carapace_spec(&home);
+                }
             }
         }
     }
