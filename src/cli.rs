@@ -94,6 +94,9 @@ pub struct Show {
     /// Print the application entry as JSON.
     #[arg(long)]
     pub json: bool,
+    /// Suppress terminal image preview even if supported by the terminal.
+    #[arg(long)]
+    pub no_image: bool,
 }
 
 #[derive(Debug, Args)]

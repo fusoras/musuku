@@ -1,3 +1,5 @@
+use clap::Parser;
+use geico::cli::{Cli, Command};
 use geico::manager::{AddOptions, Manager, ShowOptions, UpdateOptions, UpdateOutcome};
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
@@ -455,4 +457,53 @@ fn test_show_nonexistent_application_returns_error() {
         .to_string();
 
     assert_eq!(error, "application not found: missing");
+}
+
+#[test]
+fn test_show_no_image_flag_outputs_text_card() {
+    let temp = tempdir().unwrap();
+    let target = temp.path().join("tool");
+    executable(&target);
+    let manager = Manager::new(
+        temp.path().join("config/apps.toml"),
+        temp.path().join("share"),
+        temp.path().join("bin"),
+    );
+    let entry = manager
+        .add(AddOptions {
+            target,
+            name: Some("Test Tool".to_string()),
+            categories: Some(vec!["Development".to_string()]),
+            ..AddOptions::default()
+        })
+        .unwrap();
+
+    let cli = Cli::try_parse_from(["geico", "show", entry.id.as_str(), "--no-image"])
+        .expect("geico show must accept the --no-image flag");
+    let args = match cli.command {
+        Command::Show(args) => args,
+        other => panic!("expected the show subcommand, got {other:?}"),
+    };
+    assert!(args.no_image, "--no-image must be recorded by the CLI");
+
+    let output = manager
+        .show(
+            &entry.id,
+            ShowOptions {
+                no_image: args.no_image,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+
+    assert!(
+        output.contains("Test Tool (test-tool)"),
+        "expected the text card header, got: {output}"
+    );
+    assert!(output.contains("Executable:"), "got: {output}");
+    assert!(output.contains("Desktop:"), "got: {output}");
+    assert!(output.contains("Icon:"), "got: {output}");
+    assert!(output.contains("Symlink:"), "got: {output}");
+    assert!(output.contains("Categories:  Development"), "got: {output}");
+    assert!(output.contains("Registered:"), "got: {output}");
 }
