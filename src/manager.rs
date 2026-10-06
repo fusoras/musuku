@@ -112,15 +112,17 @@ impl Manager {
         let registry = config::load(&self.config_path)?;
         let mut output = String::new();
         for app in registry.apps {
-            if options.image
-                && !options.no_image
-                && let Some(preview) = app
+            if options.image && !options.no_image {
+                let rendered = app
                     .icon_path
                     .as_deref()
-                    .and_then(|icon| crate::image::render_icon_preview(icon, 8, 4, true))
-            {
-                output.push_str(&preview);
-                output.push('\n');
+                    .and_then(|icon| crate::image::render_icon_preview(icon, 2, 1, true));
+                if let Some(preview) = rendered {
+                    output.push_str(&preview);
+                    output.push(' ');
+                } else {
+                    output.push_str("   ");
+                }
             }
             writeln!(
                 output,

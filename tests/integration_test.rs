@@ -569,6 +569,66 @@ fn test_list_with_image_flag_outputs_image_preview() {
 }
 
 #[test]
+fn test_list_with_image_flag_inline_compact_thumbnail_on_left() {
+    let temp = tempdir().unwrap();
+    let target1 = temp.path().join("app1.sh");
+    executable(&target1);
+    let icon1 = temp.path().join("icon1.png");
+    fs::write(&icon1, b"dummy-png-data").unwrap();
+
+    let target2 = temp.path().join("app2.sh");
+    executable(&target2);
+
+    let manager = Manager::new(
+        temp.path().join("apps.toml"),
+        temp.path().join("share"),
+        temp.path().join("bin"),
+    );
+
+    manager
+        .add(AddOptions {
+            target: target1,
+            name: Some("AppWithIcon".to_string()),
+            icon: Some(icon1),
+            ..AddOptions::default()
+        })
+        .unwrap();
+
+    manager
+        .add(AddOptions {
+            target: target2,
+            name: Some("AppNoIcon".to_string()),
+            ..AddOptions::default()
+        })
+        .unwrap();
+
+    let output = manager
+        .list_with_options(geico::manager::ListOptions {
+            image: true,
+            no_image: false,
+        })
+        .unwrap();
+
+    // Verify compact 2x1 dimensions in Kitty escape sequence
+    assert!(
+        output.contains("c=2,r=1"),
+        "Expected compact 2x1 thumbnail dimensions c=2,r=1, got: {output}"
+    );
+
+    // Verify icon is on the left side of the name (inline with space), NOT on a separate line above
+    assert!(
+        output.contains("\x1b\\ AppWithIcon"),
+        "Expected icon to be placed on the left side of the name, got: {output}"
+    );
+
+    // Verify apps without icon have leading spaces for column alignment
+    assert!(
+        output.contains("   AppNoIcon"),
+        "Expected apps without icon to have leading spaces for alignment, got: {output}"
+    );
+}
+
+#[test]
 fn test_show_with_image_flag_forces_preview() {
     let temp = tempdir().unwrap();
     let target = temp.path().join("tool.sh");
