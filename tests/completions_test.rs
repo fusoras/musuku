@@ -57,3 +57,35 @@ fn test_generate_carapace_spec_creates_valid_yaml() {
     assert!(content.contains("name: add"));
     assert!(content.contains("AudioVideo"));
 }
+
+#[test]
+fn test_ensure_zshrc_source_line_appends_bun_style_line() {
+    let temp = tempdir().unwrap();
+    let zshrc = temp.path().join(".zshrc");
+    std::fs::write(&zshrc, "# existing zsh config\nexport FOO=bar\n").unwrap();
+
+    let added = geico::completions::ensure_zshrc_source_line(&zshrc).unwrap();
+    assert!(added, "Should have added line on first execution");
+
+    let content = std::fs::read_to_string(&zshrc).unwrap();
+    assert!(content.contains(r#"[ -s "$HOME/.local/share/zsh/site-functions/_geico" ] && source "$HOME/.local/share/zsh/site-functions/_geico""#));
+
+    // Calling again must be idempotent
+    let added_second = geico::completions::ensure_zshrc_source_line(&zshrc).unwrap();
+    assert!(!added_second, "Should not add duplicate line");
+}
+
+#[test]
+fn test_is_carapace_installed_in_paths() {
+    let temp = tempdir().unwrap();
+    let empty_bin = temp.path().join("empty_bin");
+    std::fs::create_dir_all(&empty_bin).unwrap();
+
+    // With no carapace binary in dir, should be false
+    assert!(!geico::completions::is_carapace_in_dirs(&[&empty_bin]));
+
+    // When carapace binary is present and executable
+    let fake_carapace = empty_bin.join("carapace");
+    std::fs::write(&fake_carapace, "#!/bin/sh\nexit 0\n").unwrap();
+    assert!(geico::completions::is_carapace_in_dirs(&[&empty_bin]));
+}

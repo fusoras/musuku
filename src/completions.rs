@@ -3,7 +3,8 @@
 use anyhow::{Context, Result};
 use clap::CommandFactory;
 use clap_complete::Shell;
-use std::fs;
+use std::fs::{self, OpenOptions};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 /// Detects the user's active shell from the SHELL environment variable.
@@ -50,6 +51,74 @@ pub fn install_completions_to(shell: Shell, home: &Path) -> Result<PathBuf> {
     fs::write(&target, buf)
         .with_context(|| format!("failed to write completion script to: {}", target.display()))?;
     Ok(target)
+}
+
+/// Checks if carapace binary is present in any of the specified directories.
+pub fn is_carapace_in_dirs(dirs: &[&Path]) -> bool {
+    for dir in dirs {
+        let candidate = dir.join("carapace");
+        if candidate.is_file() {
+            return true;
+        }
+    }
+    false
+}
+
+/// Checks whether Carapace is installed and executable in system PATH.
+pub fn is_carapace_installed() -> bool {
+    if let Ok(path_var) = std::env::var("PATH") {
+        let paths: Vec<PathBuf> = std::env::split_paths(&path_var).collect();
+        let path_refs: Vec<&Path> = paths.iter().map(|p| p.as_path()).collect();
+        return is_carapace_in_dirs(&path_refs);
+    }
+    false
+}
+
+/// Finds the user's active .zshrc file, respecting $ZDOTDIR, ~/.config/zsh, and ~/.zshrc.
+pub fn find_zshrc_path(home: &Path) -> PathBuf {
+    if let Ok(zdotdir) = std::env::var("ZDOTDIR") {
+        let candidate = PathBuf::from(zdotdir).join(".zshrc");
+        if candidate.exists() {
+            return candidate;
+        }
+    }
+    let config_zshrc = home.join(".config/zsh/.zshrc");
+    if config_zshrc.exists() {
+        return config_zshrc;
+    }
+    home.join(".zshrc")
+}
+
+/// Ensures the Bun-style source line exists in the user's .zshrc.
+/// Returns Ok(true) if the line was newly appended, Ok(false) if it already existed.
+pub fn ensure_zshrc_source_line(rc_path: &Path) -> Result<bool> {
+    let content = if rc_path.exists() {
+        fs::read_to_string(rc_path)
+            .with_context(|| format!("failed to read {}", rc_path.display()))?
+    } else {
+        String::new()
+    };
+
+    if content.contains("_geico") {
+        return Ok(false);
+    }
+
+    if let Some(parent) = rc_path.parent() {
+        fs::create_dir_all(parent)
+            .with_context(|| format!("failed to create directory: {}", parent.display()))?;
+    }
+
+    let mut file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(rc_path)
+        .with_context(|| format!("failed to open {} for appending", rc_path.display()))?;
+
+    let line = "\n# geico completions\n[ -s \"$HOME/.local/share/zsh/site-functions/_geico\" ] && source \"$HOME/.local/share/zsh/site-functions/_geico\"\n";
+    file.write_all(line.as_bytes())
+        .with_context(|| format!("failed to write to {}", rc_path.display()))?;
+
+    Ok(true)
 }
 
 /// Generates the Carapace YAML spec for geico.
@@ -156,6 +225,9 @@ pub fn install_carapace_spec(home: &Path) -> Result<PathBuf> {
 }
 
 /// Automatically ensures that completions for the active shell are installed.
+/// - If shell is Zsh, writes the completion script and adds the Bun-style source line to .zshrc.
+/// - Only installs the Carapace spec if Carapace is actually installed on the system.
+///
 /// If already installed, does nothing (silent idempotency).
 pub fn ensure_completions_installed() -> Result<Option<PathBuf>> {
     let home = match dirs::home_dir() {
@@ -169,10 +241,15 @@ pub fn ensure_completions_installed() -> Result<Option<PathBuf>> {
         installed_path = Some(install_completions_to(shell, &home)?);
     }
 
-    // If Carapace is configured on the user system, also ensure Carapace spec is installed
-    let carapace_config = home.join(".config/carapace");
-    if carapace_config.exists() {
-        let spec_file = carapace_config.join("specs/geico.yaml");
+    // Bun-style direct source line for Zsh to guarantee zero-friction loading without $fpath changes
+    if shell == Shell::Zsh {
+        let zshrc = find_zshrc_path(&home);
+        let _ = ensure_zshrc_source_line(&zshrc);
+    }
+
+    // Only install Carapace spec if Carapace binary is actually installed in PATH
+    if is_carapace_installed() {
+        let spec_file = home.join(".config/carapace/specs/geico.yaml");
         if !spec_file.exists() {
             let _ = install_carapace_spec(&home);
         }
