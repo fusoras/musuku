@@ -9,6 +9,7 @@ use geico::{
 };
 
 fn main() -> Result<()> {
+    let _ = geico::completions::ensure_completions_installed();
     let cli = Cli::parse();
     let manager = Manager::new(
         config::default_config_path(),
@@ -57,12 +58,27 @@ fn main() -> Result<()> {
         Command::Remove(args) => manager.remove(&args.id_or_name)?,
         Command::Categories => print!("{}", categories::format_categories_table()),
         Command::Completions(args) => {
-            clap_complete::generate(
-                args.shell,
-                &mut Cli::command(),
-                "geico",
-                &mut std::io::stdout(),
-            );
+            let shell = args.shell.unwrap_or_else(|| {
+                geico::completions::detect_shell(std::env::var("SHELL").ok().as_deref())
+            });
+            if args.stdout {
+                clap_complete::generate(
+                    shell,
+                    &mut Cli::command(),
+                    "geico",
+                    &mut std::io::stdout(),
+                );
+            } else {
+                let home = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
+                let path = geico::completions::install_completions_to(shell, &home)?;
+                println!(
+                    "{}Installed shell completions for {:?} to {}{}",
+                    colors::BOLD_GREEN,
+                    shell,
+                    path.display(),
+                    colors::RESET
+                );
+            }
         }
     }
     Ok(())

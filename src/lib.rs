@@ -1,6 +1,7 @@
 pub mod categories;
 pub mod cli;
 pub mod colors;
+pub mod completions;
 pub mod config;
 pub mod desktop;
 pub mod manager;

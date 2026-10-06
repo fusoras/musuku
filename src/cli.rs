@@ -80,6 +80,12 @@ pub struct Remove {
 
 #[derive(Debug, Args)]
 pub struct Completions {
-    /// Shell to generate completions for.
-    pub shell: clap_complete::Shell,
+    /// Shell to generate or install completions for (defaults to active shell).
+    pub shell: Option<clap_complete::Shell>,
+    /// Install completion script automatically into user shell directory (default behavior).
+    #[arg(long)]
+    pub install: bool,
+    /// Print raw completion script to stdout instead of installing to disk.
+    #[arg(long)]
+    pub stdout: bool,
 }
