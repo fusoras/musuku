@@ -1,6 +1,6 @@
 # geico
 
-**GE**nerate **ICO**ns & desktop integration
+Generate Icons & desktop integration
 
 `geico` is a lightweight Linux CLI tool written in Rust that integrates portable
 applications — AppImages, standalone binaries (for example those extracted from
@@ -17,13 +17,6 @@ With a single command, `geico` can:
 - Track everything in one **auditable state file**: `~/.config/geico/apps.toml`.
 
 ## Core Principles
-
-### Non-destructive guarantee
-
-`geico` **never deletes or modifies the original executable or AppImage**. It only
-creates its own artifacts (a `.desktop` file, an icon copy, a symlink) and records
-where they are. `geico remove` cleans up exactly those artifacts — the original
-binary is always left untouched. This invariant is enforced by the test suite.
 
 ### User-space first (no root required)
 
@@ -48,16 +41,14 @@ problem there is reported as an error instead.
 
 ### Auditable TOML state
 
-Every registered application is stored in `~/.config/geico/apps.toml` — a plain,
-human-readable TOML file. You can open it at any time to see exactly what `geico`
+Every registered application is stored in `~/.config/geico/apps.toml`.
+You can open it at any time to see exactly what `geico`
 manages, edit it, back it up, or version-control it.
 
 ## Installation
 
 ### Prerequisites
 
-- Linux with a FreeDesktop-compliant desktop environment (GNOME, KDE Plasma,
-  XFCE, etc.)
 - A stable Rust toolchain (`rustup` + `cargo`)
 
 ### Build from source
@@ -77,23 +68,6 @@ cargo install --path .
 
 This installs `geico` into `~/.cargo/bin/`, which is normally already on your
 `$PATH`.
-
-### Move or symlink to `~/.local/bin`
-
-Prefer a dedicated user bin directory? Move or symlink the binary there:
-
-```sh
-mv ~/.cargo/bin/geico ~/.local/bin/geico
-# or
-ln -sf "$(pwd)/target/release/geico" ~/.local/bin/geico
-```
-
-Make sure `~/.local/bin` is on your `$PATH` (add it to `~/.profile` or
-`~/.bashrc` if needed):
-
-```sh
-export PATH="$HOME/.local/bin:$PATH"
-```
 
 ### Verify
 
