@@ -773,3 +773,39 @@ fn test_show_cli_accepts_absolute_and_full_path_flags() {
         other => panic!("expected Show command, got {other:?}"),
     }
 }
+
+#[test]
+fn test_show_formats_registered_timestamp_without_nanoseconds() {
+    let temp = tempdir().unwrap();
+    let target = temp.path().join("tool");
+    executable(&target);
+    let manager = Manager::new(
+        temp.path().join("config/apps.toml"),
+        temp.path().join("share"),
+        temp.path().join("bin"),
+    );
+    let entry = manager
+        .add(AddOptions {
+            target,
+            name: Some("TimestampTest".to_string()),
+            ..AddOptions::default()
+        })
+        .unwrap();
+
+    let output = manager.show(&entry.id, ShowOptions::default()).unwrap();
+
+    let expected_time = entry.created_at.format("%Y-%m-%d %H:%M:%S UTC").to_string();
+    assert!(
+        output.contains(&format!("Registered:  {expected_time}")),
+        "Expected show to format Registered as '{expected_time}' without nanoseconds, got: {output}"
+    );
+
+    let reg_line = output
+        .lines()
+        .find(|line| line.trim_start().starts_with("Registered:"))
+        .expect("Registered line must exist");
+    assert!(
+        !reg_line.contains('.'),
+        "Registered line should not contain fractional seconds / dot: {reg_line}"
+    );
+}

@@ -244,7 +244,12 @@ impl Manager {
         )
         .unwrap();
         writeln!(output, "  Categories:  {categories}").unwrap();
-        writeln!(output, "  Registered:  {}", app.created_at).unwrap();
+        writeln!(
+            output,
+            "  Registered:  {}",
+            app.created_at.format("%Y-%m-%d %H:%M:%S UTC")
+        )
+        .unwrap();
         Ok(output)
     }
 
