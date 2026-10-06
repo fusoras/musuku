@@ -8,6 +8,7 @@ Usage: geico <COMMAND>
 Commands:
   add      Register an executable and integrate it into the desktop and PATH
   list     List all managed applications with health checks
+  show     Show detailed information and paths for a registered application
   update   Update metadata, target executable, or icon of a registered application
   remove   Safely remove desktop launcher and symlink (preserves original executable)
   help     Print this message or the help of the given subcommand(s)
@@ -24,7 +25,7 @@ Every subcommand supports `-h, --help` for its own usage text.
 - **id** — the slugified application identifier derived from the display name
   (`My Cool App!` → `my-cool-app`). Used for the `.desktop` filename, the default
   symlink name, and as a lookup key.
-- **lookup** — `update` and `remove` accept either the *id* or the *display
+- **lookup** — `show`, `update`, and `remove` accept either the *id* or the *display
   name*, matched **case-insensitively** (first match wins).
 
 ---
@@ -153,6 +154,45 @@ jq (jq) target=ok desktop=disabled symlink=ok
 | `desktop=missing/broken`        | The `.desktop` file was deleted manually. `geico update <app> --name <name>` regenerates it, or re-add.       |
 | `symlink=missing/broken`        | The symlink was removed (e.g. by cleaning `~/.local/bin`). Re-create it via `geico update <app> --target <same-path>` or re-add. |
 | Empty output                    | Nothing registered yet — run `geico add <executable>`.                                                       |
+
+---
+
+## `geico show`
+
+Inspect a registered application's metadata, paths, and artifact health. The
+command also accepts the alias `info`.
+
+```text
+Usage: geico show [OPTIONS] <ID_OR_NAME>
+```
+
+| Option | Description |
+| ------ | ----------- |
+| `<ID_OR_NAME>` | ID or display name, matched case-insensitively. |
+| `--bin` | Print only the target executable path. |
+| `--desktop` | Print only the desktop file path. |
+| `--icon` | Print only the icon path. |
+| `--symlink` | Print only the terminal symlink path. |
+| `--json` | Print the complete `AppEntry` as formatted JSON. |
+
+With no selector flag, the output is a card containing the executable,
+desktop-file, icon, symlink, categories, and registration timestamp. Artifact
+paths show `ok`, `missing/broken`, or `disabled` status badges. Selecting a
+disabled artifact returns an error such as `application has no icon`.
+
+```console
+$ geico show cursor
+Cursor (cursor)
+  Executable:  /home/you/Downloads/cursor [ok]
+  Desktop:     /home/you/.local/share/applications/cursor.desktop [ok]
+  Icon:        disabled
+  Symlink:     /home/you/.local/bin/cursor [ok]
+  Categories:  Development
+  Registered:  2026-10-06 14:00:00 UTC
+
+$ geico show cursor --bin
+/home/you/Downloads/cursor
+```
 
 ---
 

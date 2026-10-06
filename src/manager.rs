@@ -31,6 +31,15 @@ pub struct UpdateOptions {
     pub categories: Option<Vec<String>>,
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct ShowOptions {
+    pub desktop: bool,
+    pub bin: bool,
+    pub icon: bool,
+    pub symlink: bool,
+    pub json: bool,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum UpdateOutcome {
     NoChanges { name: String },
@@ -105,6 +114,88 @@ impl Manager {
             )
             .unwrap();
         }
+        Ok(output)
+    }
+
+    pub fn show(&self, query: &str, options: ShowOptions) -> Result<String> {
+        let registry = config::load(&self.config_path)?;
+        let app = registry
+            .find(query)
+            .ok_or_else(|| anyhow!("application not found: {query}"))?;
+
+        if options.json {
+            return serde_json::to_string_pretty(app)
+                .context("failed to serialize application as JSON");
+        }
+
+        let selected_paths = [
+            (options.bin, app.target_bin.as_path(), "target executable"),
+            (
+                options.desktop,
+                app.desktop_file.as_deref().unwrap_or(Path::new("")),
+                "desktop file",
+            ),
+            (
+                options.icon,
+                app.icon_path.as_deref().unwrap_or(Path::new("")),
+                "icon",
+            ),
+            (
+                options.symlink,
+                app.symlink.as_deref().unwrap_or(Path::new("")),
+                "symlink",
+            ),
+        ];
+        if let Some((_, path, label)) = selected_paths.iter().find(|(selected, _, _)| *selected) {
+            if path.as_os_str().is_empty() {
+                bail!("application has no {label}");
+            }
+            return Ok(path.display().to_string());
+        }
+
+        let categories = app
+            .categories
+            .as_ref()
+            .filter(|categories| !categories.is_empty())
+            .map(|categories| categories.join(", "))
+            .unwrap_or_else(|| "none".to_string());
+        let mut output = String::new();
+        writeln!(
+            output,
+            "{}{} ({}){}",
+            crate::colors::BOLD_BLUE,
+            app.name,
+            app.id,
+            crate::colors::RESET
+        )
+        .unwrap();
+        writeln!(
+            output,
+            "  Executable:  {} [{}]",
+            app.target_bin.display(),
+            status(&app.target_bin)
+        )
+        .unwrap();
+        writeln!(
+            output,
+            "  Desktop:     {}",
+            optional_path_status(app.desktop_file.as_deref())
+        )
+        .unwrap();
+        writeln!(
+            output,
+            "  Icon:        {}",
+            optional_path_status(app.icon_path.as_deref())
+        )
+        .unwrap();
+        writeln!(
+            output,
+            "  Symlink:     {}",
+            optional_path_status(app.symlink.as_deref())
+        )
+        .unwrap();
+        writeln!(output, "  Categories:  {categories}").unwrap();
+        writeln!(output, "  Registered:  {}", app.created_at).unwrap();
         Ok(output)
     }
 
@@ -223,4 +314,15 @@ fn optional_status(path: Option<&Path>) -> String {
             crate::colors::RESET
         )
     })
+}
+
+fn optional_path_status(path: Option<&Path>) -> String {
+    match path {
+        Some(path) => format!("{} [{}]", path.display(), status(path)),
+        None => format!(
+            "{}disabled{}",
+            crate::colors::BOLD_YELLOW,
+            crate::colors::RESET
+        ),
+    }
 }

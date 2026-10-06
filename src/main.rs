@@ -30,6 +30,19 @@ fn main() -> Result<()> {
             })?;
         }
         Command::List => print!("{}", manager.list()?),
+        Command::Show(args) => print!(
+            "{}",
+            manager.show(
+                &args.id_or_name,
+                geico::manager::ShowOptions {
+                    desktop: args.desktop,
+                    bin: args.bin,
+                    icon: args.icon,
+                    symlink: args.symlink,
+                    json: args.json,
+                },
+            )?
+        ),
         Command::Update(args) => {
             let outcome = manager.update(
                 &args.id_or_name,

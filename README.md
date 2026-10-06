@@ -112,8 +112,10 @@ geico remove myapp
 
 ## Commands
 
-`geico` has four subcommands: [`add`](#geico-add), [`list`](#geico-list),
-[`update`](#geico-update) and [`remove`](#geico-remove). Every subcommand accepts
+`geico` has seven subcommands: [`add`](#geico-add), [`list`](#geico-list),
+[`show`](#geico-show), [`update`](#geico-update), [`remove`](#geico-remove),
+[`categories`](#geico-categories), and [`completions`](#geico-completions).
+Every subcommand accepts
 `-h, --help` for its own usage text.
 
 ### `geico add <EXECUTABLE> [OPTIONS]`
@@ -166,6 +168,30 @@ symlink:
 ```text
 My App (my-app) target=ok desktop=ok symlink=ok
 jq (jq) target=ok desktop=disabled symlink=ok
+```
+
+### `geico show <ID_OR_NAME> [OPTIONS]`
+
+Shows detailed metadata, artifact paths, and health status for an application.
+The `info` alias is also accepted. Without a selector flag, it prints a
+formatted card; `--json` prints the complete registry entry as JSON.
+
+| Option | Description |
+| ------ | ----------- |
+| `--bin` | Print only the target executable path. |
+| `--desktop` | Print only the desktop file path, or an error if disabled. |
+| `--icon` | Print only the icon path, or an error if disabled. |
+| `--symlink` | Print only the terminal symlink path, or an error if disabled. |
+| `--json` | Print the complete application entry as JSON. |
+
+```text
+My App (my-app)
+  Executable:  /home/you/Downloads/myapp [ok]
+  Desktop:     /home/you/.local/share/applications/my-app.desktop [ok]
+  Icon:        disabled
+  Symlink:     /home/you/.local/bin/my-app [ok]
+  Categories:  none
+  Registered:  2026-10-06 14:00:00 UTC
 ```
 
 ### `geico update <ID_OR_NAME> [OPTIONS]`
