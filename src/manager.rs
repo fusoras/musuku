@@ -87,9 +87,11 @@ impl Manager {
         for app in registry.apps {
             writeln!(
                 output,
-                "{} ({}) target={} desktop={} symlink={}{}",
+                "{} {}({}){} target={} desktop={} symlink={}{}",
                 app.name,
+                crate::colors::DIM_GRAY,
                 app.id,
+                crate::colors::RESET,
                 status(&app.target_bin),
                 optional_status(app.desktop_file.as_deref()),
                 optional_status(app.symlink.as_deref()),

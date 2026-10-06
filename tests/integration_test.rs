@@ -176,3 +176,34 @@ fn test_update_with_no_options_returns_no_changes_outcome_and_does_not_mutate() 
 
     assert!(matches!(outcome, UpdateOutcome::NoChanges { .. }));
 }
+
+#[test]
+fn test_list_formats_id_with_dim_gray_color() {
+    let temp = tempdir().unwrap();
+    let target = temp.path().join("pepomote");
+    executable(&target);
+    let manager = Manager::new(
+        temp.path().join("config/apps.toml"),
+        temp.path().join("share"),
+        temp.path().join("bin"),
+    );
+    manager
+        .add(AddOptions {
+            target: target.clone(),
+            name: Some("PepoMote".to_string()),
+            ..AddOptions::default()
+        })
+        .unwrap();
+
+    let output = manager.list().unwrap();
+    let expected_id_badge = format!(
+        "{}({}){}",
+        geico::colors::DIM_GRAY,
+        "pepomote",
+        geico::colors::RESET
+    );
+    assert!(
+        output.contains(&expected_id_badge),
+        "Expected list output to contain dim gray id badge: {expected_id_badge}, but got: {output}"
+    );
+}
