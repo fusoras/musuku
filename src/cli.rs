@@ -17,6 +17,9 @@ pub enum Command {
     Add(Add),
     /// List all managed applications with health checks.
     List,
+    /// Show detailed information and paths for a registered application.
+    #[command(alias = "info")]
+    Show(Show),
     /// Update metadata, target executable, icon, or categories of a registered application.
     Update(Update),
     /// Safely remove desktop launcher and symlink (preserves original executable).
@@ -70,6 +73,27 @@ pub struct Update {
     /// New desktop categories separated by commas (e.g. AudioVideo,Development).
     #[arg(long, value_delimiter = ',')]
     pub categories: Option<Vec<String>>,
+}
+
+#[derive(Debug, Args)]
+pub struct Show {
+    /// ID or name of the registered application to inspect.
+    pub id_or_name: String,
+    /// Print only the target executable path.
+    #[arg(long)]
+    pub bin: bool,
+    /// Print only the desktop file path.
+    #[arg(long)]
+    pub desktop: bool,
+    /// Print only the icon path.
+    #[arg(long)]
+    pub icon: bool,
+    /// Print only the terminal symlink path.
+    #[arg(long)]
+    pub symlink: bool,
+    /// Print the application entry as JSON.
+    #[arg(long)]
+    pub json: bool,
 }
 
 #[derive(Debug, Args)]

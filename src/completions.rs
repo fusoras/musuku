@@ -159,6 +159,18 @@ commands:
   - name: list
     description: List all managed applications with health checks
 
+  - name: show
+    description: Show detailed information and paths for a registered application
+    flags:
+      --desktop: Print only the desktop file path
+      --bin: Print only the target executable path
+      --icon: Print only the icon path
+      --symlink: Print only the terminal symlink path
+      --json: Print the application entry as JSON
+    completion:
+      positional:
+        - ["$(geico list | awk '{print $2}' | tr -d '()')"]
+
   - name: update
     description: Update metadata, target executable, icon, or categories of a registered application
     flags:

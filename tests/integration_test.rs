@@ -1,4 +1,4 @@
-use geico::manager::{AddOptions, Manager, UpdateOptions, UpdateOutcome};
+use geico::manager::{AddOptions, Manager, ShowOptions, UpdateOptions, UpdateOutcome};
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use tempfile::tempdir;
@@ -341,4 +341,118 @@ fn test_update_categories_modifies_desktop_file_and_normalizes() {
         desktop_content.contains("Categories=Video;AudioVideo;\n"),
         "Expected Categories in .desktop file, got:\n{desktop_content}"
     );
+}
+
+#[test]
+fn test_show_default_formats_application_card() {
+    let temp = tempdir().unwrap();
+    let target = temp.path().join("tool");
+    executable(&target);
+    let manager = Manager::new(
+        temp.path().join("config/apps.toml"),
+        temp.path().join("share"),
+        temp.path().join("bin"),
+    );
+    let entry = manager
+        .add(AddOptions {
+            target,
+            name: Some("Test Tool".to_string()),
+            categories: Some(vec!["Development".to_string(), "Utility".to_string()]),
+            ..AddOptions::default()
+        })
+        .unwrap();
+
+    let output = manager.show(&entry.id, ShowOptions::default()).unwrap();
+
+    assert!(output.contains("Test Tool (test-tool)"));
+    assert!(output.contains("Executable:"));
+    assert!(output.contains("Desktop:"));
+    assert!(output.contains("Icon:"));
+    assert!(output.contains("Symlink:"));
+    assert!(output.contains("Categories:  Development, Utility"));
+    assert!(output.contains("Registered:"));
+    assert!(output.contains("ok"));
+}
+
+#[test]
+fn test_show_single_path_flags_return_only_requested_path() {
+    let temp = tempdir().unwrap();
+    let target = temp.path().join("tool");
+    executable(&target);
+    let manager = Manager::new(
+        temp.path().join("config/apps.toml"),
+        temp.path().join("share"),
+        temp.path().join("bin"),
+    );
+    let entry = manager
+        .add(AddOptions {
+            target,
+            ..AddOptions::default()
+        })
+        .unwrap();
+
+    let output = manager
+        .show(
+            &entry.id,
+            ShowOptions {
+                bin: true,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+
+    assert_eq!(output, entry.target_bin.display().to_string());
+}
+
+#[test]
+fn test_show_json_returns_serialized_application_entry() {
+    let temp = tempdir().unwrap();
+    let target = temp.path().join("tool");
+    executable(&target);
+    let manager = Manager::new(
+        temp.path().join("config/apps.toml"),
+        temp.path().join("share"),
+        temp.path().join("bin"),
+    );
+    let entry = manager
+        .add(AddOptions {
+            target,
+            ..AddOptions::default()
+        })
+        .unwrap();
+
+    let output = manager
+        .show(
+            &entry.id,
+            ShowOptions {
+                json: true,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    let serialized: serde_json::Value = serde_json::from_str(&output).unwrap();
+
+    assert_eq!(serialized["id"], entry.id);
+    assert_eq!(serialized["name"], entry.name);
+    assert_eq!(
+        serialized["target_bin"],
+        entry.target_bin.display().to_string()
+    );
+}
+
+#[test]
+fn test_show_nonexistent_application_returns_error() {
+    let temp = tempdir().unwrap();
+    let manager = Manager::new(
+        temp.path().join("config/apps.toml"),
+        temp.path().join("share"),
+        temp.path().join("bin"),
+    );
+
+    let error = manager
+        .show("missing", ShowOptions::default())
+        .unwrap_err()
+        .to_string();
+
+    assert_eq!(error, "application not found: missing");
 }
