@@ -91,15 +91,13 @@ geico --help
 
 ## Quick start
 
+### APPIMAGE
+
 ```sh
+geico add ~/NameApp.AppImage
+
 # integrate an AppImage with desktop launcher and custom icon
 geico add ~/Downloads/myapp.AppImage --icon ~/Pictures/myapp.png
-
-# integrate a binary from tar.xz into terminal PATH only (no desktop file)
-geico add /opt/tools/my-cli --no-desktop
-
-# integrate a GUI app without a terminal symlink
-geico add /opt/blender/blender --no-symlink --icon /opt/blender/icon.png
 
 # list all managed applications with health checks
 geico list
@@ -109,6 +107,16 @@ geico update myapp --target ~/Downloads/myapp-v2.AppImage
 
 # safely remove desktop launcher and symlink (original binary is NEVER deleted)
 geico remove myapp
+```
+
+### Binary
+
+```bash
+# integrate a binary from tar.xz into terminal PATH only (no desktop file)
+geico add /opt/tools/my-cli --no-desktop
+
+# integrate a GUI app without a terminal symlink
+geico add /opt/blender/blender --no-symlink --icon /opt/blender/icon.png
 ```
 
 ## Commands
