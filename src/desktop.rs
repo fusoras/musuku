@@ -3,6 +3,7 @@
 use anyhow::{Context, Result, anyhow};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
 
 pub fn default_base_dir() -> PathBuf {
     dirs::data_dir()
@@ -57,6 +58,8 @@ pub fn install(
     contents.push_str("Terminal=false\n");
     fs::write(&desktop_file, contents)
         .with_context(|| format!("failed to write {}", desktop_file.display()))?;
+    sync_desktop_database(&applications);
+    sync_icon_cache(&icons);
     Ok((desktop_file, installed_icon))
 }
 
@@ -67,7 +70,39 @@ pub fn remove(desktop_file: Option<&Path>, icon: Option<&Path>) -> Result<()> {
                 .with_context(|| format!("failed to remove {}", path.display()))?;
         }
     }
+    if let Some(path) = desktop_file.and_then(Path::parent) {
+        sync_desktop_database(path);
+    }
+    if let Some(path) = icon.and_then(Path::parent) {
+        sync_icon_cache(path);
+    }
     Ok(())
+}
+
+pub fn sync_desktop_database(applications_dir: &Path) {
+    run_sync("update-desktop-database", applications_dir);
+}
+
+pub fn sync_icon_cache(icons_dir: &Path) {
+    run_sync("gtk-update-icon-cache", icons_dir);
+}
+
+fn run_sync(program: &str, directory: &Path) {
+    if !directory.is_dir() || find_in_path(program).is_none() {
+        return;
+    }
+    let _ = Command::new(program)
+        .arg(directory)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn();
+}
+
+fn find_in_path(program: &str) -> Option<PathBuf> {
+    std::env::split_paths(&std::env::var_os("PATH").unwrap_or_default())
+        .map(|dir| dir.join(program))
+        .find(|candidate| candidate.is_file())
 }
 
 fn shell_escape(path: &Path) -> String {

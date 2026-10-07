@@ -112,9 +112,10 @@ geico remove myapp
 
 ## Commands
 
-`geico` has seven subcommands: [`add`](#geico-add), [`list`](#geico-list),
+`geico` has nine subcommands: [`add`](#geico-add), [`list`](#geico-list),
 [`show`](#geico-show), [`update`](#geico-update), [`remove`](#geico-remove),
-[`categories`](#geico-categories), and [`completions`](#geico-completions).
+[`categories`](#geico-categories), [`completions`](#geico-completions),
+[`health`](#geico-health), and [`run`](#geico-run).
 Every subcommand accepts
 `-h, --help` for its own usage text.
 
@@ -145,6 +146,21 @@ and as a lookup key for `update`/`remove`.
 By default `add` creates **both** a desktop launcher and a terminal symlink; use
 `--no-desktop` or `--no-symlink` to create only one of them.
 
+For Type 2 AppImages, omitted `--name`, `--icon`, and `--categories` values are
+inferred from the embedded desktop entry and icon using `--appimage-extract`.
+
+AppImage symlink behavior can be configured in
+`~/.config/geico/config.toml`:
+
+```toml
+[defaults]
+symlink_appimages = false
+```
+
+The equivalent key `appimage_symlinks` is also accepted. This setting affects
+only AppImages; regular binaries and scripts continue to receive symlinks.
+`--no-symlink` always disables the symlink regardless of configuration.
+
 ```sh
 # GUI app: desktop launcher + icon + terminal symlink
 geico add ~/Downloads/myapp.AppImage --name "My App" --icon ~/Pictures/myapp.png
@@ -169,6 +185,19 @@ symlink:
 My App (my-app) target=ok desktop=ok symlink=ok
 jq (jq) target=ok desktop=disabled symlink=ok
 ```
+
+Use `geico list --table`, `--category <CAT>`, or `--broken` for aligned output
+and focused health views.
+
+### `geico health [--json]`
+
+Reports available SVG converters, terminal Kitty Graphics Protocol support,
+desktop utilities, environment paths, and healthy/broken registry entries.
+
+### `geico run <ID_OR_NAME> [ARGS...]`
+
+Launches a registered application in the background, passing through any
+additional arguments.
 
 ### `geico show <ID_OR_NAME> [OPTIONS]`
 

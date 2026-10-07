@@ -13,6 +13,8 @@ Commands:
   remove       Safely remove desktop launcher and symlink (preserves original executable)
   categories   List standard FreeDesktop application categories
   completions  Generate or install shell completion scripts
+  health       Check system environment and desktop integration health
+  run          Launch a registered application in the background
 ```
 
 Every command supports `-h, --help` for instant usage text.
@@ -39,6 +41,22 @@ geico add [OPTIONS] <EXECUTABLE>
 | `--no-desktop` | Skip creating the `.desktop` menu launcher. | `false` |
 | `--no-symlink` | Skip creating the terminal `$PATH` symlink. | `false` |
 | `--dest-bin <PATH>` | Custom directory for the binary symlink. | `~/.local/bin` |
+
+When `--icon`, `--categories`, or `--name` are omitted for a Type 2 AppImage,
+`geico add` attempts to read the embedded desktop entry and icon via
+`--appimage-extract`.
+
+To disable terminal symlinks for AppImages while retaining them for regular
+executables, create `~/.config/geico/config.toml`:
+
+```toml
+[defaults]
+symlink_appimages = false
+```
+
+`appimage_symlinks = false` is accepted as an alias. Missing configuration
+defaults to AppImage symlinks enabled, and `--no-symlink` overrides the setting
+for every executable type.
 
 ### Examples
 
@@ -72,6 +90,9 @@ geico list [OPTIONS]
 | --- | --- |
 | `-i, --image` | Display application icon previews in compatible terminals (Kitty graphics protocol). |
 | `--no-image` | Suppress application icon previews even in compatible terminals. |
+| `-t, --table` | Display aligned `ICON`, `NAME`, `ID`, `CATEGORIES`, and `STATUS` columns. |
+| `--category <CAT>` | Show only applications containing the category (case-insensitive). |
+| `--broken` | Show only applications whose target executable is missing. |
 
 ### Output Format
 
@@ -83,6 +104,25 @@ Blender (blender) target=missing/broken desktop=ok symlink=missing/broken
 - **`ok` (green)**: File exists and is valid.
 - **`missing/broken` (red)**: Target executable was moved or deleted.
 - **`disabled` (yellow)**: Artifact was intentionally skipped (via `--no-desktop` or `--no-symlink`).
+
+## `geico health`
+
+Checks SVG converters, Kitty Graphics Protocol terminal support, desktop
+utilities, environment paths, and the application registry.
+
+```sh
+geico health
+geico health --json
+```
+
+## `geico run <ID_OR_NAME> [ARGS...]`
+
+Launches a registered executable with optional arguments, detached from the
+current terminal.
+
+```sh
+geico run obsidian --new-window
+```
 
 ---
 
