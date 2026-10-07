@@ -189,10 +189,14 @@ jq (jq) target=ok desktop=disabled symlink=ok
 Use `geico list --table`, `--category <CAT>`, or `--broken` for aligned output
 and focused health views.
 
-### `geico health [--json]`
+### `geico health [--json] [--verbose]`
 
 Reports available SVG converters, terminal Kitty Graphics Protocol support,
 desktop utilities, environment paths, and healthy/broken registry entries.
+By default each tool group reports its *capability* — a single `[ok]` line
+listing the available tools, or a `[warning]` only when the whole group is
+missing. Add `--verbose` (`-v`) for the per-tool inventory, where a missing
+tool is shown as a dim `[–]` instead of a warning.
 
 ### `geico run <ID_OR_NAME> [ARGS...]`
 

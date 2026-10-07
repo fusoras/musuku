@@ -1,9 +1,34 @@
 use geico::health::{
-    HealthReport, RegistrySummary, data_dir_discoverable, detect_terminal_graphics,
+    HealthReport, RegistrySummary, ToolCheck, data_dir_discoverable, detect_terminal_graphics,
 };
 use geico::models::AppRegistry;
 use std::ffi::OsStr;
 use std::path::PathBuf;
+
+fn tool(name: &str, available: bool) -> ToolCheck {
+    ToolCheck {
+        name: name.into(),
+        available,
+        path: None,
+        version: None,
+    }
+}
+
+/// Report with empty env paths / registry and a supported terminal, so any
+/// `[warning]` in the output must come from a tool group.
+fn capability_report(svg_tools: Vec<ToolCheck>, desktop_tools: Vec<ToolCheck>) -> HealthReport {
+    HealthReport {
+        terminal_graphics: detect_terminal_graphics(Some("ghostty"), None),
+        svg_tools,
+        desktop_tools,
+        environment_paths: vec![],
+        app_summary: RegistrySummary {
+            total: 0,
+            healthy: 0,
+            broken: 0,
+        },
+    }
+}
 
 fn supported_report() -> HealthReport {
     HealthReport {
@@ -149,6 +174,9 @@ fn clean_registry_report() -> HealthReport {
 
 #[test]
 fn test_health_text_plain_mode_keeps_bracket_markers() {
+    // Contract change: `[warning]` is no longer emitted per missing tool —
+    // it now comes from an empty capability group (here: the desktop group,
+    // whose only tool is unavailable). `[ok]` marks a satisfied capability.
     let text = rich_report().format_text_with(false);
     assert!(text.contains("[ok]"), "expected [ok] marker in:\n{text}");
     assert!(
@@ -382,4 +410,259 @@ fn test_health_collect_default_data_dir_marks_xdg_check_configured() {
         check.configured,
         "default data dir must not produce a false-positive warning"
     );
+}
+
+// ---------------------------------------------------------------------------
+// Capability-oriented report (default mode): a group is only warned about
+// when NO tool of the group is available. Individual missing tools are never
+// a warning in default mode (see `--verbose` for the per-tool inventory).
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_health_default_group_with_available_tools_reports_supported_ok() {
+    let report = capability_report(
+        vec![
+            tool("rsvg-convert", false),
+            tool("magick", true),
+            tool("convert", true),
+        ],
+        vec![
+            tool("update-desktop-database", true),
+            tool("gtk-update-icon-cache", true),
+        ],
+    );
+    let text = report.format_text_with(false);
+    assert!(
+        text.contains("  [ok] supported (magick, convert)\n"),
+        "expected capability line with available converters only in:\n{text}"
+    );
+    assert!(
+        !text.contains("[warning]"),
+        "no warning allowed when every group has an available tool in:\n{text}"
+    );
+}
+
+#[test]
+fn test_health_default_svg_group_without_converter_reports_install_warning() {
+    let report = capability_report(
+        vec![
+            tool("rsvg-convert", false),
+            tool("magick", false),
+            tool("convert", false),
+        ],
+        vec![tool("update-desktop-database", true)],
+    );
+    let text = report.format_text_with(false);
+    assert!(
+        text.contains(
+            "  [warning] no converter found — icon previews disabled (install rsvg-convert)\n"
+        ),
+        "expected empty-SVG-group warning in:\n{text}"
+    );
+}
+
+#[test]
+fn test_health_default_desktop_group_without_utility_reports_install_warning() {
+    let report = capability_report(
+        vec![tool("magick", true)],
+        vec![
+            tool("update-desktop-database", false),
+            tool("gtk-update-icon-cache", false),
+        ],
+    );
+    let text = report.format_text_with(false);
+    assert!(
+        text.contains(
+            "  [warning] no cache utility found — desktop/icon caches won't be refreshed (install update-desktop-database)\n"
+        ),
+        "expected empty-desktop-group warning in:\n{text}"
+    );
+}
+
+#[test]
+fn test_health_default_desktop_group_lists_only_available_tools() {
+    let report = capability_report(
+        vec![tool("magick", true)],
+        vec![
+            tool("update-desktop-database", true),
+            tool("gtk-update-icon-cache", false),
+        ],
+    );
+    let text = report.format_text_with(false);
+    assert!(
+        text.contains("  [ok] update-desktop-database\n"),
+        "expected available utility listed in:\n{text}"
+    );
+    assert!(
+        !text.contains("gtk-update-icon-cache"),
+        "missing tools must not be listed in default mode:\n{text}"
+    );
+    assert!(
+        !text.contains("[warning]"),
+        "an available tool must not trigger a warning in:\n{text}"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// --verbose / -v: per-tool inventory. Missing tools use the dim `[–]` marker,
+// never `[warning]`; an empty group additionally shows the capability warning.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_health_verbose_lists_every_tool_and_dims_missing_ones() {
+    let mut magick = tool("magick", true);
+    magick.version = Some("8.1.0-18".into());
+    let mut convert = tool("convert", true);
+    convert.version = Some("6.9.12-58".into());
+    let report = capability_report(
+        vec![tool("rsvg-convert", false), magick, convert],
+        vec![
+            tool("update-desktop-database", true),
+            tool("gtk-update-icon-cache", true),
+        ],
+    );
+    let text = report.format_text_with_options(false, true);
+    assert!(
+        text.contains("  [ok] magick (8.1.0-18)\n"),
+        "expected available tool with version in:\n{text}"
+    );
+    assert!(
+        text.contains("  [ok] convert (6.9.12-58)\n"),
+        "expected available tool with version in:\n{text}"
+    );
+    assert!(
+        text.contains("  [ok] update-desktop-database\n"),
+        "expected available tool without version in:\n{text}"
+    );
+    assert!(
+        text.contains("  [–] rsvg-convert\n"),
+        "expected dim dash marker for missing tool in:\n{text}"
+    );
+    assert!(
+        !text.contains("[warning]"),
+        "verbose must not warn about individually missing tools in:\n{text}"
+    );
+    let ok_index = text
+        .find("  [ok] magick")
+        .expect("available tool line must exist");
+    let dash_index = text
+        .find("  [–] rsvg-convert")
+        .expect("missing tool line must exist");
+    assert!(
+        ok_index < dash_index,
+        "available tools must be listed before missing ones in:\n{text}"
+    );
+}
+
+#[test]
+fn test_health_verbose_empty_groups_add_capability_warning() {
+    let report = capability_report(
+        vec![
+            tool("rsvg-convert", false),
+            tool("magick", false),
+            tool("convert", false),
+        ],
+        vec![
+            tool("update-desktop-database", false),
+            tool("gtk-update-icon-cache", false),
+        ],
+    );
+    let text = report.format_text_with_options(false, true);
+    for name in [
+        "rsvg-convert",
+        "magick",
+        "convert",
+        "update-desktop-database",
+        "gtk-update-icon-cache",
+    ] {
+        assert!(
+            text.contains(&format!("  [–] {name}\n")),
+            "expected dim dash line for {name} in:\n{text}"
+        );
+    }
+    assert!(
+        text.contains(
+            "[warning] no converter found — icon previews disabled (install rsvg-convert)"
+        ),
+        "expected SVG capability warning in verbose mode:\n{text}"
+    );
+    assert!(
+        text.contains(
+            "[warning] no cache utility found — desktop/icon caches won't be refreshed (install update-desktop-database)"
+        ),
+        "expected desktop capability warning in verbose mode:\n{text}"
+    );
+}
+
+#[test]
+fn test_health_verbose_plain_mode_has_no_escape_codes() {
+    let report = capability_report(
+        vec![tool("rsvg-convert", false), tool("magick", true)],
+        vec![tool("update-desktop-database", false)],
+    );
+    let text = report.format_text_with_options(false, true);
+    assert!(
+        !text.contains('\x1b'),
+        "verbose plain mode must not emit ANSI codes:\n{text:?}"
+    );
+}
+
+#[test]
+fn test_health_verbose_colored_mode_wraps_markers_in_expected_codes() {
+    let report = capability_report(
+        vec![
+            tool("rsvg-convert", false),
+            tool("magick", true),
+            tool("convert", false),
+        ],
+        vec![tool("update-desktop-database", false)],
+    );
+    let text = report.format_text_with_options(true, true);
+    assert!(
+        text.contains("\x1b[1;32m[ok]\x1b[0m magick"),
+        "expected green [ok] for available tool in:\n{text:?}"
+    );
+    assert!(
+        text.contains("\x1b[90m[–]\x1b[0m rsvg-convert"),
+        "expected dim gray [–] for missing tool in:\n{text:?}"
+    );
+    let svg_section = text
+        .split("SVG converters:\n")
+        .nth(1)
+        .and_then(|rest| rest.split("Desktop utilities:").next())
+        .expect("SVG section must exist");
+    assert!(
+        !svg_section.contains("[warning]"),
+        "non-empty SVG group must not warn in:\n{text:?}"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// CLI flag plumbing.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_health_cli_accepts_verbose_flag_short_and_long() {
+    use clap::Parser;
+    use geico::cli::{Cli, Command};
+
+    for flag in ["--verbose", "-v"] {
+        let cli = Cli::try_parse_from(["geico", "health", flag])
+            .unwrap_or_else(|error| panic!("health must accept {flag}: {error}"));
+        match cli.command {
+            Command::Health(args) => {
+                assert!(args.verbose, "{flag} must set Health::verbose to true")
+            }
+            other => panic!("expected Command::Health, got {other:?}"),
+        }
+    }
+
+    let cli = Cli::try_parse_from(["geico", "health"]).expect("plain health must parse");
+    match cli.command {
+        Command::Health(args) => assert!(
+            !args.verbose,
+            "verbose must default to false without the flag"
+        ),
+        other => panic!("expected Command::Health, got {other:?}"),
+    }
 }

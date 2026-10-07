@@ -1,4 +1,4 @@
-use geico::colors::{green, should_color_with, yellow};
+use geico::colors::{dim, green, should_color_with, yellow};
 
 #[test]
 fn test_colors_should_color_disabled_when_no_color_env_is_set() {
@@ -32,4 +32,10 @@ fn test_colors_green_wraps_text_only_when_enabled() {
 fn test_colors_yellow_wraps_text_only_when_enabled() {
     assert_eq!(yellow(false, "[warning]"), "[warning]");
     assert_eq!(yellow(true, "[warning]"), "\x1b[1;33m[warning]\x1b[0m");
+}
+
+#[test]
+fn test_colors_dim_wraps_text_only_when_enabled() {
+    assert_eq!(dim(false, "[–]"), "[–]");
+    assert_eq!(dim(true, "[–]"), "\x1b[90m[–]\x1b[0m");
 }
