@@ -113,6 +113,20 @@ is reported by capability: available tools are listed on an `[ok]` line, and
 `[warning]` appears only when a whole group is missing. Use `--verbose`
 (`-v`) for the per-tool inventory, where missing tools are shown as `[–]`.
 
+SVG icon previews are rasterized with the first converter available in this
+priority order: `rsvg-convert` → `magick` → `convert`.
+
+1. `rsvg-convert` (librsvg) — purpose-built SVG renderer: fastest startup and
+   renders like GNOME, since it is the same library the desktop uses.
+2. `magick` (ImageMagick 7) and `convert` (ImageMagick 6) — general-purpose
+   fallbacks: slower startup and their SVG output depends on ImageMagick
+   delegates and `policy.xml`, which can block SVG rendering.
+
+If none is installed, previews are skipped silently (never an error) and the
+desktop launcher keeps working, because `.desktop` icons are copied as-is. On
+Debian, Ubuntu, Mint or LMDE the first binary ships in the `librsvg2-bin`
+package (`sudo apt install librsvg2-bin`).
+
 ```sh
 geico health
 geico health --verbose

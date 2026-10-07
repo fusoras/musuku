@@ -198,6 +198,11 @@ listing the available tools, or a `[warning]` only when the whole group is
 missing. Add `--verbose` (`-v`) for the per-tool inventory, where a missing
 tool is shown as a dim `[–]` instead of a warning.
 
+SVG previews use the first available converter in priority order —
+`rsvg-convert` (purpose-built, fastest, GNOME-compatible) → `magick` →
+`convert` (ImageMagick, slower and subject to its `policy.xml`). With none
+installed, previews are skipped silently and launchers keep working.
+
 ### `geico run <ID_OR_NAME> [ARGS...]`
 
 Launches a registered application in the background, passing through any
