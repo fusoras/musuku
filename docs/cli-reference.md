@@ -11,7 +11,6 @@ Commands:
   show         Show detailed information and paths for a registered application
   update       Update metadata, target executable, icon, or categories
   remove       Safely remove desktop launcher and symlink (preserves original executable)
-  categories   List standard FreeDesktop application categories
   completions  Generate or install shell completion scripts
   health       Check system environment and desktop integration health
   run          Launch a registered application in the background
@@ -36,7 +35,7 @@ geico add [OPTIONS] <EXECUTABLE>
 | `<EXECUTABLE>` | Path to the AppImage, binary, or script (must exist and be executable). | *required* |
 | `--name <NAME>` | Display name shown in application menus. | Filename without `.AppImage` |
 | `--icon <PATH>` | Path to the icon image (copied to `~/.local/share/icons/`). | None |
-| `--categories <LIST>` | Desktop categories separated by commas (e.g. `Development,Utility`). | None |
+| `--categories <LIST>` | Desktop categories separated by commas (e.g. `Development,Utility`). Use without a value to list the standard categories (read-only). | None |
 | `--bin-name <NAME>` | Custom command name for the terminal symlink. | Application ID |
 | `--no-desktop` | Skip creating the `.desktop` menu launcher. | `false` |
 | `--no-symlink` | Skip creating the terminal `$PATH` symlink. | `false` |
@@ -206,7 +205,7 @@ geico update <ID_OR_NAME> [OPTIONS]
 | `--target <PATH>` | Update path to the executable (e.g. after updating an AppImage). |
 | `--icon <PATH>` | Replace the application icon with a new image. |
 | `--name <NAME>` | Update the display name (also syncs `.desktop` and default symlink). |
-| `--categories <LIST>` | Update desktop categories (e.g. `Graphics,3DGraphics`). |
+| `--categories <LIST>` | Update desktop categories (e.g. `Graphics,3DGraphics`). Use without a value to show the current categories (read-only). |
 | `--remove-symlink` | Delete the terminal symlink and clear it from `apps.toml`. |
 
 > [!NOTE]
@@ -226,6 +225,9 @@ geico update obsidian --name "Obsidian Notes"
 
 # Change categories (supports aliases like dev -> Development)
 geico update obsidian --categories Development
+
+# Show current categories and the standard category table (read-only)
+geico update obsidian --categories
 
 # Remove the terminal symlink but keep the desktop launcher
 geico update obsidian --remove-symlink
@@ -275,12 +277,28 @@ geico remove obsidian --delete-appimage --yes
 
 ---
 
-## 6. `geico categories`
+## 6. Categories query mode (`--categories` without a value)
 
-Displays the standard FreeDesktop application categories with descriptions and examples to help you choose the right category tags.
+`--categories` accepts zero values as a read-only listing mode. It replaces
+the former `geico categories` subcommand, which was removed.
+
+- `geico update <ID_OR_NAME> --categories` — prints the application's current
+  categories (`(none)` when it has none), then the standard FreeDesktop
+  category table. Nothing is modified.
+- `geico add <EXECUTABLE> --categories` — prints only the standard category
+  table. Nothing is registered.
 
 ```sh
-geico categories
+geico update obsidian --categories
+geico add ~/tools/bin/jq --categories
+```
+
+Values that are not a standard category (or known alias) are still kept as
+custom categories; an advisory `Did you mean:` warning goes to stderr:
+
+```text
+Unknown category 'juegoz' — kept as custom. Did you mean: Game?
+  Run 'geico update <app> --categories' (sin valor) to see all standard categories.
 ```
 
 ---
