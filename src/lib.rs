@@ -10,5 +10,7 @@ pub mod extractor;
 pub mod health;
 pub mod image;
 pub mod manager;
+pub mod matcher;
 pub mod models;
 pub mod symlink;
+pub mod watcher;
