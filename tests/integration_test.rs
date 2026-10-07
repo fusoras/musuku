@@ -2170,7 +2170,7 @@ fn test_update_preserves_existing_icon_when_no_new_icon_provided() {
 }
 
 #[test]
-fn test_list_simple_format_has_two_leading_spaces_indentation() {
+fn test_list_simple_format_has_one_leading_space_indentation() {
     let temp = tempdir().unwrap();
     let target = temp.path().join("indented-app");
     executable(&target);
@@ -2194,13 +2194,14 @@ fn test_list_simple_format_has_two_leading_spaces_indentation() {
         })
         .unwrap();
     assert!(
-        output_no_icons.starts_with("  IndentedApp"),
-        "expected list lines to start with 2 leading spaces, got: {output_no_icons:?}"
+        output_no_icons.starts_with(" IndentedApp")
+            && !output_no_icons.starts_with("  IndentedApp"),
+        "expected list lines to start with exactly 1 leading space, got: {output_no_icons:?}"
     );
 
     let output_default = manager.list().unwrap();
     assert!(
-        output_default.starts_with("  "),
-        "expected list lines to start with at least 2 leading spaces, got: {output_default:?}"
+        output_default.starts_with(" "),
+        "expected list lines to start with at least 1 leading space, got: {output_default:?}"
     );
 }

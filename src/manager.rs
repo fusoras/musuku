@@ -223,7 +223,7 @@ impl Manager {
             ));
         }
         for app in apps {
-            output.push_str("  ");
+            output.push(' ');
             if show_icons {
                 let rendered = app.icon_path.as_deref().and_then(|icon| {
                     let (cols, rows) = list_icon_dimensions(settings.display.list_icon_size);
