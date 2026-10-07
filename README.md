@@ -96,11 +96,11 @@ geico --help
 ```sh
 geico add ~/NameApp.AppImage
 
-# integrate an AppImage with desktop launcher and custom icon
-geico add ~/Downloads/myapp.AppImage --icon ~/Pictures/myapp.png
-
 # list all managed applications with health checks
 geico list
+
+# integrate an AppImage with desktop launcher and custom icon
+geico add ~/Downloads/myapp.AppImage --icon ~/Pictures/myapp.png
 
 # update application target executable path
 geico update myapp --target ~/Downloads/myapp-v2.AppImage
