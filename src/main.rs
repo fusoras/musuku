@@ -59,6 +59,8 @@ fn main() -> Result<()> {
                 hide_target_ok: args.hide_target_ok,
                 hide_desktop_ok: args.hide_desktop_ok,
                 hide_ok: args.hide_ok,
+                description: args.description,
+                no_description: args.no_description,
             })?
         ),
         Command::Show(args) => print!(

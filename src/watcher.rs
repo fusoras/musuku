@@ -192,11 +192,100 @@ pub fn sync_directories(
     Ok(report)
 }
 
+fn sync_cache_path(base_dir: &Path) -> PathBuf {
+    base_dir.join(".sync_cache")
+}
+
+fn read_last_sync(base_dir: &Path) -> Option<std::time::SystemTime> {
+    let content = fs::read_to_string(sync_cache_path(base_dir)).ok()?;
+    let millis: u64 = content.trim().parse().ok()?;
+    Some(std::time::UNIX_EPOCH + Duration::from_millis(millis))
+}
+
+fn write_last_sync(base_dir: &Path, time: std::time::SystemTime) {
+    if let Ok(duration) = time.duration_since(std::time::UNIX_EPOCH) {
+        let _ = fs::write(sync_cache_path(base_dir), duration.as_millis().to_string());
+    }
+}
+
+fn get_directory_mtime(dir: &Path, recursive: bool) -> Option<std::time::SystemTime> {
+    let mut max_mtime = fs::metadata(dir).ok()?.modified().ok()?;
+    if recursive && let Ok(entries) = fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir()
+                && let Some(sub_mtime) = get_directory_mtime(&path, true)
+            {
+                max_mtime = max_mtime.max(sub_mtime);
+            }
+        }
+    }
+    Some(max_mtime)
+}
+
+fn is_sync_needed(
+    manager: &Manager,
+    directories: &[PathBuf],
+    recursive: bool,
+    base_dir: &Path,
+) -> bool {
+    let Some(last_sync) = read_last_sync(base_dir) else {
+        return true;
+    };
+
+    if let Ok(config_mtime) =
+        fs::metadata(config::settings_path(base_dir)).and_then(|m| m.modified())
+        && config_mtime > last_sync
+    {
+        return true;
+    }
+
+    for dir in directories {
+        let expanded = expand_home(dir.clone());
+        let Ok(canonical) = fs::canonicalize(&expanded) else {
+            return true;
+        };
+        let Some(dir_mtime) = get_directory_mtime(&canonical, recursive) else {
+            return true;
+        };
+        if dir_mtime > last_sync {
+            return true;
+        }
+    }
+
+    let Ok(registry) = config::load(manager.config_path()) else {
+        return true;
+    };
+    for app in &registry.apps {
+        for dir in directories {
+            let expanded = expand_home(dir.clone());
+            if let Ok(canonical) = fs::canonicalize(&expanded)
+                && app.target_bin.starts_with(&canonical)
+                && !app.target_bin.exists()
+            {
+                return true;
+            }
+        }
+    }
+
+    false
+}
+
 pub fn auto_sync_if_configured(manager: &Manager) -> Result<Option<SyncReport>> {
-    let settings = config::load_settings(manager.settings_base())?;
+    let base_dir = manager.settings_base();
+    let settings = config::load_settings(base_dir)?;
     if !settings.watch.auto_sync || settings.watch.directories.is_empty() {
         return Ok(None);
     }
+    if !is_sync_needed(
+        manager,
+        &settings.watch.directories,
+        settings.watch.recursive,
+        base_dir,
+    ) {
+        return Ok(None);
+    }
+    let _spinner = crate::spinner::Spinner::start("Syncing watch directories...");
     let icons_dir = settings
         .watch
         .icons_dir
@@ -218,6 +307,7 @@ pub fn auto_sync_if_configured(manager: &Manager) -> Result<Option<SyncReport>> 
         settings.watch.clean_on_delete,
         false,
     )?;
+    write_last_sync(base_dir, std::time::SystemTime::now());
     Ok(Some(report))
 }
 
@@ -278,6 +368,7 @@ pub fn run(args: Watch, manager: Manager) -> Result<()> {
         settings.watch.clean_on_delete,
         args.dry_run,
     )?;
+    write_last_sync(&base_dir, std::time::SystemTime::now());
 
     println!(
         "Sync complete: {} registered, {} updated, {} removed.",

@@ -130,6 +130,13 @@ pub struct Display {
         alias = "hide_healthy"
     )]
     pub hide_ok_status: bool,
+    #[serde(
+        default,
+        alias = "show_description",
+        alias = "show_descriptions",
+        alias = "descriptions"
+    )]
+    pub description: bool,
 }
 
 pub type ImagePolicy = IconPolicy;

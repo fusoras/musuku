@@ -91,6 +91,12 @@ pub struct List {
     /// Hide target and desktop statuses when they are ok.
     #[arg(long, visible_alias = "hide-ok-status")]
     pub hide_ok: bool,
+    /// Display application descriptions in list output.
+    #[arg(long, visible_alias = "descriptions", visible_alias = "desc")]
+    pub description: bool,
+    /// Suppress application descriptions even if enabled in configuration.
+    #[arg(long, visible_alias = "no-descriptions", visible_alias = "no-desc")]
+    pub no_description: bool,
 }
 
 #[derive(Debug, Args, Default)]

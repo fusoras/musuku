@@ -21,6 +21,7 @@ hide_disabled_symlinks = false # true, false
 hide_target_ok = false         # true, false
 hide_desktop_ok = false        # true, false
 hide_ok_status = false         # true, false (alias: hide_ok)
+description = false            # true, false (alias: show_description)
 ```
 
 | Key | Default | Effect |
@@ -35,6 +36,7 @@ hide_ok_status = false         # true, false (alias: hide_ok)
 | `hide_target_ok` | `false` | When `true`, suppresses `target=ok` in simple `list` output when the executable is healthy. Broken or missing targets (`target=missing/broken`) remain visible. CLI `--hide-target-ok` takes precedence. |
 | `hide_desktop_ok` | `false` | When `true`, suppresses `desktop=ok` in simple `list` output when the launcher file is healthy. Missing launchers remain visible. CLI `--hide-desktop-ok` takes precedence. |
 | `hide_ok_status` | `false` | When `true`, suppresses both `target=ok` and `desktop=ok` when healthy. Accepted alias: `hide_ok`. CLI `--hide-ok` takes precedence. |
+| `description` | `false` | When `true`, displays application descriptions in `geico list` output. Accepted aliases: `show_description`, `descriptions`. CLI `--description` forces descriptions; `--no-description` suppresses them. |
 
 The table renderer pads every column to a common width, keeps icon previews
 in the `ICON` cell, applies the same color policy as the simple view, and uses

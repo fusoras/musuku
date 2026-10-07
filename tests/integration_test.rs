@@ -2265,3 +2265,102 @@ fn test_add_and_show_with_description() {
         "expected updated Comment in desktop file, got:\n{updated_desktop_content}"
     );
 }
+
+#[test]
+fn test_list_with_description_flag_and_config() {
+    let temp = tempdir().unwrap();
+    let target = temp.path().join("my-app");
+    executable(&target);
+    let manager = Manager::new(
+        temp.path().join("config/apps.toml"),
+        temp.path().join("share"),
+        temp.path().join("bin"),
+    );
+
+    manager
+        .add(AddOptions {
+            target: target.clone(),
+            name: Some("MyApp".into()),
+            description: Some("Audio recorder".into()),
+            ..Default::default()
+        })
+        .unwrap();
+
+    // Default: does not show description
+    let output_default = manager.list_with_options(Default::default()).unwrap();
+    assert!(
+        !output_default.contains("Audio recorder"),
+        "expected default list not to contain description, got: {output_default}"
+    );
+
+    // With description: true
+    let output_with_desc = manager
+        .list_with_options(geico::manager::ListOptions {
+            description: true,
+            ..Default::default()
+        })
+        .unwrap();
+    assert!(
+        output_with_desc.contains("Audio recorder"),
+        "expected list with description: true to contain description, got: {output_with_desc}"
+    );
+
+    // Persistent config: [display] description = true
+    let config_dir = temp.path().join("config");
+    fs::create_dir_all(&config_dir).unwrap();
+    fs::write(
+        config_dir.join("config.toml"),
+        "[display]\ndescription = true\n",
+    )
+    .unwrap();
+
+    let output_from_config = manager.list_with_options(Default::default()).unwrap();
+    assert!(
+        output_from_config.contains("Audio recorder"),
+        "expected config [display] description = true to show description, got: {output_from_config}"
+    );
+
+    // Override with no_description: true
+    let output_suppressed = manager
+        .list_with_options(geico::manager::ListOptions {
+            no_description: true,
+            ..Default::default()
+        })
+        .unwrap();
+    assert!(
+        !output_suppressed.contains("Audio recorder"),
+        "expected no_description to suppress description, got: {output_suppressed}"
+    );
+}
+
+#[test]
+fn test_list_table_format_with_description() {
+    let temp = tempdir().unwrap();
+    let target = temp.path().join("my-app");
+    executable(&target);
+    let manager = Manager::new(
+        temp.path().join("config/apps.toml"),
+        temp.path().join("share"),
+        temp.path().join("bin"),
+    );
+
+    manager
+        .add(AddOptions {
+            target: target.clone(),
+            name: Some("MyApp".into()),
+            description: Some("Audio recorder".into()),
+            ..Default::default()
+        })
+        .unwrap();
+
+    let output_table = manager
+        .list_with_options(geico::manager::ListOptions {
+            table: true,
+            description: true,
+            ..Default::default()
+        })
+        .unwrap();
+
+    assert!(output_table.contains("DESCRIPTION"));
+    assert!(output_table.contains("Audio recorder"));
+}

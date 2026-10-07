@@ -54,6 +54,8 @@ pub struct ListOptions {
     pub hide_target_ok: bool,
     pub hide_desktop_ok: bool,
     pub hide_ok: bool,
+    pub description: bool,
+    pub no_description: bool,
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -224,10 +226,13 @@ impl Manager {
             || settings.display.hide_desktop_ok
             || settings.display.hide_ok_status;
         let colored = crate::colors::should_color_policy(settings.display.color);
+        let show_description =
+            (options.description || settings.display.description) && !options.no_description;
         if table {
             return Ok(format_table(
                 &apps,
                 show_icons,
+                show_description,
                 settings.display.list_icon_size,
                 colored,
             ));
@@ -252,6 +257,10 @@ impl Manager {
                 app.name,
                 crate::colors::gray(colored, &format!("({})", app.id))
             ));
+
+            if show_description && let Some(desc) = &app.description {
+                parts.push(format!("- {}", desc));
+            }
 
             let target_is_ok = app.target_bin.exists();
             if !(hide_target_ok && target_is_ok) {
@@ -773,18 +782,24 @@ fn configured_destination(
 fn format_table(
     apps: &[&AppEntry],
     show_images: bool,
+    show_description: bool,
     icon_size: config::ListIconSize,
     colored: bool,
 ) -> String {
     let (cols, rows) = list_icon_dimensions(icon_size);
     let mut table = Vec::new();
-    table.push(vec![
+    let mut header = vec![
         "ICON".into(),
         "NAME".into(),
         "ID".into(),
         "CATEGORIES".into(),
-        "STATUS".into(),
-    ]);
+    ];
+    if show_description {
+        header.push("DESCRIPTION".into());
+    }
+    header.push("STATUS".into());
+    table.push(header);
+
     for app in apps {
         let icon = if show_images {
             app.icon_path
@@ -797,7 +812,7 @@ fn format_table(
         } else {
             "-".into()
         };
-        table.push(vec![
+        let mut row = vec![
             icon,
             app.name.clone(),
             app.id.clone(),
@@ -805,10 +820,15 @@ fn format_table(
                 .as_ref()
                 .map(|c| c.join(","))
                 .unwrap_or_else(|| "-".into()),
-            status_with_color(&app.target_bin, colored),
-        ]);
+        ];
+        if show_description {
+            row.push(app.description.clone().unwrap_or_else(|| "-".into()));
+        }
+        row.push(status_with_color(&app.target_bin, colored));
+        table.push(row);
     }
-    let widths: Vec<usize> = (0..5)
+    let col_count = if show_description { 6 } else { 5 };
+    let widths: Vec<usize> = (0..col_count)
         .map(|column| {
             table
                 .iter()

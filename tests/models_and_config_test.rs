@@ -374,3 +374,34 @@ hide_ok = true
     let alias_settings = config::load_settings(alias_dir.path()).unwrap();
     assert!(alias_settings.display.hide_ok_status);
 }
+
+#[test]
+fn test_config_display_description_options_load_and_serialize() {
+    let temp = tempdir().unwrap();
+    let path = config::settings_path(temp.path());
+
+    std::fs::write(
+        &path,
+        r#"
+[display]
+description = true
+"#,
+    )
+    .unwrap();
+
+    let settings = config::load_settings(temp.path()).unwrap();
+    assert!(settings.display.description);
+
+    // Test alias show_description
+    let alias_dir = tempdir().unwrap();
+    std::fs::write(
+        config::settings_path(alias_dir.path()),
+        r#"
+[display]
+show_description = true
+"#,
+    )
+    .unwrap();
+    let alias_settings = config::load_settings(alias_dir.path()).unwrap();
+    assert!(alias_settings.display.description);
+}

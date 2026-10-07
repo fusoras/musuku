@@ -1,102 +1,156 @@
-# Plan: `geico watch` & Icon Folder Integration
+# Plan: Geico UX Enhancements & Feature Expansion
 
-**Status:** completed.
-**Date:** 2026-10-07
-**Objective:** Add folder monitoring and batch scanning for AppImages with automated icon pairing and configuration support.
-
----
-
-## Agreed Requirements & Decisions
-
-1. **CLI Command**:
-   - `geico watch [DIRECTORIES]... [OPTIONS]`
-   - Flag `--scan-only` (alias `--once`): Scans the directories, registers any new AppImages, and exits immediately.
-   - Default without `--scan-only`: Performs the initial scan and then continuously monitors filesystem events with debouncing.
-   - Additional flags: `--icons-dir <DIR>`, `--recursive`, `--dry-run`.
-2. **Icon Pairing & Fallback**:
-   - When an AppImage is detected, search the dedicated icons directory for a matching icon by app/stem name (`.png`, `.svg`, `.webp`, `.xpm`, `.ico`).
-   - If not found or no icons folder specified, **fallback to integrated extraction** (`extractor::inspect_and_extract` / `.DirIcon` / internal `.desktop`).
-3. **Configuration (`config.toml`)**:
-   - Add `[watch]` section to `~/.config/geico/config.toml` to define default watch directories, icons directory, auto-chmod flag, clean-on-delete, and debounce duration.
-4. **Lifecycle & Deletion Behavior (Option A)**:
-   - Non-destructive retention: AppImages remain in the watched directory.
-   - When an AppImage is deleted or moved out of the watched directory by the user, `geico watch` detects the event and automatically unregisters it (removes `.desktop`, symlink, and entry in `apps.toml`).
-5. **Execution Permissions**:
-   - Do not force `chmod +x` by default.
-   - Configurable via `auto_chmod = true` in `[watch]` section of `config.toml`.
+**Status:** ready for implementation  
+**Date:** 2026-10-07  
+**Objective:** Implement approved UX improvements and strategic features to polish the terminal experience and extend `geico` capabilities with system diagnosis and application sandboxing.
 
 ---
 
-## Configuration Specification
+## 1. Scope & Approved Items
 
-In `~/.config/geico/config.toml`:
+### A. UX Improvements
+1. **Shell Completions Refresh**: Update completions generator for all commands and flags (including `--description`, `--no-description`, `watch`, `show`, etc.) and ensure support for bash, zsh, and fish.
+2. **Error Suggestions ("Did you mean...?")**: Add Levenshtein-based fuzzy match suggestions when an application ID/name is not found in commands like `show`, `update`, `remove`, and `run`.
+3. **Visual Diff on Updates**: Display a clear visual summary (with arrows `➔` and status indicators) when updating or auto-upgrading an application via `geico update` or `geico watch`.
+4. **$PATH Detection & Tip**: Detect if `~/.local/bin` is missing from the active `$PATH` upon symlink creation and output a non-intrusive tip with configuration instructions for the user's shell.
+5. **Script-Friendly List Output**: Add `--ids` (prints only application IDs, one per line) and `--json` (structured JSON array of all registered applications) to `geico list`.
 
-```toml
-[watch]
-# Default directories to watch if none provided to `geico watch`
-directories = ["~/Applications"]
-
-# Dedicated icons folder to match against AppImage names
-icons_dir = "~/Applications/Icons"
-
-# Automatically apply `chmod +x` to detected AppImages (default: false)
-auto_chmod = false
-
-# Monitor subdirectories recursively (default: false)
-recursive = false
-
-# Unregister application (.desktop, symlink, apps.toml) when AppImage is deleted (default: true)
-clean_on_delete = true
-
-# Event debounce delay in milliseconds (default: 1000)
-debounce_ms = 1000
-```
-
----
-
-## Architecture & Code Changes
-
-### 1. Dependencies (`Cargo.toml`)
-- Add `notify-debouncer-mini = "0.7"` (or `notify = "8.0"`) for debounced filesystem event monitoring in Linux.
-
-### 2. CLI Definition (`src/cli.rs`)
-- Add `Command::Watch(Watch)`:
-  - `directories`: `Vec<PathBuf>` (positional, optional, falls back to config).
-  - `icons_dir`: `Option<PathBuf>`.
-  - `scan_only`: `bool` (`--scan-only`, alias `--once`).
-  - `recursive`: `bool` (`--recursive`).
-  - `dry_run`: `bool` (`--dry-run`).
-
-### 3. Config Model (`src/config.rs`)
-- Add `WatchConfig` struct with serde defaults inside `Settings`.
-
-### 4. Icon & Name Matcher (`src/matcher.rs` - NEW)
-- Name normalization: Clean version suffixes (`-1.0.0`, `_v2`), architectures (`-x86_64`, `_amd64`), and extract search slugs.
-- Icon finder: Scan `--icons-dir` for matching stems (`<name>.{png,svg,webp,xpm,ico}`). Case-insensitive and normalized.
-- Fallback orchestration: If icon matched $\rightarrow$ use it. If not $\rightarrow$ `None` (triggers `extractor::inspect_and_extract`).
-
-### 5. Watcher & Scanner Engine (`src/watcher.rs` - NEW)
-- `scan_directory`: Recursively/flatly collect AppImages, skip already registered paths, resolve icons, and call `manager.add()`.
-- `watch_directory`: Initialize debounced inotify watcher. On `Create`/`Modify` $\rightarrow$ register. On `Remove` $\rightarrow$ if `clean_on_delete`, unregister via `manager.remove()`.
-- Unix permission check: Apply `chmod +x` only if `auto_chmod == true`.
-
-### 6. CLI Dispatcher (`src/main.rs`)
-- Wire `Command::Watch` to `watcher::run(args, manager)`.
-
-### 7. Documentation (`docs/watch.md` & `README.md`)
-- Document the new `watch` command, flags, and `[watch]` configuration options.
+### B. New Features
+1. **`geico doctor` (Audit & Self-Healing)**:
+   - Command: `geico doctor [OPTIONS]`
+   - Health checks:
+     - Validates directory accessibility and permissions (`~/.local/share/applications`, `~/.local/bin`, `~/.local/share/icons`).
+     - Checks all registered applications for missing executable targets on disk.
+     - Checks for broken desktop files and broken terminal symlinks.
+     - Checks for orphaned `.desktop` files previously generated by `geico`.
+     - **Sandbox Backend Check**: Verifies if `bwrap` (Bubblewrap) or `firejail` is installed in `$PATH` when sandboxing is enabled globally or used by registered apps (reporting install tips like `sudo apt install bubblewrap` if missing).
+   - Remediation: `--fix` flag (with optional `-y` / `--yes`) to automatically clean up dead entries, prune broken symlinks, and restore consistent registry state.
+2. **Application Sandboxing (Bubblewrap / Firejail)**:
+   - CLI flags: `--sandbox` / `--isolate` and `--no-sandbox` on `geico add` and `geico update`.
+   - Configuration in `~/.config/geico/config.toml`:
+     ```toml
+     [sandbox]
+     enabled = false
+     backend = "auto" # "auto" | "bwrap" | "firejail"
+     ```
+   - Behavior:
+     - Wraps the launcher `Exec=` command with the detected sandbox runner (`bwrap` or `firejail`).
+     - Grants display (Wayland / X11), audio (PulseAudio / PipeWire), and GPU access while isolating sensitive directories (`~/.ssh`, `~/.gnupg`).
+     - Terminal symlinks also respect the sandbox wrapper when invoked from `$PATH`.
 
 ---
 
-## Implementation Checklist
+## 2. Technical Design & Architecture
 
-- [x] Add `notify-debouncer-mini` (or `notify`) to `Cargo.toml`.
-- [x] Implement `WatchConfig` in `src/config.rs`.
-- [x] Add `Watch` command and arguments in `src/cli.rs`.
-- [x] Implement `src/matcher.rs` with unit tests for name cleanup and icon lookup.
-- [x] Implement `src/watcher.rs` with batch scanning and debounced live watching.
-- [x] Integrate optional `auto_chmod` and reactive `clean_on_delete`.
-- [x] Wire `Command::Watch` in `src/main.rs`.
-- [x] Write automated tests in `tests/watch_and_matcher_test.rs`.
-- [x] Verify test suite with `cargo test` and `cargo clippy`.
-- [x] Update documentation (`docs/watch.md` and `README.md`).
+### Phase 1: UX Improvements
+
+#### 1.1 "Did you mean...?" Suggestions (`src/matcher.rs` / `src/manager.rs`)
+- Implement a utility function `suggest_similar_app(query: &str, candidates: &[&str]) -> Option<String>` using normalized Levenshtein edit distance.
+- When `manager.find_by_id_or_name(id)` returns `None`, search registered app names/IDs:
+  - If a close match is found (distance $\le 2$ or threshold $< 0.4$), output:  
+    `Error: Application 'shotct' not found. Did you mean 'shotcut-linux'?`
+
+#### 1.2 Visual Diff on Updates (`src/manager.rs` & `src/watcher.rs`)
+- In `geico update` and during `watcher` auto-upgrade:
+  - Show formatted changes:
+    - Target: `~/Apps/v1.AppImage` $\rightarrow$ `~/Apps/v2.AppImage`
+    - Icon: `old_icon.png` $\rightarrow$ `new_icon.png` (if updated)
+    - Name / Categories: show before and after if mutated.
+
+#### 1.3 $PATH Detection (`src/manager.rs`)
+- When creating a symlink in `~/.local/bin` (or custom `dest_bin`):
+  - Read `std::env::var("PATH")`.
+  - Split by `:` and canonicalize paths to check if the target directory is contained.
+  - If missing, emit a subtle warning/tip on `stderr`:
+    ```text
+    Note: '~/.local/bin' is not in your current $PATH.
+    Add this to your shell profile (~/.bashrc or ~/.zshrc):
+      export PATH="$HOME/.local/bin:$PATH"
+    ```
+
+#### 1.4 `geico list` Scripting Flags (`src/cli.rs` & `src/manager.rs`)
+- Add `--ids` to `List` in `src/cli.rs`.
+- Add `--json` to `List` in `src/cli.rs`.
+- In `src/manager.rs`:
+  - If `options.ids`: iterate entries and print only `entry.id` to stdout, with no headers or trailing info.
+  - If `options.json`: serialize the list of `AppEntry` (or decorated entries with status) to JSON and print to stdout.
+
+---
+
+### Phase 2: `geico doctor` Command
+- CLI Definition (`src/cli.rs`):
+  - Subcommand `Doctor(DoctorArgs)` with flags:
+    - `--fix`: automatically repair detected issues.
+    - `-y`, `--yes`: confirm without interactive prompt.
+- Engine (`src/doctor.rs` - NEW):
+  - Collect diagnostic checks:
+    - `DirectoryCheck`: verify `applications_dir`, `icons_dir`, `bin_dir`.
+    - `TargetCheck`: verify each `entry.target_bin` exists.
+    - `SymlinkCheck`: verify each `entry.symlink_path` exists and points to `entry.target_bin`.
+    - `DesktopFileCheck`: verify `entry.desktop_path` exists.
+    - `SandboxBackendCheck`: check if `bwrap` or `firejail` is available in `$PATH` (reports runner version if found, or actionable install commands if missing when sandboxing is requested).
+  - Formatted report:
+    - Table/list with `✔` (OK) and `✖` (Problem).
+    - Summary count: `N passed, M issues found`.
+  - Fix execution:
+    - Remove dead registry entries or repair invalid symlinks when `--fix` is passed.
+
+---
+
+### Phase 3: Sandboxing Engine (`src/sandbox.rs` - NEW)
+- Supported backends:
+  - `Bubblewrap` (`bwrap`): minimal, standard on Linux distributions.
+  - `Firejail`: popular user-space sandbox.
+- Wrapper generator:
+  - Detect installed binary (`bwrap` / `firejail`).
+  - Build command line arguments for the `.desktop` `Exec=` field and symlink wrapper script.
+  - Provide fallback or graceful warning if the chosen backend is not installed on the system.
+- Configuration:
+  - `[sandbox]` section in `src/config.rs`.
+  - `--sandbox` flag in `add` and `update` overrides config.
+
+---
+
+### Phase 4: Shell Completions Refresh (`src/cli.rs` / `geico completions`)
+- Place at the end of feature additions to ensure 100% of CLI surface area is covered.
+- Generate and verify completion scripts for:
+  - `bash`, `zsh`, and `fish`.
+- Ensure newly added flags (`doctor`, `--sandbox`, `--ids`, `--json`, `--description`) and dynamic app IDs are available.
+
+---
+
+## 3. Implementation Checklist
+
+### Phase 1: UX Polishing
+- [ ] Implement `suggest_similar_app` Levenshtein helper in `src/matcher.rs`.
+- [ ] Connect suggestions to error handling in `manager.rs` for `show`, `update`, `remove`, and `run`.
+- [ ] Add visual diff reporting to `geico update` and `watcher` auto-upgrade.
+- [ ] Add `$PATH` presence check when creating symlinks in `manager.rs`.
+- [ ] Add `--ids` and `--json` to `geico list` in `src/cli.rs` and `src/manager.rs`.
+- [ ] Write unit & integration tests for all UX additions.
+
+### Phase 2: `geico doctor`
+- [ ] Define `Doctor` command in `src/cli.rs`.
+- [ ] Implement `src/doctor.rs` with diagnostic checks (directories, targets, symlinks, desktop files, and sandbox backend availability) and `--fix` action.
+- [ ] Wire `Doctor` in `src/main.rs`.
+- [ ] Write integration tests for doctor diagnosis and self-healing.
+- [ ] Document `geico doctor` in `docs/commands.md` and `README.md`.
+
+### Phase 3: Sandboxing
+- [ ] Define `[sandbox]` configuration in `src/config.rs`.
+- [ ] Add `--sandbox` / `--no-sandbox` flags in `src/cli.rs` for `add` and `update`.
+- [ ] Implement `src/sandbox.rs` with backend detection (`bwrap`, `firejail`).
+- [ ] Integrate sandbox wrapper into desktop launcher generation and symlinks.
+- [ ] Write tests verifying sandboxed `Exec=` generation.
+- [ ] Document sandbox usage in `docs/commands.md` and `docs/config.md`.
+
+### Phase 4: Shell Completions Refresh
+- [ ] Verify that all commands (`doctor`, `sandbox` flags, `list --ids` / `--json`, `watch`, `--description`) are reflected in completions generator.
+- [ ] Update completion scripts for `bash`, `zsh`, and `fish`.
+- [ ] Test completion generation end-to-end.
+
+### Phase 5: Final Verification & Installation
+- [ ] Run complete test suite (`cargo test`).
+- [ ] Verify linter clean (`cargo clippy --all-targets -- -D warnings`).
+- [ ] Verify formatting (`cargo fmt --check`).
+- [ ] Reinstall binary (`cargo install --path .`).
