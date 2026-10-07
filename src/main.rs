@@ -38,6 +38,7 @@ fn main() -> Result<()> {
                 name: args.name,
                 icon: args.icon,
                 categories: args.categories,
+                description: args.description,
                 bin_name: args.bin_name,
                 no_desktop: args.no_desktop,
                 no_symlink: args.no_symlink,
@@ -106,12 +107,13 @@ fn main() -> Result<()> {
                     icon: args.icon,
                     name: args.name,
                     categories: args.categories,
+                    description: args.description,
                     remove_symlink: args.remove_symlink,
                 },
             )?;
             match outcome {
                 UpdateOutcome::NoChanges { name } => println!(
-                    "{}No changes specified for '{}'. Use --target, --name, --icon, --categories, or --remove-symlink to update.{}",
+                    "{}No changes specified for '{}'. Use --target, --name, --icon, --categories, --description, or --remove-symlink to update.{}",
                     colors::BOLD_YELLOW,
                     name,
                     colors::RESET

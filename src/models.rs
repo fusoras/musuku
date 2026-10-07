@@ -23,6 +23,9 @@ pub struct AppEntry {
     pub icon_path: Option<PathBuf>,
     /// Desktop categories (e.g. `["Development", "Utility"]`), if any.
     pub categories: Option<Vec<String>>,
+    /// Application description or tooltip, if any.
+    #[serde(default)]
+    pub description: Option<String>,
     /// Registration timestamp.
     pub created_at: DateTime<Utc>,
 }
@@ -47,6 +50,7 @@ impl AppEntry {
             symlink: None,
             icon_path: None,
             categories: None,
+            description: None,
             created_at: Utc::now(),
         }
     }

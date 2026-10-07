@@ -17,6 +17,7 @@ pub struct AddOptions {
     pub name: Option<String>,
     pub icon: Option<PathBuf>,
     pub categories: Option<Vec<String>>,
+    pub description: Option<String>,
     pub bin_name: Option<String>,
     pub no_desktop: bool,
     pub no_symlink: bool,
@@ -29,6 +30,7 @@ pub struct UpdateOptions {
     pub icon: Option<PathBuf>,
     pub name: Option<String>,
     pub categories: Option<Vec<String>>,
+    pub description: Option<String>,
     pub remove_symlink: bool,
 }
 
@@ -101,7 +103,9 @@ impl Manager {
         let settings = config::load_settings(self.settings_base())?;
         let canonical_target = canonicalize_target(&options.target)?;
         let extraction = if settings.defaults.auto_extract
-            && (options.icon.is_none() || options.categories.is_none())
+            && (options.icon.is_none()
+                || options.categories.is_none()
+                || options.description.is_none())
         {
             extractor::inspect_and_extract(&canonical_target)?
         } else {
@@ -111,6 +115,11 @@ impl Manager {
             .as_ref()
             .and_then(|result| result.metadata.name.as_deref());
         let mut entry = AppEntry::new(options.name.as_deref().or(extracted_name), canonical_target);
+        entry.description = options.description.or_else(|| {
+            extraction
+                .as_ref()
+                .and_then(|result| result.metadata.comment.clone())
+        });
         entry.categories = options
             .categories
             .or_else(|| {
@@ -137,6 +146,7 @@ impl Manager {
                         .and_then(|result| result.icon_path.as_deref())
                 }),
                 entry.categories.as_deref(),
+                entry.description.as_deref(),
             )?;
             entry.desktop_file = Some(desktop_file);
             entry.icon_path = icon_path;
@@ -391,6 +401,9 @@ impl Manager {
         )
         .unwrap();
         writeln!(output, "  Categories:  {categories}").unwrap();
+        if let Some(desc) = &app.description {
+            writeln!(output, "  Description: {desc}").unwrap();
+        }
         writeln!(
             output,
             "  Registered:  {}",
@@ -436,7 +449,8 @@ impl Manager {
         let metadata_change = options.target.is_some()
             || options.name.is_some()
             || options.icon.is_some()
-            || options.categories.is_some();
+            || options.categories.is_some()
+            || options.description.is_some();
         if !metadata_change && !options.remove_symlink {
             return Ok(UpdateOutcome::NoChanges { name: old.name });
         }
@@ -450,14 +464,16 @@ impl Manager {
         }
         if metadata_change {
             let mut extracted_icon = None;
+            let mut extracted_comment = None;
             if let Some(target) = options.target {
                 let canonical = canonicalize_target(&target)?;
                 entry.target_bin = canonical;
-                if options.icon.is_none()
+                if (options.icon.is_none() || options.description.is_none())
                     && extractor::is_appimage(&entry.target_bin).unwrap_or(false)
                     && let Ok(Some(extraction)) = extractor::inspect_and_extract(&entry.target_bin)
                 {
                     extracted_icon = extraction.icon_path;
+                    extracted_comment = extraction.metadata.comment;
                     extraction_root = Some(extraction.root);
                 }
             }
@@ -473,6 +489,11 @@ impl Manager {
                         .filter(|c| !c.is_empty())
                         .collect(),
                 );
+            }
+            if let Some(description) = options.description {
+                entry.description = Some(description);
+            } else if extracted_comment.is_some() {
+                entry.description = extracted_comment;
             }
             if options.icon.is_some() || extracted_icon.is_some() {
                 desktop::remove(None, entry.icon_path.as_deref())?;
@@ -491,6 +512,7 @@ impl Manager {
                         .or(extracted_icon.as_deref())
                         .or(entry.icon_path.as_deref()),
                     entry.categories.as_deref(),
+                    entry.description.as_deref(),
                 )?;
                 entry.desktop_file = Some(new_file);
                 entry.icon_path = icon;

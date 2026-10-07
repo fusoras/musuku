@@ -2205,3 +2205,63 @@ fn test_list_simple_format_has_one_leading_space_indentation() {
         "expected list lines to start with at least 1 leading space, got: {output_default:?}"
     );
 }
+
+#[test]
+fn test_add_and_show_with_description() {
+    let temp = tempdir().unwrap();
+    let target = temp.path().join("my-app");
+    executable(&target);
+    let manager = Manager::new(
+        temp.path().join("config/apps.toml"),
+        temp.path().join("share"),
+        temp.path().join("bin"),
+    );
+
+    let entry = manager
+        .add(AddOptions {
+            target: target.clone(),
+            name: Some("MyApp".into()),
+            description: Some("A wonderful test application".into()),
+            ..Default::default()
+        })
+        .unwrap();
+
+    assert_eq!(
+        entry.description,
+        Some("A wonderful test application".into())
+    );
+
+    // Desktop file must contain Comment=...
+    let desktop_path = entry.desktop_file.as_ref().unwrap();
+    let desktop_content = fs::read_to_string(desktop_path).unwrap();
+    assert!(
+        desktop_content.contains("Comment=A wonderful test application\n"),
+        "expected Comment in desktop file, got:\n{desktop_content}"
+    );
+
+    // show command must format Description
+    let show_output = manager.show(&entry.id, ShowOptions::default()).unwrap();
+    assert!(
+        show_output.contains("Description: A wonderful test application"),
+        "expected show to display Description, got:\n{show_output}"
+    );
+
+    // Update description
+    manager
+        .update(
+            &entry.id,
+            UpdateOptions {
+                description: Some("An updated description".into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+
+    let updated = manager.get(&entry.id).unwrap();
+    assert_eq!(updated.description, Some("An updated description".into()));
+    let updated_desktop_content = fs::read_to_string(desktop_path).unwrap();
+    assert!(
+        updated_desktop_content.contains("Comment=An updated description\n"),
+        "expected updated Comment in desktop file, got:\n{updated_desktop_content}"
+    );
+}

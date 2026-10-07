@@ -18,6 +18,7 @@ pub fn install(
     exec: &Path,
     icon: Option<&Path>,
     categories: Option<&[String]>,
+    comment: Option<&str>,
 ) -> Result<(PathBuf, Option<PathBuf>)> {
     let applications = base_dir.join("applications");
     let icons = base_dir.join("icons");
@@ -52,6 +53,11 @@ pub fn install(
         "[Desktop Entry]\nType=Application\nName={name}\nExec={}\n",
         shell_escape(exec)
     );
+    if let Some(comment) = comment
+        && !comment.is_empty()
+    {
+        contents.push_str(&format!("Comment={comment}\n"));
+    }
     if let Some(icon) = installed_icon.as_deref() {
         contents.push_str(&format!("Icon={}\n", icon.display()));
     }
