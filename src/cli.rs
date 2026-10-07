@@ -24,8 +24,6 @@ pub enum Command {
     Update(Update),
     /// Safely remove desktop launcher and symlink (preserves original executable).
     Remove(Remove),
-    /// List standard FreeDesktop application categories with descriptions and examples.
-    Categories,
     /// Generate shell completion script (bash, zsh, fish, elvish, powershell).
     Completions(Completions),
     /// Check system environment and desktop integration health.
@@ -45,7 +43,8 @@ pub struct Add {
     #[arg(long)]
     pub icon: Option<PathBuf>,
     /// Desktop categories separated by commas (e.g. AudioVideo,Development).
-    #[arg(long, value_delimiter = ',')]
+    /// Omit the value to list the standard categories without registering anything.
+    #[arg(long, value_delimiter = ',', num_args = 0..)]
     pub categories: Option<Vec<String>>,
     /// Custom command name for the terminal symlink.
     #[arg(long)]
@@ -107,7 +106,8 @@ pub struct Update {
     #[arg(long)]
     pub name: Option<String>,
     /// New desktop categories separated by commas (e.g. AudioVideo,Development).
-    #[arg(long, value_delimiter = ',')]
+    /// Omit the value to show the current categories without changing anything.
+    #[arg(long, value_delimiter = ',', num_args = 0..)]
     pub categories: Option<Vec<String>>,
     /// Remove the terminal symlink for this application.
     #[arg(long)]
