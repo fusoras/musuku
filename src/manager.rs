@@ -1,7 +1,7 @@
 //! High-level application lifecycle orchestration.
 
 use crate::{
-    config, desktop,
+    config, desktop, extractor, health,
     models::{AppEntry, slugify},
     symlink,
 };
@@ -31,10 +31,13 @@ pub struct UpdateOptions {
     pub categories: Option<Vec<String>>,
 }
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct ListOptions {
     pub image: bool,
     pub no_image: bool,
+    pub table: bool,
+    pub category: Option<String>,
+    pub broken: bool,
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -80,26 +83,54 @@ impl Manager {
 
     pub fn add(&self, options: AddOptions) -> Result<AppEntry> {
         let canonical_target = canonicalize_target(&options.target)?;
-        let mut entry = AppEntry::new(options.name.as_deref(), canonical_target);
-        entry.categories = options.categories.map(|cats| {
-            cats.into_iter()
-                .map(|c| crate::categories::normalize_category(&c))
-                .filter(|c| !c.is_empty())
-                .collect()
-        });
+        let extraction = if options.icon.is_none() || options.categories.is_none() {
+            extractor::inspect_and_extract(&canonical_target)?
+        } else {
+            None
+        };
+        let extracted_name = extraction
+            .as_ref()
+            .and_then(|result| result.metadata.name.as_deref());
+        let mut entry = AppEntry::new(options.name.as_deref().or(extracted_name), canonical_target);
+        entry.categories = options
+            .categories
+            .or_else(|| {
+                extraction
+                    .as_ref()
+                    .and_then(|result| result.metadata.categories.clone())
+            })
+            .map(|cats| {
+                cats.into_iter()
+                    .map(|c| crate::categories::normalize_category(&c))
+                    .filter(|c| !c.is_empty())
+                    .collect()
+            });
         if !options.no_desktop {
             let (desktop_file, icon_path) = desktop::install(
                 &self.data_dir,
                 &entry.id,
                 &entry.name,
                 &entry.target_bin,
-                options.icon.as_deref(),
+                options.icon.as_deref().or_else(|| {
+                    extraction
+                        .as_ref()
+                        .and_then(|result| result.icon_path.as_deref())
+                }),
                 entry.categories.as_deref(),
             )?;
             entry.desktop_file = Some(desktop_file);
             entry.icon_path = icon_path;
         }
-        if !options.no_symlink {
+        let should_symlink = if options.no_symlink {
+            false
+        } else if extractor::is_appimage(&entry.target_bin)? {
+            config::load_settings(self.config_path.parent().unwrap_or_else(|| Path::new(".")))?
+                .defaults
+                .symlink_appimages
+        } else {
+            true
+        };
+        if should_symlink {
             entry.symlink = Some(symlink::install(
                 options.dest_bin.as_deref().unwrap_or(&self.bin_dir),
                 &entry.target_bin,
@@ -109,6 +140,9 @@ impl Manager {
         let mut registry = config::load(&self.config_path)?;
         registry.add(entry.clone());
         config::save(&self.config_path, &registry)?;
+        if let Some(extraction) = extraction {
+            let _ = fs::remove_dir_all(extraction.root);
+        }
         Ok(entry)
     }
 
@@ -119,7 +153,46 @@ impl Manager {
     pub fn list_with_options(&self, options: ListOptions) -> Result<String> {
         let registry = config::load(&self.config_path)?;
         let mut output = String::new();
-        for app in registry.apps {
+        let apps: Vec<_> = registry
+            .apps
+            .iter()
+            .filter(|app| {
+                options.category.as_deref().is_none_or(|category| {
+                    app.categories.as_ref().is_some_and(|categories| {
+                        categories
+                            .iter()
+                            .any(|value| value.eq_ignore_ascii_case(category))
+                    })
+                })
+            })
+            .filter(|app| !options.broken || !app.target_bin.exists())
+            .collect();
+        if options.table {
+            writeln!(output, "ICON | NAME | ID | CATEGORIES | STATUS").unwrap();
+            for app in apps {
+                let categories = app
+                    .categories
+                    .as_ref()
+                    .map(|categories| categories.join(","))
+                    .unwrap_or_else(|| "-".into());
+                writeln!(
+                    output,
+                    "{} | {} | {} | {} | {}",
+                    if app.icon_path.is_some() { "yes" } else { "-" },
+                    app.name,
+                    app.id,
+                    categories,
+                    if app.target_bin.exists() {
+                        "ok"
+                    } else {
+                        "broken"
+                    }
+                )
+                .unwrap();
+            }
+            return Ok(output);
+        }
+        for app in apps {
             if options.image && !options.no_image {
                 let rendered = app
                     .icon_path
@@ -332,6 +405,39 @@ impl Manager {
             symlink::remove(link)?;
         }
         config::save(&self.config_path, &registry)
+    }
+
+    pub fn health(&self, json: bool) -> Result<String> {
+        let registry = config::load(&self.config_path)?;
+        let report = health::HealthReport::collect(&registry, self.data_dir.clone());
+        if json {
+            Ok(serde_json::to_string_pretty(&report)?)
+        } else {
+            Ok(report.format_text())
+        }
+    }
+
+    pub fn run(&self, query: &str, args: &[String]) -> Result<()> {
+        use std::process::Stdio;
+        let registry = config::load(&self.config_path)?;
+        let app = registry
+            .find(query)
+            .ok_or_else(|| anyhow!("application not found: {query}"))?;
+        if !app.target_bin.exists() {
+            bail!(
+                "application target is missing: {}",
+                app.target_bin.display()
+            );
+        }
+        std::process::Command::new(&app.target_bin)
+            .args(args)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .with_context(|| format!("failed to launch {}", app.name))?;
+        println!("Launched {} ({}) in background.", app.name, app.id);
+        Ok(())
     }
 }
 

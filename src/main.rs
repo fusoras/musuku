@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 use anyhow::Result;
 use clap::{CommandFactory, Parser};
 use geico::{
@@ -34,6 +36,9 @@ fn main() -> Result<()> {
             manager.list_with_options(geico::manager::ListOptions {
                 image: args.image,
                 no_image: args.no_image,
+                table: args.table,
+                category: args.category,
+                broken: args.broken,
             })?
         ),
         Command::Show(args) => print!(
@@ -78,6 +83,8 @@ fn main() -> Result<()> {
             }
         }
         Command::Remove(args) => manager.remove(&args.id_or_name)?,
+        Command::Health(args) => print!("{}", manager.health(args.json)?),
+        Command::Run(args) => manager.run(&args.id_or_name, &args.args)?,
         Command::Categories => print!("{}", categories::format_categories_table()),
         Command::Completions(args) => {
             let shell = args.shell.unwrap_or_else(|| {

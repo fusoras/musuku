@@ -12,6 +12,18 @@ fn executable(path: &std::path::Path) {
     fs::set_permissions(path, permissions).unwrap();
 }
 
+fn appimage(path: &std::path::Path) {
+    executable(path);
+}
+
+fn manager_with_settings(temp: &tempfile::TempDir) -> Manager {
+    Manager::new(
+        temp.path().join("config/apps.toml"),
+        temp.path().join("share"),
+        temp.path().join("bin"),
+    )
+}
+
 #[test]
 fn test_add_fallback_name_creates_desktop_and_symlink() {
     let temp = tempdir().unwrap();
@@ -38,6 +50,105 @@ fn test_add_fallback_name_creates_desktop_and_symlink() {
     assert!(desktop.contains("Name=blender"));
     assert!(desktop.contains("Exec="));
     assert!(desktop.contains("Terminal=false"));
+}
+
+#[test]
+fn test_config_disables_symlinks_for_appimages_but_keeps_desktop_and_icon() {
+    let temp = tempdir().unwrap();
+    let target = temp.path().join("video.AppImage");
+    let icon = temp.path().join("video.png");
+    appimage(&target);
+    fs::write(&icon, b"icon").unwrap();
+    let manager = manager_with_settings(&temp);
+    fs::create_dir_all(temp.path().join("config")).unwrap();
+    fs::write(
+        temp.path().join("config/config.toml"),
+        "[defaults]\nsymlink_appimages = false\n",
+    )
+    .unwrap();
+
+    let entry = manager
+        .add(AddOptions {
+            target,
+            icon: Some(icon),
+            name: Some("Video".into()),
+            categories: Some(vec!["Video".into()]),
+            ..AddOptions::default()
+        })
+        .unwrap();
+
+    assert!(
+        entry
+            .desktop_file
+            .as_ref()
+            .is_some_and(|path| path.exists())
+    );
+    assert!(entry.icon_path.as_ref().is_some_and(|path| path.exists()));
+    assert!(entry.symlink.is_none());
+}
+
+#[test]
+fn test_config_disables_appimage_symlinks_only() {
+    let temp = tempdir().unwrap();
+    let appimage_target = temp.path().join("video.AppImage");
+    let script_target = temp.path().join("tool.sh");
+    appimage(&appimage_target);
+    executable(&script_target);
+    let manager = manager_with_settings(&temp);
+    fs::create_dir_all(temp.path().join("config")).unwrap();
+    fs::write(
+        temp.path().join("config/config.toml"),
+        "[defaults]\nappimage_symlinks = false\n",
+    )
+    .unwrap();
+
+    let appimage_entry = manager
+        .add(AddOptions {
+            target: appimage_target,
+            name: Some("Video".into()),
+            no_desktop: true,
+            ..AddOptions::default()
+        })
+        .unwrap();
+    let script_entry = manager
+        .add(AddOptions {
+            target: script_target,
+            name: Some("Tool".into()),
+            no_desktop: true,
+            ..AddOptions::default()
+        })
+        .unwrap();
+
+    assert!(appimage_entry.symlink.is_none());
+    assert!(
+        script_entry
+            .symlink
+            .as_ref()
+            .is_some_and(|path| path.exists())
+    );
+}
+
+#[test]
+fn test_appimage_symlink_defaults_to_enabled_when_config_missing_or_true() {
+    for config_contents in [None, Some("[defaults]\nsymlink_appimages = true\n")] {
+        let temp = tempdir().unwrap();
+        let target = temp.path().join("video.AppImage");
+        appimage(&target);
+        let manager = manager_with_settings(&temp);
+        if let Some(contents) = config_contents {
+            fs::create_dir_all(temp.path().join("config")).unwrap();
+            fs::write(temp.path().join("config/config.toml"), contents).unwrap();
+        }
+
+        let entry = manager
+            .add(AddOptions {
+                target,
+                no_desktop: true,
+                ..AddOptions::default()
+            })
+            .unwrap();
+        assert!(entry.symlink.as_ref().is_some_and(|path| path.exists()));
+    }
 }
 
 #[test]
@@ -208,6 +319,99 @@ fn test_list_formats_id_with_dim_gray_color() {
         output.contains(&expected_id_badge),
         "Expected list output to contain dim gray id badge: {expected_id_badge}, but got: {output}"
     );
+}
+
+#[test]
+fn test_list_table_format_contains_headers() {
+    let temp = tempdir().unwrap();
+    let target = temp.path().join("table-tool");
+    executable(&target);
+    let manager = Manager::new(
+        temp.path().join("config/apps.toml"),
+        temp.path().join("share"),
+        temp.path().join("bin"),
+    );
+    manager
+        .add(AddOptions {
+            target,
+            name: Some("Table Tool".into()),
+            ..AddOptions::default()
+        })
+        .unwrap();
+    let output = manager
+        .list_with_options(geico::manager::ListOptions {
+            table: true,
+            ..Default::default()
+        })
+        .unwrap();
+    assert!(output.contains("NAME"));
+    assert!(output.contains("ID"));
+    assert!(output.contains("STATUS"));
+}
+
+#[test]
+fn test_list_filter_by_category_and_broken() {
+    let temp = tempdir().unwrap();
+    let manager = Manager::new(
+        temp.path().join("config/apps.toml"),
+        temp.path().join("share"),
+        temp.path().join("bin"),
+    );
+    let video = temp.path().join("video");
+    executable(&video);
+    let video_entry = manager
+        .add(AddOptions {
+            target: video,
+            name: Some("Video Tool".into()),
+            categories: Some(vec!["Video".into()]),
+            ..AddOptions::default()
+        })
+        .unwrap();
+    let output = manager
+        .list_with_options(geico::manager::ListOptions {
+            category: Some("video".into()),
+            ..Default::default()
+        })
+        .unwrap();
+    assert!(output.contains(&video_entry.name));
+    assert!(!output.contains("Missing Tool"));
+
+    let mut registry = geico::config::load(&temp.path().join("config/apps.toml")).unwrap();
+    registry.add(geico::models::AppEntry::new(
+        Some("Missing Tool"),
+        temp.path().join("missing"),
+    ));
+    geico::config::save(&temp.path().join("config/apps.toml"), &registry).unwrap();
+    let broken = manager
+        .list_with_options(geico::manager::ListOptions {
+            broken: true,
+            ..Default::default()
+        })
+        .unwrap();
+    assert!(broken.contains("Missing Tool"));
+    assert!(!broken.contains(&video_entry.name));
+}
+
+#[test]
+fn test_run_subcommand_locates_and_launches() {
+    let temp = tempdir().unwrap();
+    let target = temp.path().join("runner");
+    executable(&target);
+    let manager = Manager::new(
+        temp.path().join("config/apps.toml"),
+        temp.path().join("share"),
+        temp.path().join("bin"),
+    );
+    let entry = manager
+        .add(AddOptions {
+            target,
+            name: Some("Runner".into()),
+            no_desktop: true,
+            no_symlink: true,
+            ..AddOptions::default()
+        })
+        .unwrap();
+    manager.run(&entry.id, &[]).unwrap();
 }
 
 #[test]
@@ -559,6 +763,7 @@ fn test_list_with_image_flag_outputs_image_preview() {
         .list_with_options(geico::manager::ListOptions {
             image: true,
             no_image: false,
+            ..Default::default()
         })
         .unwrap();
 
@@ -606,6 +811,7 @@ fn test_list_with_image_flag_inline_compact_thumbnail_on_left() {
         .list_with_options(geico::manager::ListOptions {
             image: true,
             no_image: false,
+            ..Default::default()
         })
         .unwrap();
 

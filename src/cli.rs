@@ -28,6 +28,10 @@ pub enum Command {
     Categories,
     /// Generate shell completion script (bash, zsh, fish, elvish, powershell).
     Completions(Completions),
+    /// Check system environment and desktop integration health.
+    Health(Health),
+    /// Launch a registered application in the background.
+    Run(Run),
 }
 
 #[derive(Debug, Args)]
@@ -65,6 +69,25 @@ pub struct List {
     /// Suppress application icon previews even if supported by the terminal.
     #[arg(long)]
     pub no_image: bool,
+    #[arg(short = 't', long)]
+    pub table: bool,
+    #[arg(long)]
+    pub category: Option<String>,
+    #[arg(long)]
+    pub broken: bool,
+}
+
+#[derive(Debug, Args, Default)]
+pub struct Health {
+    #[arg(long)]
+    pub json: bool,
+}
+
+#[derive(Debug, Args)]
+pub struct Run {
+    pub id_or_name: String,
+    #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+    pub args: Vec<String>,
 }
 
 #[derive(Debug, Args)]
