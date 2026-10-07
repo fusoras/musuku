@@ -282,6 +282,44 @@ fn test_health_registry_summary_counts_broken_targets() {
 }
 
 #[test]
+fn test_health_svg_tools_only_lists_converters_the_program_invokes() {
+    let report = HealthReport::collect(&AppRegistry::new(), PathBuf::from("/tmp/geico-test"));
+    let names: Vec<&str> = report
+        .svg_tools
+        .iter()
+        .map(|tool| tool.name.as_str())
+        .collect();
+    assert_eq!(
+        names,
+        ["rsvg-convert", "magick", "convert"],
+        "svg_tools must match the converters invoked by image.rs"
+    );
+    assert!(
+        !names.contains(&"inkscape"),
+        "inkscape is never invoked by geico and must not be listed: {names:?}"
+    );
+}
+
+#[test]
+fn test_health_desktop_tools_only_lists_utilities_the_program_invokes() {
+    let report = HealthReport::collect(&AppRegistry::new(), PathBuf::from("/tmp/geico-test"));
+    let names: Vec<&str> = report
+        .desktop_tools
+        .iter()
+        .map(|tool| tool.name.as_str())
+        .collect();
+    assert_eq!(
+        names,
+        ["update-desktop-database", "gtk-update-icon-cache"],
+        "desktop_tools must match the utilities invoked by desktop.rs"
+    );
+    assert!(
+        !names.contains(&"xdg-icon-resource"),
+        "xdg-icon-resource is never invoked by geico and must not be listed: {names:?}"
+    );
+}
+
+#[test]
 fn test_data_dir_discoverable_default_data_dir_returns_true() {
     let default = PathBuf::from("/home/user/.local/share");
     assert!(

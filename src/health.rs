@@ -54,12 +54,11 @@ impl HealthReport {
                 std::env::var("TERM_PROGRAM").ok().as_deref(),
                 std::env::var("TERM").ok().as_deref(),
             ),
-            svg_tools: check_tools(&["rsvg-convert", "magick", "convert", "inkscape"]),
-            desktop_tools: check_tools(&[
-                "update-desktop-database",
-                "gtk-update-icon-cache",
-                "xdg-icon-resource",
-            ]),
+            // Only tools geico actually invokes: image.rs (SVG rasterizing)
+            // and desktop.rs (launcher/icon cache syncing). Anything else
+            // would be noise in the health report.
+            svg_tools: check_tools(&["rsvg-convert", "magick", "convert"]),
+            desktop_tools: check_tools(&["update-desktop-database", "gtk-update-icon-cache"]),
             environment_paths: vec![
                 PathCheck {
                     name: "PATH".into(),
