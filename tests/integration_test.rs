@@ -26,6 +26,35 @@ fn manager_with_settings(temp: &tempfile::TempDir) -> Manager {
     )
 }
 
+fn visible_len(value: &str) -> usize {
+    let bytes = value.as_bytes();
+    let mut width = 0;
+    let mut index = 0;
+    while index < bytes.len() {
+        if bytes[index] != 0x1b {
+            width += 1;
+            index += 1;
+            continue;
+        }
+        index += 1;
+        if bytes.get(index) == Some(&b'_') {
+            while index < bytes.len() {
+                if bytes[index] == 0x1b && bytes.get(index + 1) == Some(&b'\\') {
+                    index += 2;
+                    break;
+                }
+                index += 1;
+            }
+        } else {
+            while index < bytes.len() && !bytes[index].is_ascii_alphabetic() {
+                index += 1;
+            }
+            index += usize::from(index < bytes.len());
+        }
+    }
+    width
+}
+
 #[test]
 fn test_add_fallback_name_creates_desktop_and_symlink() {
     let temp = tempdir().unwrap();
@@ -131,8 +160,9 @@ fn test_config_disables_appimage_symlinks_only() {
 }
 
 #[test]
-fn test_appimage_symlink_defaults_to_enabled_when_config_missing_or_true() {
+fn test_appimage_symlink_defaults_to_disabled_but_config_can_enable_it() {
     for config_contents in [None, Some("[defaults]\nsymlink_appimages = true\n")] {
+        let should_exist = config_contents.is_some();
         let temp = tempdir().unwrap();
         let target = temp.path().join("video.AppImage");
         appimage(&target);
@@ -149,7 +179,10 @@ fn test_appimage_symlink_defaults_to_enabled_when_config_missing_or_true() {
                 ..AddOptions::default()
             })
             .unwrap();
-        assert!(entry.symlink.as_ref().is_some_and(|path| path.exists()));
+        assert_eq!(
+            entry.symlink.as_ref().is_some_and(|path| path.exists()),
+            should_exist
+        );
     }
 }
 
@@ -1223,4 +1256,156 @@ fn test_show_formats_registered_timestamp_without_nanoseconds() {
         !reg_line.contains('.'),
         "Registered line should not contain fractional seconds / dot: {reg_line}"
     );
+}
+
+#[test]
+fn test_display_list_settings_control_format_size_color_and_images() {
+    let temp = tempdir().unwrap();
+    let target = temp.path().join("configured-tool");
+    executable(&target);
+    let icon = temp.path().join("icon.png");
+    fs::write(&icon, b"dummy-png-data").unwrap();
+    let manager = manager_with_settings(&temp);
+    fs::create_dir_all(temp.path().join("config")).unwrap();
+    fs::write(
+        temp.path().join("config/config.toml"),
+        "[display]\nimages = \"always\"\nlist_icon_size = \"large\"\ncolor = \"never\"\nlist_format = \"table\"\n",
+    )
+    .unwrap();
+    manager
+        .add(AddOptions {
+            target,
+            icon: Some(icon),
+            name: Some("Configured Tool".into()),
+            ..Default::default()
+        })
+        .unwrap();
+
+    let output = manager.list().unwrap();
+    assert!(output.contains("ICON"));
+    assert!(output.contains("NAME"));
+    assert!(output.contains("c=8,r=4"));
+    assert!(
+        !output.contains("\x1b["),
+        "color=never must suppress ANSI output"
+    );
+    let lines: Vec<_> = output
+        .lines()
+        .filter(|line| line.starts_with('|'))
+        .collect();
+    assert!(
+        lines
+            .windows(2)
+            .all(|pair| visible_len(pair[0]) == visible_len(pair[1]))
+    );
+}
+
+#[test]
+fn test_display_image_never_overrides_explicit_image_flag() {
+    let temp = tempdir().unwrap();
+    let target = temp.path().join("no-preview-tool");
+    executable(&target);
+    let icon = temp.path().join("icon.png");
+    fs::write(&icon, b"dummy-png-data").unwrap();
+    let manager = manager_with_settings(&temp);
+    fs::create_dir_all(temp.path().join("config")).unwrap();
+    fs::write(
+        temp.path().join("config/config.toml"),
+        "[display]\nimages = \"never\"\n",
+    )
+    .unwrap();
+    let entry = manager
+        .add(AddOptions {
+            target,
+            icon: Some(icon),
+            ..Default::default()
+        })
+        .unwrap();
+
+    let output = manager
+        .show(
+            &entry.id,
+            ShowOptions {
+                image: true,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    assert!(
+        !output.contains("\x1b_Ga=T"),
+        "images=never must suppress previews"
+    );
+
+    let output = manager
+        .list_with_options(geico::manager::ListOptions {
+            image: true,
+            ..Default::default()
+        })
+        .unwrap();
+    assert!(
+        !output.contains("\x1b_Ga=T"),
+        "images=never must suppress list previews even with --image"
+    );
+}
+
+#[test]
+fn test_display_show_size_and_absolute_paths_are_configurable() {
+    let temp = tempdir().unwrap();
+    let home = temp.path().join("fake-home");
+    let target = home.join("apps/tool");
+    fs::create_dir_all(target.parent().unwrap()).unwrap();
+    executable(&target);
+    let icon = temp.path().join("icon.png");
+    fs::write(&icon, b"dummy-png-data").unwrap();
+    let manager = Manager::new(
+        home.join(".config/geico/apps.toml"),
+        home.join(".local/share"),
+        home.join(".local/bin"),
+    )
+    .with_home(home.clone());
+    fs::create_dir_all(home.join(".config/geico")).unwrap();
+    fs::write(
+        home.join(".config/geico/config.toml"),
+        "[display]\nimages = \"always\"\nshow_icon_size = \"compact\"\npaths = \"absolute\"\n",
+    )
+    .unwrap();
+    let entry = manager
+        .add(AddOptions {
+            target: target.clone(),
+            icon: Some(icon),
+            ..Default::default()
+        })
+        .unwrap();
+
+    let output = manager.show(&entry.id, ShowOptions::default()).unwrap();
+    assert!(output.contains("c=6,r=3"));
+    assert!(output.contains(&target.display().to_string()));
+    assert!(!output.contains("~/apps/tool"));
+}
+
+#[test]
+fn test_defaults_categories_and_dest_bin_apply_when_cli_omits_them() {
+    let temp = tempdir().unwrap();
+    let target = temp.path().join("defaults-tool");
+    executable(&target);
+    let destination = temp.path().join("custom-bin");
+    let manager = manager_with_settings(&temp);
+    fs::create_dir_all(temp.path().join("config")).unwrap();
+    fs::write(
+        temp.path().join("config/config.toml"),
+        format!(
+            "[defaults]\ncategories = [\"Development\"]\ndest_bin = \"{}\"\n",
+            destination.display()
+        ),
+    )
+    .unwrap();
+
+    let entry = manager
+        .add(AddOptions {
+            target,
+            ..Default::default()
+        })
+        .unwrap();
+    assert_eq!(entry.categories, Some(vec!["Development".into()]));
+    assert_eq!(entry.symlink.unwrap().parent(), Some(destination.as_path()));
 }

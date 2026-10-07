@@ -46,8 +46,8 @@ When `--icon`, `--categories`, or `--name` are omitted for a Type 2 AppImage,
 `geico add` attempts to read the embedded desktop entry and icon via
 `--appimage-extract`.
 
-To disable terminal symlinks for AppImages while retaining them for regular
-executables, create `~/.config/geico/config.toml`:
+To enable terminal symlinks for AppImages while retaining the default
+non-symlink behavior, create `~/.config/geico/config.toml`:
 
 ```toml
 [defaults]
@@ -55,8 +55,8 @@ symlink_appimages = false
 ```
 
 `appimage_symlinks = false` is accepted as an alias. Missing configuration
-defaults to AppImage symlinks enabled, and `--no-symlink` overrides the setting
-for every executable type.
+defaults to AppImage symlinks disabled; set `symlink_appimages = true` to
+enable them, and `--no-symlink` overrides the setting for every executable type.
 
 ### Examples
 

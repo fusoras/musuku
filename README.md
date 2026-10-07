@@ -143,7 +143,9 @@ characters collapsed to `-` (e.g. `My Cool App!` → `my-cool-app`). The id is u
 for the `.desktop` filename (`my-cool-app.desktop`), as the default symlink name,
 and as a lookup key for `update`/`remove`.
 
-By default `add` creates **both** a desktop launcher and a terminal symlink; use
+By default `add` creates a desktop launcher and creates terminal symlinks for
+regular binaries/scripts. AppImages do not receive a terminal symlink unless
+enabled in configuration; use
 `--no-desktop` or `--no-symlink` to create only one of them.
 
 For Type 2 AppImages, omitted `--name`, `--icon`, and `--categories` values are

@@ -42,7 +42,19 @@ pub fn should_color_with(no_color: bool, clicolor: Option<&str>, stdout_is_tty: 
     if no_color || clicolor == Some("0") {
         return false;
     }
+
     stdout_is_tty
+}
+
+pub fn should_color_policy(policy: crate::config::ColorPolicy) -> bool {
+    match policy {
+        crate::config::ColorPolicy::Always => true,
+        crate::config::ColorPolicy::Never => false,
+        crate::config::ColorPolicy::Auto => {
+            std::env::var_os("NO_COLOR").is_none()
+                && std::env::var("CLICOLOR").ok().as_deref() != Some("0")
+        }
+    }
 }
 
 /// Wraps `text` in `code` and [`RESET`] when `enabled`, else returns it unchanged.
@@ -67,5 +79,9 @@ pub fn yellow(enabled: bool, text: &str) -> String {
 /// Dim gray styling for de-emphasized text (e.g. tools that are not
 /// installed), applied only when `enabled`.
 pub fn dim(enabled: bool, text: &str) -> String {
+    paint(enabled, DIM_GRAY, text)
+}
+
+pub fn gray(enabled: bool, text: &str) -> String {
     paint(enabled, DIM_GRAY, text)
 }

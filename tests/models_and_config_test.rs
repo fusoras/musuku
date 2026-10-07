@@ -252,3 +252,45 @@ fn test_config_load_reports_malformed_toml_as_error() {
         "a malformed apps.toml must surface an error instead of silent data loss"
     );
 }
+
+#[test]
+fn test_config_loads_all_phase_two_options() {
+    let temp = tempdir().unwrap();
+    let path = config::settings_path(temp.path());
+    std::fs::write(
+        &path,
+        r#"
+[display]
+images = "never"
+list_icon_size = "large"
+show_icon_size = "compact"
+paths = "absolute"
+color = "never"
+list_format = "table"
+
+[defaults]
+categories = ["Development", "Utility"]
+auto_extract = false
+update_desktop_db = false
+dest_bin = "~/custom-bin"
+symlink_appimages = false
+"#,
+    )
+    .unwrap();
+
+    let settings = config::load_settings(temp.path()).unwrap();
+    assert_eq!(settings.display.images, config::ImagePolicy::Never);
+    assert_eq!(settings.display.list_icon_size, config::ListIconSize::Large);
+    assert_eq!(
+        settings.display.show_icon_size,
+        config::ShowIconSize::Compact
+    );
+    assert_eq!(settings.display.paths, config::PathPolicy::Absolute);
+    assert_eq!(settings.display.color, config::ColorPolicy::Never);
+    assert_eq!(settings.display.list_format, config::ListFormat::Table);
+    assert_eq!(settings.defaults.categories, ["Development", "Utility"]);
+    assert!(!settings.defaults.auto_extract);
+    assert!(!settings.defaults.update_desktop_db);
+    assert_eq!(settings.defaults.dest_bin, PathBuf::from("~/custom-bin"));
+    assert!(!settings.defaults.symlink_appimages);
+}
