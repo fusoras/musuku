@@ -391,6 +391,143 @@ fn test_remove_delete_target_without_yes_on_noninteractive_stdin_aborts_with_err
 }
 
 #[test]
+fn test_remove_accepts_multiple_applications() {
+    let temp = tempdir().unwrap();
+    let home = temp.path().join("home");
+    let xdg_config = temp.path().join("xdg-config");
+    let xdg_data = temp.path().join("xdg-data");
+    fs::create_dir_all(&home).unwrap();
+    let manager = Manager::new(
+        xdg_config.join("geico/apps.toml"),
+        xdg_data.clone(),
+        home.join(".local/bin"),
+    );
+    let first_target = temp.path().join("first");
+    let second_target = temp.path().join("second");
+    executable(&first_target);
+    executable(&second_target);
+    let first = manager
+        .add(AddOptions {
+            target: first_target.clone(),
+            ..AddOptions::default()
+        })
+        .unwrap();
+    let second = manager
+        .add(AddOptions {
+            target: second_target.clone(),
+            ..AddOptions::default()
+        })
+        .unwrap();
+
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_geico"))
+        .args(["remove", &first.id, &second.id])
+        .env("HOME", &home)
+        .env("XDG_CONFIG_HOME", &xdg_config)
+        .env("XDG_DATA_HOME", &xdg_data)
+        .env_remove("SHELL")
+        .output()
+        .unwrap();
+
+    assert!(
+        output.status.success(),
+        "removing multiple applications failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let registry = geico::config::load(&xdg_config.join("geico/apps.toml")).unwrap();
+    assert!(registry.apps.is_empty());
+    assert!(first_target.exists());
+    assert!(second_target.exists());
+}
+
+#[test]
+fn test_remove_all_with_yes_removes_every_registered_application() {
+    let temp = tempdir().unwrap();
+    let home = temp.path().join("home");
+    let xdg_config = temp.path().join("xdg-config");
+    let xdg_data = temp.path().join("xdg-data");
+    fs::create_dir_all(&home).unwrap();
+    let manager = Manager::new(
+        xdg_config.join("geico/apps.toml"),
+        xdg_data.clone(),
+        home.join(".local/bin"),
+    );
+    let first_target = temp.path().join("first");
+    let second_target = temp.path().join("second");
+    executable(&first_target);
+    executable(&second_target);
+    manager
+        .add(AddOptions {
+            target: first_target.clone(),
+            ..AddOptions::default()
+        })
+        .unwrap();
+    manager
+        .add(AddOptions {
+            target: second_target.clone(),
+            ..AddOptions::default()
+        })
+        .unwrap();
+
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_geico"))
+        .args(["remove", "--all", "-y"])
+        .env("HOME", &home)
+        .env("XDG_CONFIG_HOME", &xdg_config)
+        .env("XDG_DATA_HOME", &xdg_data)
+        .env_remove("SHELL")
+        .output()
+        .unwrap();
+
+    assert!(
+        output.status.success(),
+        "remove --all failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let registry = geico::config::load(&xdg_config.join("geico/apps.toml")).unwrap();
+    assert!(registry.apps.is_empty());
+    assert!(first_target.exists());
+    assert!(second_target.exists());
+}
+
+#[test]
+fn test_remove_all_without_yes_requires_interactive_stdin() {
+    let temp = tempdir().unwrap();
+    let home = temp.path().join("home");
+    let xdg_config = temp.path().join("xdg-config");
+    let xdg_data = temp.path().join("xdg-data");
+    fs::create_dir_all(&home).unwrap();
+    let target = temp.path().join("tool");
+    executable(&target);
+    let manager = Manager::new(
+        xdg_config.join("geico/apps.toml"),
+        xdg_data.clone(),
+        home.join(".local/bin"),
+    );
+    let entry = manager
+        .add(AddOptions {
+            target: target.clone(),
+            ..AddOptions::default()
+        })
+        .unwrap();
+
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_geico"))
+        .args(["remove", "--all"])
+        .env("HOME", &home)
+        .env("XDG_CONFIG_HOME", &xdg_config)
+        .env("XDG_DATA_HOME", &xdg_data)
+        .env_remove("SHELL")
+        .stdin(std::process::Stdio::null())
+        .output()
+        .unwrap();
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(!output.status.success());
+    assert!(stderr.contains("--yes"), "stderr: {stderr}");
+    assert!(target.exists());
+    let registry = geico::config::load(&xdg_config.join("geico/apps.toml")).unwrap();
+    assert!(registry.find(&entry.id).is_some());
+}
+
+#[test]
 fn test_update_retargets_desktop_and_symlink() {
     let temp = tempdir().unwrap();
     let old_target = temp.path().join("old-tool");
@@ -925,19 +1062,19 @@ fn test_show_no_image_flag_outputs_text_card() {
         })
         .unwrap();
 
-    let cli = Cli::try_parse_from(["geico", "show", entry.id.as_str(), "--no-image"])
-        .expect("geico show must accept the --no-image flag");
+    let cli = Cli::try_parse_from(["geico", "show", entry.id.as_str(), "--no-icons"])
+        .expect("geico show must accept the --no-icons flag");
     let args = match cli.command {
         Command::Show(args) => args,
         other => panic!("expected the show subcommand, got {other:?}"),
     };
-    assert!(args.no_image, "--no-image must be recorded by the CLI");
+    assert!(args.no_icons, "--no-icons must be recorded by the CLI");
 
     let output = manager
         .show(
             &entry.id,
             ShowOptions {
-                no_image: args.no_image,
+                no_icons: args.no_icons,
                 ..Default::default()
             },
         )
@@ -957,24 +1094,45 @@ fn test_show_no_image_flag_outputs_text_card() {
 
 #[test]
 fn test_list_cli_accepts_image_and_no_image_flags() {
+    let cli_icons = Cli::try_parse_from(["geico", "list", "--icons"])
+        .expect("geico list must accept --icons flag");
+    match cli_icons.command {
+        Command::List(args) => assert!(args.icons),
+        other => panic!("expected List command, got {other:?}"),
+    }
+
     let cli_img = Cli::try_parse_from(["geico", "list", "--image"])
-        .expect("geico list must accept --image flag");
+        .expect("geico list must accept --image alias flag");
     match cli_img.command {
-        Command::List(args) => assert!(args.image),
+        Command::List(args) => assert!(args.icons),
         other => panic!("expected List command, got {other:?}"),
     }
 
     let cli_short =
         Cli::try_parse_from(["geico", "list", "-i"]).expect("geico list must accept -i flag");
     match cli_short.command {
-        Command::List(args) => assert!(args.image),
+        Command::List(args) => assert!(args.icons),
+        other => panic!("expected List command, got {other:?}"),
+    }
+
+    let cli_no_icons = Cli::try_parse_from(["geico", "list", "--no-icons"])
+        .expect("geico list must accept --no-icons flag");
+    match cli_no_icons.command {
+        Command::List(args) => assert!(args.no_icons),
         other => panic!("expected List command, got {other:?}"),
     }
 
     let cli_no_img = Cli::try_parse_from(["geico", "list", "--no-image"])
         .expect("geico list must accept --no-image flag");
     match cli_no_img.command {
-        Command::List(args) => assert!(args.no_image),
+        Command::List(args) => assert!(args.no_icons),
+        other => panic!("expected List command, got {other:?}"),
+    }
+
+    let cli_hide = Cli::try_parse_from(["geico", "list", "--hide-disabled-symlinks"])
+        .expect("geico list must accept --hide-disabled-symlinks");
+    match cli_hide.command {
+        Command::List(args) => assert!(args.hide_disabled_symlinks),
         other => panic!("expected List command, got {other:?}"),
     }
 }
@@ -1749,5 +1907,264 @@ fn test_update_unknown_category_warns_on_stderr_and_keeps_custom_value() {
     assert_eq!(
         updated.categories,
         Some(vec!["Video".to_string(), "Development".to_string()])
+    );
+}
+
+#[test]
+fn test_list_hides_disabled_symlinks() {
+    let temp = tempdir().unwrap();
+    let manager = Manager::new(
+        temp.path().join("config/apps.toml"),
+        temp.path().join("data"),
+        temp.path().join("bin"),
+    );
+
+    let script = temp.path().join("app-without-symlink");
+    fs::write(&script, "#!/bin/sh\nexit 0").unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = fs::metadata(&script).unwrap().permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&script, perms).unwrap();
+    }
+
+    // Register with no symlink
+    manager
+        .add(geico::manager::AddOptions {
+            target: script.clone(),
+            name: Some("NoSymlinkApp".into()),
+            no_symlink: true,
+            ..Default::default()
+        })
+        .unwrap();
+
+    // Default list shows symlink=disabled
+    let default_output = manager
+        .list_with_options(geico::manager::ListOptions {
+            hide_disabled_symlinks: false,
+            ..Default::default()
+        })
+        .unwrap();
+    assert!(
+        default_output.contains("symlink=") && default_output.contains("disabled"),
+        "expected symlink and disabled in default list, got: {default_output}"
+    );
+
+    // List with hide_disabled_symlinks: true must omit symlink=disabled entirely
+    let hidden_output = manager
+        .list_with_options(geico::manager::ListOptions {
+            hide_disabled_symlinks: true,
+            ..Default::default()
+        })
+        .unwrap();
+    assert!(
+        !hidden_output.contains("symlink="),
+        "expected symlink= to be hidden when disabled, got: {hidden_output}"
+    );
+}
+
+#[test]
+fn test_display_setting_hide_disabled_symlinks() {
+    let temp = tempdir().unwrap();
+    let target = temp.path().join("configured-tool");
+    executable(&target);
+    let manager = manager_with_settings(&temp);
+    fs::create_dir_all(temp.path().join("config")).unwrap();
+    fs::write(
+        temp.path().join("config/config.toml"),
+        "[display]\nhide_disabled_symlinks = true\n",
+    )
+    .unwrap();
+    manager
+        .add(AddOptions {
+            target,
+            name: Some("NoSymlinkTool".into()),
+            no_symlink: true,
+            ..Default::default()
+        })
+        .unwrap();
+
+    let output = manager.list().unwrap();
+    assert!(
+        !output.contains("symlink="),
+        "symlink column must be hidden when disabled by config, got: {output}"
+    );
+}
+
+#[test]
+fn test_display_setting_hide_target_and_desktop_ok() {
+    let temp = tempdir().unwrap();
+    let target = temp.path().join("my-tool");
+    executable(&target);
+    let manager = manager_with_settings(&temp);
+    fs::create_dir_all(temp.path().join("config")).unwrap();
+    fs::write(
+        temp.path().join("config/config.toml"),
+        "[display]\nhide_target_ok = true\nhide_desktop_ok = true\n",
+    )
+    .unwrap();
+    manager
+        .add(AddOptions {
+            target: target.clone(),
+            name: Some("MyTool".into()),
+            ..Default::default()
+        })
+        .unwrap();
+
+    let output = manager.list().unwrap();
+    assert!(
+        !output.contains("target="),
+        "target=ok must be hidden when hide_target_ok is enabled in config, got: {output}"
+    );
+    assert!(
+        !output.contains("desktop="),
+        "desktop=ok must be hidden when hide_desktop_ok is enabled in config, got: {output}"
+    );
+
+    // If target becomes missing/broken, it must still be shown despite the config
+    fs::remove_file(&target).unwrap();
+    let broken_output = manager.list().unwrap();
+    assert!(
+        broken_output.contains("target="),
+        "target must be shown when missing/broken even if hide_target_ok is enabled, got: {broken_output}"
+    );
+}
+
+#[test]
+fn test_display_setting_hide_ok_status_unified_key() {
+    let temp = tempdir().unwrap();
+    let target = temp.path().join("unified-tool");
+    executable(&target);
+    let manager = manager_with_settings(&temp);
+    fs::create_dir_all(temp.path().join("config")).unwrap();
+    fs::write(
+        temp.path().join("config/config.toml"),
+        "[display]\nhide_ok_status = true\n",
+    )
+    .unwrap();
+    manager
+        .add(AddOptions {
+            target,
+            name: Some("UnifiedTool".into()),
+            ..Default::default()
+        })
+        .unwrap();
+
+    let output = manager.list().unwrap();
+    assert!(
+        !output.contains("target="),
+        "target=ok must be hidden when hide_ok_status is enabled in config, got: {output}"
+    );
+    assert!(
+        !output.contains("desktop="),
+        "desktop=ok must be hidden when hide_ok_status is enabled in config, got: {output}"
+    );
+}
+
+#[test]
+fn test_list_cli_hides_target_and_desktop_ok() {
+    let temp = tempdir().unwrap();
+    let target = temp.path().join("cli-tool");
+    executable(&target);
+    let manager = Manager::new(
+        temp.path().join("config/apps.toml"),
+        temp.path().join("share"),
+        temp.path().join("bin"),
+    );
+    manager
+        .add(AddOptions {
+            target,
+            name: Some("CliTool".into()),
+            ..Default::default()
+        })
+        .unwrap();
+
+    let output_all_hidden = manager
+        .list_with_options(geico::manager::ListOptions {
+            hide_ok: true,
+            ..Default::default()
+        })
+        .unwrap();
+    assert!(!output_all_hidden.contains("target="));
+    assert!(!output_all_hidden.contains("desktop="));
+
+    let output_only_target = manager
+        .list_with_options(geico::manager::ListOptions {
+            hide_target_ok: true,
+            ..Default::default()
+        })
+        .unwrap();
+    assert!(!output_only_target.contains("target="));
+    assert!(output_only_target.contains("desktop="));
+}
+
+#[test]
+fn test_cli_parses_hide_ok_flags() {
+    use clap::Parser;
+    let cli =
+        geico::cli::Cli::try_parse_from(["geico", "list", "--hide-target-ok", "--hide-desktop-ok"])
+            .expect("CLI must parse hide-target-ok and hide-desktop-ok flags");
+    match cli.command {
+        geico::cli::Command::List(args) => {
+            assert!(args.hide_target_ok);
+            assert!(args.hide_desktop_ok);
+        }
+        _ => panic!("expected List command"),
+    }
+
+    let cli_unified = geico::cli::Cli::try_parse_from(["geico", "list", "--hide-ok"])
+        .expect("CLI must parse --hide-ok flag");
+    match cli_unified.command {
+        geico::cli::Command::List(args) => {
+            assert!(args.hide_ok);
+        }
+        _ => panic!("expected List command"),
+    }
+}
+
+#[test]
+fn test_update_preserves_existing_icon_when_no_new_icon_provided() {
+    let temp = tempdir().unwrap();
+    let target = temp.path().join("my-app");
+    executable(&target);
+    let icon = temp.path().join("icon.png");
+    fs::write(&icon, b"valid-icon-data").unwrap();
+    let manager = Manager::new(
+        temp.path().join("config/apps.toml"),
+        temp.path().join("share"),
+        temp.path().join("bin"),
+    );
+    let entry = manager
+        .add(AddOptions {
+            target: target.clone(),
+            icon: Some(icon),
+            name: Some("MyApp".into()),
+            ..Default::default()
+        })
+        .unwrap();
+
+    let icon_path = entry.icon_path.unwrap();
+    assert_eq!(fs::read(&icon_path).unwrap(), b"valid-icon-data");
+
+    // Updating target without specifying a new icon
+    let new_target = temp.path().join("my-app-v2");
+    executable(&new_target);
+    manager
+        .update(
+            &entry.id,
+            UpdateOptions {
+                target: Some(new_target),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+
+    let updated_entry = manager.get(&entry.id).unwrap();
+    let updated_icon_path = updated_entry.icon_path.unwrap();
+    assert_eq!(
+        fs::read(&updated_icon_path).unwrap(),
+        b"valid-icon-data",
+        "existing icon must not be truncated or corrupted when updating"
     );
 }

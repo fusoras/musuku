@@ -55,18 +55,20 @@ pub fn supports_kitty_graphics() -> bool {
     io::stdout().is_terminal() && is_kitty_compatible_terminal()
 }
 
-pub fn image_requested(
-    policy: crate::config::ImagePolicy,
+pub fn icons_requested(
+    policy: crate::config::IconPolicy,
     explicit: bool,
     suppressed: bool,
 ) -> bool {
-    if suppressed || policy == crate::config::ImagePolicy::Never {
+    if suppressed || policy == crate::config::IconPolicy::Never {
         return false;
     }
     explicit
-        || policy == crate::config::ImagePolicy::Always
-        || (policy == crate::config::ImagePolicy::Auto && supports_kitty_graphics())
+        || policy == crate::config::IconPolicy::Always
+        || (policy == crate::config::IconPolicy::Auto && supports_kitty_graphics())
 }
+
+pub use icons_requested as image_requested;
 
 pub fn generate_kitty_escape(data: &[u8], cols: u32, rows: u32) -> String {
     if data.is_empty() {

@@ -22,19 +22,19 @@ With a single command, `geico` can:
 
 All defaults live inside your home directory:
 
-| Artifact            | Default location                          |
-| ------------------- | ----------------------------------------- |
-| Desktop launchers   | `~/.local/share/applications/`            |
-| Icon copies         | `~/.local/share/icons/`                   |
-| Terminal symlinks   | `~/.local/bin/`                           |
-| State database      | `~/.config/geico/apps.toml`               |
+| Artifact          | Default location               |
+| ----------------- | ------------------------------ |
+| Desktop launchers | `~/.local/share/applications/` |
+| Icon copies       | `~/.local/share/icons/`        |
+| Terminal symlinks | `~/.local/bin/`                |
+| State database    | `~/.config/geico/apps.toml`    |
 
 No `sudo` is needed for typical use.
 
 ### Selective sudo escalation
 
 `geico` escalates **only** when you explicitly point the symlink destination
-outside your home directory with `--dest-bin`, *and* that directory is not
+outside your home directory with `--dest-bin`, _and_ that directory is not
 writable by your user. In that case it runs `sudo ln -sf …` (or `sudo rm -f …`
 during removal). Inside `$HOME`, `geico` never invokes `sudo` — a permission
 problem there is reported as an error instead.
@@ -66,6 +66,7 @@ The script installs `geico` into `~/.local/bin/geico`, automatically wires shell
 ### Build from source
 
 Prerequisites:
+
 - A stable Rust toolchain (`rustup` + `cargo`)
 
 ```sh
@@ -121,7 +122,8 @@ Every subcommand accepts
 
 ### `geico watch [DIRECTORIES...] [OPTIONS]`
 
-Scans directories for AppImages and registers new applications. Without
+Scans directories for AppImages and registers new applications (e.g. `geico watch .`
+or omitted to use `[watch].directories` from config). Without
 `--scan-only`, the initial scan is followed by a debounced filesystem monitor.
 Use `--recursive` for subdirectories, `--icons-dir <DIR>` to pair icons by
 normalized filename, and `--dry-run` to preview registrations. `--once` is an
@@ -132,16 +134,16 @@ configuration and lifecycle details.
 
 Registers an executable file and integrates it into the system.
 
-| Option                | Description                                                                    | Default                          |
-| --------------------- | ------------------------------------------------------------------------------ | -------------------------------- |
-| `<EXECUTABLE>`        | Path to the executable file (AppImage, binary, or script). Must exist, be a regular file, and be executable. | required                         |
-| `--name <NAME>`       | Display name of the application.                                               | executable filename (see below)  |
-| `--icon <PATH>`       | Icon file; **copied** to `~/.local/share/icons/` (source is not moved).        | no icon                          |
-| `--categories <LIST>` | Desktop categories separated by commas (e.g. `Development,Utility`). Omit the value to list the standard categories without registering anything. | no `Categories=` line            |
-| `--bin-name <NAME>`   | Custom command name for the terminal symlink.                                  | the application id (slug)        |
-| `--no-desktop`        | Skip creating a `.desktop` launcher entry.                                     | desktop entry is created         |
-| `--no-symlink`        | Skip creating a terminal `$PATH` symlink.                                      | symlink is created               |
-| `--dest-bin <PATH>`   | Custom directory for the binary symlink; prompts for `sudo` if outside `$HOME`. | `~/.local/bin`                   |
+| Option                | Description                                                                                                                                       | Default                         |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| `<EXECUTABLE>`        | Path to the executable file (AppImage, binary, or script). Must exist, be a regular file, and be executable.                                      | required                        |
+| `--name <NAME>`       | Display name of the application.                                                                                                                  | executable filename (see below) |
+| `--icon <PATH>`       | Icon file; **copied** to `~/.local/share/icons/` (source is not moved).                                                                           | no icon                         |
+| `--categories <LIST>` | Desktop categories separated by commas (e.g. `Development,Utility`). Omit the value to list the standard categories without registering anything. | no `Categories=` line           |
+| `--bin-name <NAME>`   | Custom command name for the terminal symlink.                                                                                                     | the application id (slug)       |
+| `--no-desktop`        | Skip creating a `.desktop` launcher entry.                                                                                                        | desktop entry is created        |
+| `--no-symlink`        | Skip creating a terminal `$PATH` symlink.                                                                                                         | symlink is created              |
+| `--dest-bin <PATH>`   | Custom directory for the binary symlink; prompts for `sudo` if outside `$HOME`.                                                                   | `~/.local/bin`                  |
 
 **Fallback name behavior:** if `--name` is not given, the display name is the
 final component of the executable path, excluding a trailing `.appimage`
@@ -204,7 +206,7 @@ and focused health views.
 
 Reports available SVG converters, terminal Kitty Graphics Protocol support,
 desktop utilities, environment paths, and healthy/broken registry entries.
-By default each tool group reports its *capability* — a single `[ok]` line
+By default each tool group reports its _capability_ — a single `[ok]` line
 listing the available tools, or a `[warning]` only when the whole group is
 missing. Add `--verbose` (`-v`) for the per-tool inventory, where a missing
 tool is shown as a dim `[–]` instead of a warning.
@@ -225,13 +227,13 @@ Shows detailed metadata, artifact paths, and health status for an application.
 The `info` alias is also accepted. Without a selector flag, it prints a
 formatted card; `--json` prints the complete registry entry as JSON.
 
-| Option | Description |
-| ------ | ----------- |
-| `--bin` | Print only the target executable path. |
-| `--desktop` | Print only the desktop file path, or an error if disabled. |
-| `--icon` | Print only the icon path, or an error if disabled. |
+| Option      | Description                                                    |
+| ----------- | -------------------------------------------------------------- |
+| `--bin`     | Print only the target executable path.                         |
+| `--desktop` | Print only the desktop file path, or an error if disabled.     |
+| `--icon`    | Print only the icon path, or an error if disabled.             |
 | `--symlink` | Print only the terminal symlink path, or an error if disabled. |
-| `--json` | Print the complete application entry as JSON. |
+| `--json`    | Print the complete application entry as JSON.                  |
 
 ```text
 My App (my-app)
@@ -249,14 +251,14 @@ Updates the metadata, target binary path, or icon of a registered application
 without re-registering it. The application is looked up by id **or** display name,
 case-insensitively.
 
-| Option                | Description                                                       | Default              |
-| --------------------- | ----------------------------------------------------------------- | -------------------- |
-| `<ID_OR_NAME>`        | ID or name of the registered application to update.               | required             |
-| `--target <PATH>`     | New path to the executable (validated exactly like `add`).        | target unchanged     |
-| `--icon <PATH>`       | New icon file; the previously copied icon is removed first.       | icon unchanged       |
-| `--name <NAME>`       | New display name; the id is re-derived (slug) from it.            | name unchanged       |
+| Option                | Description                                                                                                                      | Default              |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
+| `<ID_OR_NAME>`        | ID or name of the registered application to update.                                                                              | required             |
+| `--target <PATH>`     | New path to the executable (validated exactly like `add`).                                                                       | target unchanged     |
+| `--icon <PATH>`       | New icon file; the previously copied icon is removed first.                                                                      | icon unchanged       |
+| `--name <NAME>`       | New display name; the id is re-derived (slug) from it.                                                                           | name unchanged       |
 | `--categories <LIST>` | New desktop categories (e.g. `AudioVideo,Development`). Omit the value to show the current categories without changing anything. | categories unchanged |
-| `--remove-symlink`    | Delete the terminal symlink and clear `symlink` in `apps.toml`.   | symlink kept         |
+| `--remove-symlink`    | Delete the terminal symlink and clear `symlink` in `apps.toml`.                                                                  | symlink kept         |
 
 Changing `--target`, `--name`, `--icon`, or `--categories` regenerates the `.desktop` file and
 re-points the terminal symlink automatically when those artifacts exist.
@@ -282,7 +284,7 @@ geico update my-app --categories Development,Utility
 geico update my-app --remove-symlink
 ```
 
-### `geico remove <ID_OR_NAME> [OPTIONS]`
+### `geico remove [ID_OR_NAME...] [OPTIONS]`
 
 Safely removes the generated `.desktop` launcher, the copied icon, and the
 terminal symlink, then drops the entry from `apps.toml`. The lookup is
@@ -290,11 +292,12 @@ case-insensitive by id or name.
 
 **By default the original AppImage or binary file is never deleted.**
 
-| Option                              | Description                                                                                                      | Default |
-| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------- |
-| `<ID_OR_NAME>`                      | ID or name of the registered application to remove.                                                              | required |
-| `--delete-target`                   | Also delete the original executable/AppImage from disk (alias: `--delete-appimage`). Prompts for confirmation.   | off     |
-| `-y`, `--yes`                       | Skip the confirmation prompt (for scripts and automation).                                                       | off     |
+| Option            | Description                                                                                                    | Default                 |
+| ----------------- | -------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| `<ID_OR_NAME...>` | One or more IDs or names of registered applications to remove.                                                 | required unless `--all` |
+| `--all`           | Remove all registered applications.                                                                            | off                     |
+| `--delete-target` | Also delete the original executable/AppImage from disk (alias: `--delete-appimage`). Prompts for confirmation. | off                     |
+| `-y`, `--yes`     | Skip the confirmation prompt (for scripts and automation).                                                     | off                     |
 
 With `--delete-target`, `geico` asks
 `Are you sure you want to permanently delete '<path>'? [y/N]: ` before touching the
@@ -303,11 +306,16 @@ and nothing is removed. When stdin is not an interactive terminal, the command r
 to guess and exits with a non-zero status unless `--yes` is given.
 
 ```sh
-geico remove my-app                        # by id (keeps the executable)
+geico remove my-app another-app            # remove multiple applications by id
 geico remove "My App"                      # by display name
+geico remove --all -y                      # remove all registered applications
 geico remove my-app --delete-target        # full uninstall, asks first
 geico remove my-app --delete-appimage -y   # same, alias, no prompt
 ```
+
+Without `-y`, `--all` asks for confirmation and refuses to run when stdin is
+not interactive. With `--all --delete-target`, the confirmation warns that the
+registered target executables will also be permanently deleted.
 
 ### Listing categories: `--categories` without a value
 
@@ -333,7 +341,7 @@ Unknown category 'juegoz' — kept as custom. Did you mean: Game?
 
 Generates a shell completion script for tab autocompletion (`bash`, `zsh`, `fish`, `elvish`, `powershell`).
 
-```sh
+````sh
 # Example for Bash
 geico completions bash > ~/.local/share/bash-completion/completions/geico
 
@@ -350,6 +358,6 @@ geico completions fish > ~/.config/fish/completions/geico.fish
 ```sh
 cargo test    # unit + integration tests (isolated in temp dirs)
 cargo clippy  # lints (clippy::all = warn, unsafe_code = forbid)
-```
+````
 
 The project uses Rust edition 2024 and forbids `unsafe` code entirely.

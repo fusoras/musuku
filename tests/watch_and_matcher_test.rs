@@ -50,3 +50,256 @@ fn test_watch_cli_parses_scan_only_and_directory_options() {
     assert_eq!(args.icons_dir, Some(PathBuf::from("/tmp/icons")));
     assert!(args.scan_only && args.recursive && args.dry_run);
 }
+
+#[test]
+fn test_watch_scan_directories_finds_and_registers_appimage() {
+    let temp = tempdir().unwrap();
+    let app_dir = temp.path().join("apps");
+    fs::create_dir_all(&app_dir).unwrap();
+    let appimage_path = app_dir.join("MyTool-1.0.0-x86_64.AppImage");
+    fs::write(&appimage_path, "#!/bin/sh\nexit 0\n").unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = fs::metadata(&appimage_path).unwrap().permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&appimage_path, perms).unwrap();
+    }
+
+    let manager = geico::manager::Manager::new(
+        temp.path().join("config/apps.toml"),
+        temp.path().join("data"),
+        temp.path().join("bin"),
+    );
+
+    let count =
+        geico::watcher::scan_directories(&manager, &[app_dir], None, false, false, false).unwrap();
+
+    assert_eq!(count, 1);
+    let app = manager.get("mytool").unwrap();
+    assert_eq!(app.name, "mytool");
+    assert_eq!(app.id, "mytool");
+}
+
+#[test]
+fn test_watch_without_directories_or_config_errors() {
+    let temp = tempdir().unwrap();
+    let manager = geico::manager::Manager::new(
+        temp.path().join("config/apps.toml"),
+        temp.path().join("data"),
+        temp.path().join("bin"),
+    );
+
+    let args = geico::cli::Watch {
+        directories: vec![],
+        icons_dir: None,
+        continuous: false,
+        scan_only: true,
+        recursive: false,
+        dry_run: false,
+    };
+
+    let result = geico::watcher::run(args, manager);
+    assert!(result.is_err());
+    let err = result.unwrap_err().to_string();
+    assert!(
+        err.contains("no watch directories configured or provided"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
+fn test_extract_version_and_compare() {
+    use geico::matcher::{compare_versions, extract_version};
+    use std::cmp::Ordering;
+
+    assert_eq!(
+        extract_version("sonora-v0.38.0-x86_64.AppImage"),
+        Some("0.38.0".to_string())
+    );
+    assert_eq!(
+        extract_version("sonora-v0.42.1-x86_64.AppImage"),
+        Some("0.42.1".to_string())
+    );
+    assert_eq!(compare_versions("0.42.1", "0.38.0"), Ordering::Greater);
+    assert_eq!(compare_versions("0.38.0", "0.42.1"), Ordering::Less);
+    assert_eq!(compare_versions("1.0.0", "1.0.0"), Ordering::Equal);
+}
+
+#[test]
+fn test_sync_cleans_deleted_appimage_from_registry() {
+    let temp = tempdir().unwrap();
+    let app_dir = temp.path().join("apps");
+    fs::create_dir_all(&app_dir).unwrap();
+    let appimage_path = app_dir.join("PepoMote-1.0-x86_64.AppImage");
+    fs::write(&appimage_path, "#!/bin/sh\nexit 0\n").unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = fs::metadata(&appimage_path).unwrap().permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&appimage_path, perms).unwrap();
+    }
+
+    let manager = geico::manager::Manager::new(
+        temp.path().join("config/apps.toml"),
+        temp.path().join("data"),
+        temp.path().join("bin"),
+    );
+
+    // Initial registration
+    manager
+        .add(geico::manager::AddOptions {
+            target: appimage_path.clone(),
+            name: Some("pepomote".to_string()),
+            ..Default::default()
+        })
+        .unwrap();
+    assert!(manager.get("pepomote").is_ok());
+
+    // Delete the file from the watched directory
+    fs::remove_file(&appimage_path).unwrap();
+
+    // Live sync should detect file removal and clean it up automatically
+    let report = geico::watcher::sync_directories(
+        &manager,
+        &[app_dir],
+        None,
+        false,
+        false,
+        true, // clean_on_delete
+        false,
+    )
+    .unwrap();
+
+    assert_eq!(report.removed, 1);
+    assert!(
+        manager.get("pepomote").is_err(),
+        "deleted app must be removed from registry"
+    );
+}
+
+#[test]
+fn test_sync_auto_upgrades_version_when_newer_appimage_detected() {
+    let temp = tempdir().unwrap();
+    let app_dir = temp.path().join("apps");
+    fs::create_dir_all(&app_dir).unwrap();
+
+    let old_appimage = app_dir.join("sonora-v0.38.0-x86_64.AppImage");
+    fs::write(&old_appimage, "#!/bin/sh\nexit 0\n").unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = fs::metadata(&old_appimage).unwrap().permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&old_appimage, perms).unwrap();
+    }
+
+    let manager = geico::manager::Manager::new(
+        temp.path().join("config/apps.toml"),
+        temp.path().join("data"),
+        temp.path().join("bin"),
+    );
+
+    // Register old version
+    manager
+        .add(geico::manager::AddOptions {
+            target: old_appimage.clone(),
+            name: Some("sonora".to_string()),
+            ..Default::default()
+        })
+        .unwrap();
+
+    // Now remove old version and introduce new version
+    fs::remove_file(&old_appimage).unwrap();
+    let new_appimage = app_dir.join("sonora-v0.42.1-x86_64.AppImage");
+    fs::write(&new_appimage, "#!/bin/sh\nexit 0\n").unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = fs::metadata(&new_appimage).unwrap().permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&new_appimage, perms).unwrap();
+    }
+
+    // Sync
+    let report =
+        geico::watcher::sync_directories(&manager, &[app_dir], None, false, false, true, false)
+            .unwrap();
+
+    assert_eq!(
+        report.updated, 1,
+        "should have updated 1 app to newer version"
+    );
+    assert_eq!(report.removed, 0, "should not have deleted the app");
+    assert_eq!(report.added, 0, "should not have added a duplicate app");
+
+    let app = manager.get("sonora").unwrap();
+    let target_canonical = fs::canonicalize(&new_appimage).unwrap();
+    assert_eq!(app.target_bin, target_canonical);
+}
+
+#[test]
+fn test_list_automatically_syncs_configured_watch_directories() {
+    let temp = tempdir().unwrap();
+    let app_dir = temp.path().join("apps");
+    fs::create_dir_all(&app_dir).unwrap();
+
+    let old_appimage = app_dir.join("sonora-v0.38.0-x86_64.AppImage");
+    fs::write(&old_appimage, "#!/bin/sh\nexit 0\n").unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = fs::metadata(&old_appimage).unwrap().permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&old_appimage, perms).unwrap();
+    }
+
+    let config_dir = temp.path().join("config");
+    fs::create_dir_all(&config_dir).unwrap();
+
+    // Write config.toml with watch directory
+    let toml_content = format!(
+        "[watch]\ndirectories = [\"{}\"]\nclean_on_delete = true\n",
+        app_dir.display()
+    );
+    fs::write(config_dir.join("config.toml"), toml_content).unwrap();
+
+    let manager = geico::manager::Manager::new(
+        config_dir.join("apps.toml"),
+        temp.path().join("data"),
+        temp.path().join("bin"),
+    );
+
+    // Register old version
+    manager
+        .add(geico::manager::AddOptions {
+            target: old_appimage.clone(),
+            name: Some("sonora".to_string()),
+            ..Default::default()
+        })
+        .unwrap();
+
+    // Now delete old version and introduce new version
+    fs::remove_file(&old_appimage).unwrap();
+    let new_appimage = app_dir.join("sonora-v0.42.1-x86_64.AppImage");
+    fs::write(&new_appimage, "#!/bin/sh\nexit 0\n").unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = fs::metadata(&new_appimage).unwrap().permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&new_appimage, perms).unwrap();
+    }
+
+    // Call list_with_options: it should auto-sync and update the target to v0.42.1
+    let list_output = manager
+        .list_with_options(geico::manager::ListOptions::default())
+        .unwrap();
+
+    assert!(list_output.contains("sonora"));
+    assert!(list_output.contains("ok"));
+
+    let app = manager.get("sonora").unwrap();
+    assert_eq!(app.target_bin, fs::canonicalize(&new_appimage).unwrap());
+}
