@@ -1,6 +1,6 @@
 # Plan: Geico UX Enhancements & Feature Expansion
 
-**Status:** ready for implementation  
+**Status:** completed  
 **Date:** 2026-10-07  
 **Objective:** Implement approved UX improvements and strategic features to polish the terminal experience and extend `geico` capabilities with system diagnosis and application sandboxing.
 
@@ -122,35 +122,35 @@
 ## 3. Implementation Checklist
 
 ### Phase 1: UX Polishing
-- [ ] Implement `suggest_similar_app` Levenshtein helper in `src/matcher.rs`.
-- [ ] Connect suggestions to error handling in `manager.rs` for `show`, `update`, `remove`, and `run`.
-- [ ] Add visual diff reporting to `geico update` and `watcher` auto-upgrade.
-- [ ] Add `$PATH` presence check when creating symlinks in `manager.rs`.
-- [ ] Add `--ids` and `--json` to `geico list` in `src/cli.rs` and `src/manager.rs`.
-- [ ] Write unit & integration tests for all UX additions.
+- [x] Implement `suggest_similar_app` Levenshtein helper in `src/matcher.rs`.
+- [x] Connect suggestions to error handling in `manager.rs` for `show`, `update`, `remove`, and `run`.
+- [x] Add visual diff reporting to `geico update` and `watcher` auto-upgrade.
+- [x] Add `$PATH` presence check when creating symlinks in `manager.rs`.
+- [x] Add `--ids` and `--json` to `geico list` in `src/cli.rs` and `src/manager.rs`.
+- [x] Write unit & integration tests for all UX additions.
 
 ### Phase 2: `geico doctor`
-- [ ] Define `Doctor` command in `src/cli.rs`.
-- [ ] Implement `src/doctor.rs` with diagnostic checks (directories, targets, symlinks, desktop files, and sandbox backend availability) and `--fix` action.
-- [ ] Wire `Doctor` in `src/main.rs`.
-- [ ] Write integration tests for doctor diagnosis and self-healing.
-- [ ] Document `geico doctor` in `docs/commands.md` and `README.md`.
+- [x] Define `Doctor` command in `src/cli.rs`.
+- [x] Implement `src/doctor.rs` with diagnostic checks (directories, targets, symlinks, desktop files, and sandbox backend availability) and `--fix` action.
+- [x] Wire `Doctor` in `src/main.rs`.
+- [x] Write integration tests for doctor diagnosis and self-healing.
+- [x] Document `geico doctor` in `docs/commands.md` and `README.md`.
 
 ### Phase 3: Sandboxing
-- [ ] Define `[sandbox]` configuration in `src/config.rs`.
-- [ ] Add `--sandbox` / `--no-sandbox` flags in `src/cli.rs` for `add` and `update`.
-- [ ] Implement `src/sandbox.rs` with backend detection (`bwrap`, `firejail`).
-- [ ] Integrate sandbox wrapper into desktop launcher generation and symlinks.
-- [ ] Write tests verifying sandboxed `Exec=` generation.
-- [ ] Document sandbox usage in `docs/commands.md` and `docs/config.md`.
+- [x] Define `[sandbox]` configuration in `src/config.rs`.
+- [x] Add `--sandbox` / `--no-sandbox` flags in `src/cli.rs` for `add` and `update`.
+- [x] Implement `src/sandbox.rs` with backend detection (`bwrap`, `firejail`).
+- [x] Integrate sandbox wrapper into desktop launcher generation and symlinks.
+- [x] Write tests verifying sandboxed `Exec=` generation.
+- [x] Document sandbox usage in `docs/commands.md` and `docs/config.md`.
 
 ### Phase 4: Shell Completions Refresh
-- [ ] Verify that all commands (`doctor`, `sandbox` flags, `list --ids` / `--json`, `watch`, `--description`) are reflected in completions generator.
-- [ ] Update completion scripts for `bash`, `zsh`, and `fish`.
-- [ ] Test completion generation end-to-end.
+- [x] Verify that all commands (`doctor`, `sandbox` flags, `list --ids` / `--json`, `watch`, `--description`) are reflected in completions generator.
+- [x] Update completion scripts for `bash`, `zsh`, and `fish`.
+- [x] Test completion generation end-to-end.
 
 ### Phase 5: Final Verification & Installation
-- [ ] Run complete test suite (`cargo test`).
-- [ ] Verify linter clean (`cargo clippy --all-targets -- -D warnings`).
-- [ ] Verify formatting (`cargo fmt --check`).
-- [ ] Reinstall binary (`cargo install --path .`).
+- [x] Run complete test suite (`cargo test`).
+- [x] Verify linter clean (`cargo clippy --all-targets -- -D warnings`).
+- [x] Verify formatting (`cargo fmt --check`).
+- [x] Reinstall binary (`cargo install --path .`).

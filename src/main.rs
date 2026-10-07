@@ -43,6 +43,13 @@ fn main() -> Result<()> {
                 no_desktop: args.no_desktop,
                 no_symlink: args.no_symlink,
                 dest_bin: args.dest_bin,
+                sandbox: if args.sandbox {
+                    Some(true)
+                } else if args.no_sandbox {
+                    Some(false)
+                } else {
+                    None
+                },
             })?;
         }
         Command::List(args) => print!(
@@ -61,6 +68,8 @@ fn main() -> Result<()> {
                 hide_ok: args.hide_ok,
                 description: args.description,
                 no_description: args.no_description,
+                ids: args.ids,
+                json: args.json,
             })?
         ),
         Command::Show(args) => print!(
@@ -111,6 +120,13 @@ fn main() -> Result<()> {
                     categories: args.categories,
                     description: args.description,
                     remove_symlink: args.remove_symlink,
+                    sandbox: if args.sandbox {
+                        Some(true)
+                    } else if args.no_sandbox {
+                        Some(false)
+                    } else {
+                        None
+                    },
                 },
             )?;
             match outcome {
@@ -120,12 +136,15 @@ fn main() -> Result<()> {
                     name,
                     colors::RESET
                 ),
-                UpdateOutcome::Updated { entry } => println!(
-                    "{}Updated '{}' successfully.{}",
-                    colors::BOLD_GREEN,
-                    entry.name,
-                    colors::RESET
-                ),
+                UpdateOutcome::Updated { old, new } => {
+                    println!(
+                        "{}Updated '{}' successfully.{}",
+                        colors::BOLD_GREEN,
+                        new.name,
+                        colors::RESET
+                    );
+                    print!("{}", geico::manager::format_visual_diff(&old, &new));
+                }
             }
         }
         Command::Remove(args) => {
@@ -221,6 +240,17 @@ fn main() -> Result<()> {
             }
         }
         Command::Health(args) => print!("{}", manager.health(args.json, args.verbose)?),
+        Command::Doctor(args) => {
+            let report = geico::doctor::run_doctor(&manager, args.fix, args.yes)?;
+            println!("diagnostics:");
+            for detail in report.details {
+                println!("  {}", detail);
+            }
+            println!(
+                "\nSummary: {} passed, {} issues found.",
+                report.passed, report.issues
+            );
+        }
         Command::Run(args) => manager.run(&args.id_or_name, &args.args)?,
         Command::Watch(args) => geico::watcher::run(args, manager)?,
         Command::Completions(args) => {

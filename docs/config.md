@@ -88,3 +88,16 @@ Unknown keys are ignored. Wrong value types or unsupported enum values produce
 a parse error rather than silently changing behavior. The settings file is
 independent from `apps.toml`, which stores the managed application registry.
 
+
+## Sandbox
+
+```toml
+[sandbox]
+enabled = false
+backend = "auto"
+```
+
+| Key | Default | Effect |
+| --- | --- | --- |
+| `enabled` | `false` | When `true`, all newly added or updated applications without an explicit sandbox override will use a sandbox wrapper in their `.desktop` file and symlink. |
+| `backend` | `"auto"` | Selects the sandbox backend to use: `"auto"` detects installed ones, `"bwrap"` forces Bubblewrap, `"firejail"` forces Firejail. |

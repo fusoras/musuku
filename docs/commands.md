@@ -346,7 +346,34 @@ geico health --json
 
 ---
 
-## 8. `geico run`
+## 8. `geico doctor`
+
+Audits the environment and application registry to detect missing directories, broken symlinks, missing executables, and orphaned desktop files. Optionally repairs these issues automatically.
+
+```sh
+geico doctor [OPTIONS]
+```
+
+### Options
+
+| Option | Description |
+| --- | --- |
+| `--fix` | Automatically repair detected issues (prune broken symlinks, clean dead entries). |
+| `-y, --yes` | Confirm `--fix` operations without interactive prompts. |
+
+### Examples
+
+```sh
+# Run diagnostics
+geico doctor
+
+# Auto-repair issues and confirm all prompts
+geico doctor --fix --yes
+```
+
+---
+
+## 9. `geico run`
 
 Launches a registered application in the background, detached from the current terminal, passing through any additional arguments.
 
@@ -366,7 +393,7 @@ geico run obsidian --new-window ~/Notes/
 
 ---
 
-## 9. Categories Query Mode (`--categories` without a value)
+## 10. Categories Query Mode (`--categories` without a value)
 
 `--categories` accepts no value as a read-only query mode:
 - `geico update <app> --categories`: prints the application's current categories followed by the standard FreeDesktop category table.
@@ -384,7 +411,7 @@ geico add ~/bin/tool --categories
 
 ---
 
-## 10. `geico completions`
+## 11. `geico completions`
 
 Generates shell completion scripts for Tab autocompletion.
 

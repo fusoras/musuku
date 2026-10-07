@@ -26,6 +26,9 @@ pub struct AppEntry {
     /// Application description or tooltip, if any.
     #[serde(default)]
     pub description: Option<String>,
+    /// Whether this app runs sandboxed.
+    #[serde(default)]
+    pub sandbox: Option<bool>,
     /// Registration timestamp.
     pub created_at: DateTime<Utc>,
 }
@@ -51,6 +54,7 @@ impl AppEntry {
             icon_path: None,
             categories: None,
             description: None,
+            sandbox: None,
             created_at: Utc::now(),
         }
     }

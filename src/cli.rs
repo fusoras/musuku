@@ -28,6 +28,8 @@ pub enum Command {
     Completions(Completions),
     /// Check system environment and desktop integration health.
     Health(Health),
+    /// Audit and auto-repair broken symlinks, orphaned desktop files, and sandbox configuration.
+    Doctor(Doctor),
     /// Launch a registered application in the background.
     Run(Run),
     /// Scan and optionally monitor directories for AppImages.
@@ -63,6 +65,12 @@ pub struct Add {
     /// Application description or tooltip (written as Comment in .desktop).
     #[arg(long, visible_alias = "comment")]
     pub description: Option<String>,
+    /// Run the application in an isolated sandbox (bwrap or firejail).
+    #[arg(long, visible_alias = "isolate")]
+    pub sandbox: bool,
+    /// Disable sandboxing explicitly.
+    #[arg(long)]
+    pub no_sandbox: bool,
 }
 
 #[derive(Debug, Args, Default)]
@@ -97,6 +105,12 @@ pub struct List {
     /// Suppress application descriptions even if enabled in configuration.
     #[arg(long, visible_alias = "no-descriptions", visible_alias = "no-desc")]
     pub no_description: bool,
+    /// Print only application IDs, one per line (useful for scripting).
+    #[arg(long)]
+    pub ids: bool,
+    /// Output the list of applications as a structured JSON array.
+    #[arg(long)]
+    pub json: bool,
 }
 
 #[derive(Debug, Args, Default)]
@@ -159,6 +173,12 @@ pub struct Update {
     /// New application description or tooltip.
     #[arg(long, visible_alias = "comment")]
     pub description: Option<String>,
+    /// Run the application in an isolated sandbox (bwrap or firejail).
+    #[arg(long, visible_alias = "isolate")]
+    pub sandbox: bool,
+    /// Disable sandboxing explicitly.
+    #[arg(long)]
+    pub no_sandbox: bool,
 }
 
 #[derive(Debug, Args)]
@@ -217,4 +237,14 @@ pub struct Completions {
     /// Print raw completion script to stdout instead of installing to disk.
     #[arg(long)]
     pub stdout: bool,
+}
+
+#[derive(Debug, Args)]
+pub struct Doctor {
+    /// Automatically repair detected issues (clean up dead entries, prune broken symlinks).
+    #[arg(long)]
+    pub fix: bool,
+    /// Confirm without interactive prompt.
+    #[arg(short = 'y', long = "yes")]
+    pub yes: bool,
 }

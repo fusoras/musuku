@@ -15,7 +15,7 @@ pub fn install(
     base_dir: &Path,
     id: &str,
     name: &str,
-    exec: &Path,
+    exec: &str,
     icon: Option<&Path>,
     categories: Option<&[String]>,
     comment: Option<&str>,
@@ -116,11 +116,11 @@ fn find_in_path(program: &str) -> Option<PathBuf> {
         .find(|candidate| candidate.is_file())
 }
 
-fn shell_escape(path: &Path) -> String {
-    let value = path.to_string_lossy();
+fn shell_escape(path: &str) -> String {
+    let value = path;
     if value.bytes().any(|byte| b" \t\n'\"".contains(&byte)) {
         format!("'{}'", value.replace('\'', "'\\''"))
     } else {
-        value.into_owned()
+        value.to_string()
     }
 }

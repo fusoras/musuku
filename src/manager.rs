@@ -3,9 +3,9 @@
 use crate::{
     config, desktop, extractor, health,
     models::{AppEntry, slugify},
-    symlink,
+    sandbox, symlink,
 };
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{Context, Result, bail};
 use std::fmt::Write;
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
@@ -22,6 +22,7 @@ pub struct AddOptions {
     pub no_desktop: bool,
     pub no_symlink: bool,
     pub dest_bin: Option<PathBuf>,
+    pub sandbox: Option<bool>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -32,6 +33,7 @@ pub struct UpdateOptions {
     pub categories: Option<Vec<String>>,
     pub description: Option<String>,
     pub remove_symlink: bool,
+    pub sandbox: Option<bool>,
 }
 
 /// Options for [`Manager::remove_with_options`].
@@ -56,6 +58,8 @@ pub struct ListOptions {
     pub hide_ok: bool,
     pub description: bool,
     pub no_description: bool,
+    pub ids: bool,
+    pub json: bool,
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -73,9 +77,10 @@ pub struct ShowOptions {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::large_enum_variant)]
 pub enum UpdateOutcome {
     NoChanges { name: String },
-    Updated { entry: AppEntry },
+    Updated { old: AppEntry, new: AppEntry },
 }
 
 #[derive(Debug, Clone)]
@@ -122,6 +127,7 @@ impl Manager {
                 .as_ref()
                 .and_then(|result| result.metadata.comment.clone())
         });
+        entry.sandbox = options.sandbox;
         entry.categories = options
             .categories
             .or_else(|| {
@@ -136,12 +142,14 @@ impl Manager {
                     .filter(|c| !c.is_empty())
                     .collect()
             });
+        let sandbox_cmd =
+            sandbox::generate_sandbox_exec(&settings, entry.sandbox, &entry.target_bin);
         if !options.no_desktop {
             let (desktop_file, icon_path) = desktop::install(
                 &self.data_dir,
                 &entry.id,
                 &entry.name,
-                &entry.target_bin,
+                &sandbox_cmd,
                 options.icon.as_deref().or_else(|| {
                     extraction
                         .as_ref()
@@ -174,7 +182,13 @@ impl Manager {
                 destination,
                 &entry.target_bin,
                 options.bin_name.as_deref().unwrap_or(&entry.id),
+                if entry.sandbox.unwrap_or(settings.sandbox.enabled) {
+                    Some(sandbox_cmd.as_str())
+                } else {
+                    None
+                },
             )?);
+            check_and_warn_path(destination);
         }
         let mut registry = config::load(&self.config_path)?;
         registry.add(entry.clone());
@@ -209,6 +223,18 @@ impl Manager {
             })
             .filter(|app| !options.broken || !app.target_bin.exists())
             .collect();
+        if options.json {
+            return serde_json::to_string_pretty(&apps)
+                .context("failed to serialize applications to JSON");
+        }
+        if options.ids {
+            let mut ids = String::new();
+            for app in apps {
+                ids.push_str(&app.id);
+                ids.push('\n');
+            }
+            return Ok(ids);
+        }
         let table = options.table || settings.display.list_format == config::ListFormat::Table;
         let show_icons = crate::image::image_requested(
             settings.display.icons,
@@ -300,7 +326,7 @@ impl Manager {
         let registry = config::load(&self.config_path)?;
         let app = registry
             .find(query)
-            .ok_or_else(|| anyhow!("application not found: {query}"))?;
+            .ok_or_else(|| not_found_error(query, &registry))?;
 
         if options.json {
             return serde_json::to_string_pretty(app)
@@ -428,7 +454,7 @@ impl Manager {
         registry
             .find(query)
             .cloned()
-            .ok_or_else(|| anyhow!("application not found: {query}"))
+            .ok_or_else(|| not_found_error(query, &registry))
     }
 
     pub fn is_registered_target(&self, target: &Path) -> Result<bool> {
@@ -454,7 +480,7 @@ impl Manager {
         let old = registry
             .find(query)
             .cloned()
-            .ok_or_else(|| anyhow!("application not found: {query}"))?;
+            .ok_or_else(|| not_found_error(query, &registry))?;
         let metadata_change = options.target.is_some()
             || options.name.is_some()
             || options.icon.is_some()
@@ -499,6 +525,9 @@ impl Manager {
                         .collect(),
                 );
             }
+            if options.sandbox.is_some() {
+                entry.sandbox = options.sandbox;
+            }
             if let Some(description) = options.description {
                 entry.description = Some(description);
             } else if extracted_comment.is_some() {
@@ -508,13 +537,15 @@ impl Manager {
                 desktop::remove(None, entry.icon_path.as_deref())?;
                 entry.icon_path = None;
             }
+            let sandbox_cmd =
+                sandbox::generate_sandbox_exec(&settings, entry.sandbox, &entry.target_bin);
             if let Some(desktop_file) = old.desktop_file.as_deref() {
                 desktop::remove(Some(desktop_file), None)?;
                 let (new_file, icon) = desktop::install(
                     &self.data_dir,
                     &entry.id,
                     &entry.name,
-                    &entry.target_bin,
+                    &sandbox_cmd,
                     options
                         .icon
                         .as_deref()
@@ -543,7 +574,13 @@ impl Manager {
                     &destination,
                     &entry.target_bin,
                     link_name,
+                    if entry.sandbox.unwrap_or(settings.sandbox.enabled) {
+                        Some(sandbox_cmd.as_str())
+                    } else {
+                        None
+                    },
                 )?);
+                check_and_warn_path(&destination);
             }
         } else if old.symlink.is_none() {
             // `--remove-symlink` on an app that never had one: nothing changed.
@@ -551,14 +588,14 @@ impl Manager {
         }
         let updated = registry
             .update(query, |stored| *stored = entry.clone())
-            .ok_or_else(|| anyhow!("application not found: {query}"))?
+            .ok_or_else(|| anyhow::anyhow!("Application '{}' not found.", query))?
             .clone();
         config::save(&self.config_path, &registry)?;
         if let Some(root) = extraction_root {
             let _ = fs::remove_dir_all(root);
         }
         self.refresh_desktop_db(&settings);
-        Ok(UpdateOutcome::Updated { entry: updated })
+        Ok(UpdateOutcome::Updated { old, new: updated })
     }
 
     pub fn remove(&self, query: &str) -> Result<()> {
@@ -569,7 +606,7 @@ impl Manager {
         let mut registry = config::load(&self.config_path)?;
         let entry = registry
             .remove(query)
-            .ok_or_else(|| anyhow!("application not found: {query}"))?;
+            .ok_or_else(|| not_found_error(query, &registry))?;
         desktop::remove(entry.desktop_file.as_deref(), entry.icon_path.as_deref())?;
         if let Some(link) = entry.symlink.as_deref() {
             symlink::remove(link)?;
@@ -605,7 +642,7 @@ impl Manager {
         let registry = config::load(&self.config_path)?;
         let app = registry
             .find(query)
-            .ok_or_else(|| anyhow!("application not found: {query}"))?;
+            .ok_or_else(|| not_found_error(query, &registry))?;
         if !app.target_bin.exists() {
             bail!(
                 "application target is missing: {}",
@@ -680,6 +717,23 @@ fn canonicalize_target(path: &Path) -> Result<PathBuf> {
         bail!("target is not executable: {}", canonical.display());
     }
     Ok(canonical)
+}
+
+fn not_found_error(query: &str, registry: &crate::models::AppRegistry) -> anyhow::Error {
+    let mut candidates = Vec::new();
+    for app in &registry.apps {
+        candidates.push(app.id.as_str());
+        candidates.push(app.name.as_str());
+    }
+    if let Some(suggestion) = crate::matcher::suggest_similar_app(query, &candidates) {
+        anyhow::anyhow!(
+            "Application '{}' not found. Did you mean '{}'?",
+            query,
+            suggestion
+        )
+    } else {
+        anyhow::anyhow!("Application '{}' not found.", query)
+    }
 }
 
 fn status_with_color(path: &Path, colored: bool) -> String {
@@ -924,4 +978,108 @@ fn visible_width(value: &str) -> usize {
         }
     }
     width
+}
+
+pub fn format_visual_diff(old: &AppEntry, new: &AppEntry) -> String {
+    let mut out = String::new();
+    let arrow = "➔";
+
+    if old.target_bin != new.target_bin {
+        out.push_str(&format!(
+            "  Target: {} {} {}\n",
+            old.target_bin.display(),
+            arrow,
+            new.target_bin.display()
+        ));
+    }
+    if old.icon_path != new.icon_path {
+        let old_icon = old
+            .icon_path
+            .as_ref()
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|| "none".to_string());
+        let new_icon = new
+            .icon_path
+            .as_ref()
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|| "none".to_string());
+        out.push_str(&format!("  Icon: {} {} {}\n", old_icon, arrow, new_icon));
+    }
+    if old.name != new.name {
+        out.push_str(&format!("  Name: {} {} {}\n", old.name, arrow, new.name));
+    }
+    if old.categories != new.categories {
+        let old_cats = old
+            .categories
+            .as_ref()
+            .map(|c| c.join(", "))
+            .unwrap_or_else(|| "none".to_string());
+        let new_cats = new
+            .categories
+            .as_ref()
+            .map(|c| c.join(", "))
+            .unwrap_or_else(|| "none".to_string());
+        out.push_str(&format!(
+            "  Categories: {} {} {}\n",
+            old_cats, arrow, new_cats
+        ));
+    }
+    if old.description != new.description {
+        let old_desc = old.description.as_deref().unwrap_or("none");
+        let new_desc = new.description.as_deref().unwrap_or("none");
+        out.push_str(&format!(
+            "  Description: {} {} {}\n",
+            old_desc, arrow, new_desc
+        ));
+    }
+    if old.sandbox != new.sandbox {
+        let old_val = old
+            .sandbox
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| "none".to_string());
+        let new_val = new
+            .sandbox
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| "none".to_string());
+        out.push_str(&format!("  Sandbox: {} {} {}\n", old_val, arrow, new_val));
+    }
+    out
+}
+
+fn check_and_warn_path(destination: &Path) {
+    let Ok(path_var) = std::env::var("PATH") else {
+        return;
+    };
+    let dest_canon =
+        std::fs::canonicalize(destination).unwrap_or_else(|_| destination.to_path_buf());
+
+    let is_in_path = path_var.split(':').any(|p| {
+        let p_path = Path::new(p);
+        let p_canon = std::fs::canonicalize(p_path).unwrap_or_else(|_| p_path.to_path_buf());
+        p_canon == dest_canon
+    });
+
+    if !is_in_path {
+        let display = destination.display().to_string();
+        let display_tilde = if let Some(home) = dirs::home_dir() {
+            if let Ok(suffix) = destination.strip_prefix(&home) {
+                format!("~/{}", suffix.display())
+            } else {
+                display.clone()
+            }
+        } else {
+            display.clone()
+        };
+        eprintln!(
+            "{}Note:{} '{}' is not in your current $PATH.",
+            crate::colors::BOLD_YELLOW,
+            crate::colors::RESET,
+            display_tilde
+        );
+        eprintln!("Add this to your shell profile (~/.bashrc or ~/.zshrc):");
+        eprintln!(
+            "  export PATH=\"{}:$PATH\"",
+            display_tilde.replace("~", "$HOME")
+        );
+    }
 }
