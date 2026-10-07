@@ -175,6 +175,7 @@ fn test_appimage_symlink_defaults_to_disabled_but_config_can_enable_it() {
         let entry = manager
             .add(AddOptions {
                 target,
+                categories: Some(vec![]),
                 no_desktop: true,
                 ..AddOptions::default()
             })
@@ -1408,4 +1409,345 @@ fn test_defaults_categories_and_dest_bin_apply_when_cli_omits_them() {
         .unwrap();
     assert_eq!(entry.categories, Some(vec!["Development".into()]));
     assert_eq!(entry.symlink.unwrap().parent(), Some(destination.as_path()));
+}
+// ---------------------------------------------------------------------------
+// `--categories` query mode (flag present without a value) and the removal of
+// the `geico categories` subcommand.
+// ---------------------------------------------------------------------------
+
+fn run_geico(
+    home: &std::path::Path,
+    xdg_config: &std::path::Path,
+    xdg_data: &std::path::Path,
+    args: &[&str],
+) -> std::process::Output {
+    std::process::Command::new(env!("CARGO_BIN_EXE_geico"))
+        .args(args)
+        .env("HOME", home)
+        .env("XDG_CONFIG_HOME", xdg_config)
+        .env("XDG_DATA_HOME", xdg_data)
+        .env_remove("SHELL")
+        .stdin(std::process::Stdio::null())
+        .output()
+        .unwrap()
+}
+
+#[test]
+fn test_cli_categories_flag_without_value_parses_as_empty_list() {
+    for cmd in [
+        vec!["geico", "update", "my-app", "--categories"],
+        vec!["geico", "add", "/tmp/tool", "--categories"],
+    ] {
+        let cli = Cli::try_parse_from(&cmd).unwrap_or_else(|e| panic!("{cmd:?} must parse: {e}"));
+        match cli.command {
+            Command::Update(args) => assert_eq!(
+                args.categories,
+                Some(vec![]),
+                "update --categories without a value must parse as Some(vec![])"
+            ),
+            Command::Add(args) => assert_eq!(
+                args.categories,
+                Some(vec![]),
+                "add --categories without a value must parse as Some(vec![])"
+            ),
+            other => panic!("expected update/add subcommand, got {other:?}"),
+        }
+    }
+}
+
+#[test]
+fn test_cli_categories_flag_with_value_parses_delimited_list() {
+    let cli = Cli::try_parse_from([
+        "geico",
+        "update",
+        "my-app",
+        "--categories",
+        "Video,AudioVideo",
+    ])
+    .expect("geico update <app> --categories Video,AudioVideo must parse");
+    match cli.command {
+        Command::Update(args) => assert_eq!(
+            args.categories,
+            Some(vec!["Video".to_string(), "AudioVideo".to_string()])
+        ),
+        other => panic!("expected the update subcommand, got {other:?}"),
+    }
+}
+
+#[test]
+fn test_cli_categories_flag_without_value_does_not_swallow_help() {
+    let error = Cli::try_parse_from(["geico", "update", "my-app", "--categories", "--help"])
+        .expect_err("--categories with no value must not consume --help");
+    assert_eq!(
+        error.kind(),
+        clap::error::ErrorKind::DisplayHelp,
+        "--help after --categories must render the help text, got: {error}"
+    );
+}
+
+#[test]
+fn test_cli_categories_subcommand_is_removed() {
+    let error = Cli::try_parse_from(["geico", "categories"])
+        .expect_err("`geico categories` was removed in favor of `--categories` with no value");
+    assert_eq!(
+        error.kind(),
+        clap::error::ErrorKind::InvalidSubcommand,
+        "expected an unrecognized-subcommand error, got: {error}"
+    );
+}
+
+#[test]
+fn test_update_categories_query_prints_current_categories_without_mutating_registry() {
+    let temp = tempdir().unwrap();
+    let home = temp.path().join("home");
+    let xdg_config = temp.path().join("xdg-config");
+    let xdg_data = temp.path().join("xdg-data");
+    fs::create_dir_all(&home).unwrap();
+    let target = temp.path().join("openshot");
+    executable(&target);
+
+    let registry_path = xdg_config.join("geico/apps.toml");
+    let manager = Manager::new(
+        registry_path.clone(),
+        xdg_data.clone(),
+        home.join(".local/bin"),
+    );
+    manager
+        .add(AddOptions {
+            target,
+            name: Some("openshot".to_string()),
+            categories: Some(vec!["Video".to_string(), "AudioVideo".to_string()]),
+            ..AddOptions::default()
+        })
+        .unwrap();
+    let registry_before = fs::read(&registry_path).unwrap();
+
+    let output = run_geico(
+        &home,
+        &xdg_config,
+        &xdg_data,
+        &["update", "openshot", "--categories"],
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        output.status.success(),
+        "query mode must exit 0; stderr: {stderr}"
+    );
+    assert!(
+        stdout.contains("Current categories for 'openshot': Video,AudioVideo"),
+        "expected current categories header, got: {stdout}"
+    );
+    assert!(
+        stdout.contains("Standard FreeDesktop Application Categories"),
+        "expected the standard categories table, got: {stdout}"
+    );
+    assert!(
+        stdout.contains("Usage tip: geico update openshot --categories Video,AudioVideo"),
+        "expected the update usage tip, got: {stdout}"
+    );
+    assert!(
+        stdout
+            .trim_end()
+            .lines()
+            .next_back()
+            .is_some_and(|line| line
+                .contains("Usage tip: geico update openshot --categories Video,AudioVideo")),
+        "usage tip must be the last line, got: {stdout}"
+    );
+
+    let registry_after = fs::read(&registry_path).unwrap();
+    assert_eq!(
+        registry_before, registry_after,
+        "query mode must not mutate the registry"
+    );
+}
+
+#[test]
+fn test_update_categories_query_reports_none_when_app_has_no_categories() {
+    let temp = tempdir().unwrap();
+    let home = temp.path().join("home");
+    let xdg_config = temp.path().join("xdg-config");
+    let xdg_data = temp.path().join("xdg-data");
+    fs::create_dir_all(&home).unwrap();
+    let target = temp.path().join("plain");
+    executable(&target);
+
+    let registry_path = xdg_config.join("geico/apps.toml");
+    let manager = Manager::new(
+        registry_path.clone(),
+        xdg_data.clone(),
+        home.join(".local/bin"),
+    );
+    manager
+        .add(AddOptions {
+            target,
+            ..AddOptions::default()
+        })
+        .unwrap();
+
+    let output = run_geico(
+        &home,
+        &xdg_config,
+        &xdg_data,
+        &["update", "plain", "--categories"],
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        output.status.success(),
+        "query mode must exit 0; stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        stdout.contains("Current categories for 'plain': Utility"),
+        "expected the configured default category, got: {stdout}"
+    );
+}
+
+#[test]
+fn test_update_categories_query_errors_for_unknown_app() {
+    let temp = tempdir().unwrap();
+    let home = temp.path().join("home");
+    let xdg_config = temp.path().join("xdg-config");
+    let xdg_data = temp.path().join("xdg-data");
+    fs::create_dir_all(&home).unwrap();
+
+    let output = run_geico(
+        &home,
+        &xdg_config,
+        &xdg_data,
+        &["update", "missing-app", "--categories"],
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        !output.status.success(),
+        "query mode must fail for an unknown app; stderr: {stderr}"
+    );
+    assert!(
+        stderr.contains("application not found: missing-app"),
+        "expected the normal not-found error, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_add_categories_query_prints_table_and_registers_nothing() {
+    let temp = tempdir().unwrap();
+    let home = temp.path().join("home");
+    let xdg_config = temp.path().join("xdg-config");
+    let xdg_data = temp.path().join("xdg-data");
+    fs::create_dir_all(&home).unwrap();
+    let target = temp.path().join("query-tool");
+    executable(&target);
+
+    let output = run_geico(
+        &home,
+        &xdg_config,
+        &xdg_data,
+        &["add", target.to_str().unwrap(), "--categories"],
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        output.status.success(),
+        "add query mode must exit 0; stderr: {stderr}"
+    );
+    assert!(
+        stdout.contains("Standard FreeDesktop Application Categories"),
+        "expected the standard categories table, got: {stdout}"
+    );
+    assert!(
+        stdout.contains("Usage tip: geico add <path> --categories Video,AudioVideo"),
+        "expected the add usage tip, got: {stdout}"
+    );
+    assert!(
+        !stdout.contains("Current categories"),
+        "add query mode must not print a current-categories header, got: {stdout}"
+    );
+    assert!(
+        !xdg_config.join("geico/apps.toml").exists(),
+        "add query mode must not register anything"
+    );
+}
+
+#[test]
+fn test_update_unknown_category_warns_on_stderr_and_keeps_custom_value() {
+    let temp = tempdir().unwrap();
+    let home = temp.path().join("home");
+    let xdg_config = temp.path().join("xdg-config");
+    let xdg_data = temp.path().join("xdg-data");
+    fs::create_dir_all(&home).unwrap();
+    let target = temp.path().join("gameapp");
+    executable(&target);
+
+    let registry_path = xdg_config.join("geico/apps.toml");
+    let manager = Manager::new(
+        registry_path.clone(),
+        xdg_data.clone(),
+        home.join(".local/bin"),
+    );
+    let entry = manager
+        .add(AddOptions {
+            target,
+            name: Some("gameapp".to_string()),
+            ..AddOptions::default()
+        })
+        .unwrap();
+
+    let output = run_geico(
+        &home,
+        &xdg_config,
+        &xdg_data,
+        &["update", "gameapp", "--categories", "juegoz"],
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        output.status.success(),
+        "unknown categories are a warning, not an error; stderr: {stderr}"
+    );
+    assert!(
+        !stdout.contains("Unknown category"),
+        "the warning must go to stderr to keep stdout script-friendly; stdout: {stdout}"
+    );
+    assert!(
+        stderr.contains("Unknown category 'juegoz' — kept as custom. Did you mean: Game?"),
+        "expected a did-you-mean warning, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("Run 'geico update <app> --categories'"),
+        "the hint must point at the no-value query mode, got: {stderr}"
+    );
+    assert!(
+        !stderr.contains("geico categories"),
+        "the hint must not reference the removed subcommand, got: {stderr}"
+    );
+    let updated = manager.get(&entry.id).unwrap();
+    assert_eq!(
+        updated.categories,
+        Some(vec!["juegoz".to_string()]),
+        "the unknown value must still be kept as a custom category"
+    );
+
+    let known = run_geico(
+        &home,
+        &xdg_config,
+        &xdg_data,
+        &["update", "gameapp", "--categories", "Video,dev"],
+    );
+    let known_stderr = String::from_utf8_lossy(&known.stderr);
+    assert!(known.status.success());
+    assert!(
+        !known_stderr.contains("Unknown category"),
+        "known categories must not warn, got: {known_stderr}"
+    );
+    let updated = manager.get(&entry.id).unwrap();
+    assert_eq!(
+        updated.categories,
+        Some(vec!["Video".to_string(), "Development".to_string()])
+    );
 }

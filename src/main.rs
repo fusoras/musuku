@@ -21,6 +21,18 @@ fn main() -> Result<()> {
     );
     match cli.command {
         Command::Add(args) => {
+            if matches!(args.categories.as_deref(), Some([])) {
+                // `--categories` without a value: list mode, nothing is registered.
+                print!(
+                    "{}",
+                    categories::render_categories_query(
+                        None,
+                        "Usage tip: geico add <path> --categories Video,AudioVideo",
+                    )
+                );
+                return Ok(());
+            }
+            warn_unknown_categories(args.categories.as_deref().unwrap_or_default());
             manager.add(AddOptions {
                 target: args.executable,
                 name: args.name,
@@ -59,6 +71,26 @@ fn main() -> Result<()> {
             )?
         ),
         Command::Update(args) => {
+            if matches!(args.categories.as_deref(), Some([])) {
+                // `--categories` without a value: query mode, never mutates.
+                let entry = manager.get(&args.id_or_name)?;
+                let tip = format!(
+                    "Usage tip: geico update {} --categories Video,AudioVideo",
+                    entry.name
+                );
+                print!(
+                    "{}",
+                    categories::render_categories_query(
+                        Some((
+                            entry.name.as_str(),
+                            entry.categories.as_deref().unwrap_or_default(),
+                        )),
+                        &tip,
+                    )
+                );
+                return Ok(());
+            }
+            warn_unknown_categories(args.categories.as_deref().unwrap_or_default());
             let outcome = manager.update(
                 &args.id_or_name,
                 UpdateOptions {
@@ -123,7 +155,6 @@ fn main() -> Result<()> {
         }
         Command::Health(args) => print!("{}", manager.health(args.json, args.verbose)?),
         Command::Run(args) => manager.run(&args.id_or_name, &args.args)?,
-        Command::Categories => print!("{}", categories::format_categories_table()),
         Command::Completions(args) => {
             let shell = args.shell.unwrap_or_else(|| {
                 geico::completions::detect_shell(std::env::var("SHELL").ok().as_deref())
@@ -156,4 +187,15 @@ fn main() -> Result<()> {
         }
     }
     Ok(())
+}
+
+/// Emits an advisory warning to stderr for every `--categories` value that
+/// would be kept as an unknown custom category. Never fatal, never stdout
+/// (keeps stdout script-friendly), and colored via [`colors::should_color`].
+fn warn_unknown_categories(values: &[String]) {
+    for value in values {
+        if let Some(warning) = categories::unknown_category_warning(value, colors::should_color()) {
+            eprintln!("{warning}");
+        }
+    }
 }

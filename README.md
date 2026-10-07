@@ -112,10 +112,9 @@ geico remove myapp
 
 ## Commands
 
-`geico` has nine subcommands: [`add`](#geico-add), [`list`](#geico-list),
+`geico` has eight subcommands: [`add`](#geico-add), [`list`](#geico-list),
 [`show`](#geico-show), [`update`](#geico-update), [`remove`](#geico-remove),
-[`categories`](#geico-categories), [`completions`](#geico-completions),
-[`health`](#geico-health), and [`run`](#geico-run).
+[`completions`](#geico-completions), [`health`](#geico-health), and [`run`](#geico-run).
 Every subcommand accepts
 `-h, --help` for its own usage text.
 
@@ -128,7 +127,7 @@ Registers an executable file and integrates it into the system.
 | `<EXECUTABLE>`        | Path to the executable file (AppImage, binary, or script). Must exist, be a regular file, and be executable. | required                         |
 | `--name <NAME>`       | Display name of the application.                                               | executable filename (see below)  |
 | `--icon <PATH>`       | Icon file; **copied** to `~/.local/share/icons/` (source is not moved).        | no icon                          |
-| `--categories <LIST>` | Desktop categories separated by commas (e.g. `Development,Utility`).           | no `Categories=` line            |
+| `--categories <LIST>` | Desktop categories separated by commas (e.g. `Development,Utility`). Omit the value to list the standard categories without registering anything. | no `Categories=` line            |
 | `--bin-name <NAME>`   | Custom command name for the terminal symlink.                                  | the application id (slug)        |
 | `--no-desktop`        | Skip creating a `.desktop` launcher entry.                                     | desktop entry is created         |
 | `--no-symlink`        | Skip creating a terminal `$PATH` symlink.                                      | symlink is created               |
@@ -200,6 +199,11 @@ listing the available tools, or a `[warning]` only when the whole group is
 missing. Add `--verbose` (`-v`) for the per-tool inventory, where a missing
 tool is shown as a dim `[–]` instead of a warning.
 
+SVG previews use the first available converter in priority order —
+`rsvg-convert` (purpose-built, fastest, GNOME-compatible) → `magick` →
+`convert` (ImageMagick, slower and subject to its `policy.xml`). With none
+installed, previews are skipped silently and launchers keep working.
+
 ### `geico run <ID_OR_NAME> [ARGS...]`
 
 Launches a registered application in the background, passing through any
@@ -241,7 +245,7 @@ case-insensitively.
 | `--target <PATH>`     | New path to the executable (validated exactly like `add`).        | target unchanged     |
 | `--icon <PATH>`       | New icon file; the previously copied icon is removed first.       | icon unchanged       |
 | `--name <NAME>`       | New display name; the id is re-derived (slug) from it.            | name unchanged       |
-| `--categories <LIST>` | New desktop categories (e.g. `AudioVideo,Development`).           | categories unchanged |
+| `--categories <LIST>` | New desktop categories (e.g. `AudioVideo,Development`). Omit the value to show the current categories without changing anything. | categories unchanged |
 | `--remove-symlink`    | Delete the terminal symlink and clear `symlink` in `apps.toml`.   | symlink kept         |
 
 Changing `--target`, `--name`, `--icon`, or `--categories` regenerates the `.desktop` file and
@@ -295,12 +299,24 @@ geico remove my-app --delete-target        # full uninstall, asks first
 geico remove my-app --delete-appimage -y   # same, alias, no prompt
 ```
 
-### `geico categories`
+### Listing categories: `--categories` without a value
 
-Displays the predefined FreeDesktop application categories with human-readable descriptions and common examples. Useful for discovering the right categories to use with `--categories`.
+`--categories` accepts no value as a read-only query mode. `geico update
+<app> --categories` prints the application's current categories followed by
+the standard FreeDesktop category table; `geico add <path> --categories`
+prints only the table. Neither registers nor modifies anything.
 
 ```sh
-geico categories
+geico update my-app --categories
+geico add ~/tools/bin/jq --categories
+```
+
+Values that do not match a standard category (or a known alias) are kept as
+custom categories, with an advisory `Did you mean:` warning on stderr:
+
+```text
+Unknown category 'juegoz' — kept as custom. Did you mean: Game?
+  Run 'geico update <app> --categories' (sin valor) to see all standard categories.
 ```
 
 ### `geico completions <SHELL>`
