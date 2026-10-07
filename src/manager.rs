@@ -451,11 +451,13 @@ impl Manager {
         config::save(&self.config_path, &registry)
     }
 
-    pub fn health(&self, json: bool) -> Result<String> {
+    pub fn health(&self, json: bool, verbose: bool) -> Result<String> {
         let registry = config::load(&self.config_path)?;
         let report = health::HealthReport::collect(&registry, self.data_dir.clone());
         if json {
             Ok(serde_json::to_string_pretty(&report)?)
+        } else if verbose {
+            Ok(report.format_text_verbose_with(crate::colors::should_color()))
         } else {
             Ok(report.format_text())
         }

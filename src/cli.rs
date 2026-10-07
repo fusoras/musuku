@@ -81,6 +81,9 @@ pub struct List {
 pub struct Health {
     #[arg(long)]
     pub json: bool,
+    /// List every checked tool individually (missing ones as dim `[–]`).
+    #[arg(short = 'v', long)]
+    pub verbose: bool,
 }
 
 #[derive(Debug, Args)]

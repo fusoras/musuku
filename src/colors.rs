@@ -63,3 +63,9 @@ pub fn green(enabled: bool, text: &str) -> String {
 pub fn yellow(enabled: bool, text: &str) -> String {
     paint(enabled, BOLD_YELLOW, text)
 }
+
+/// Dim gray styling for de-emphasized text (e.g. tools that are not
+/// installed), applied only when `enabled`.
+pub fn dim(enabled: bool, text: &str) -> String {
+    paint(enabled, DIM_GRAY, text)
+}

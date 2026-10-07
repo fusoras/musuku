@@ -108,10 +108,14 @@ Blender (blender) target=missing/broken desktop=ok symlink=missing/broken
 ## `geico health`
 
 Checks SVG converters, Kitty Graphics Protocol terminal support, desktop
-utilities, environment paths, and the application registry.
+utilities, environment paths, and the application registry. Each tool group
+is reported by capability: available tools are listed on an `[ok]` line, and
+`[warning]` appears only when a whole group is missing. Use `--verbose`
+(`-v`) for the per-tool inventory, where missing tools are shown as `[–]`.
 
 ```sh
 geico health
+geico health --verbose
 geico health --json
 ```
 

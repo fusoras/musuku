@@ -121,7 +121,7 @@ fn main() -> Result<()> {
                 colors::RESET
             );
         }
-        Command::Health(args) => print!("{}", manager.health(args.json)?),
+        Command::Health(args) => print!("{}", manager.health(args.json, args.verbose)?),
         Command::Run(args) => manager.run(&args.id_or_name, &args.args)?,
         Command::Categories => print!("{}", categories::format_categories_table()),
         Command::Completions(args) => {
