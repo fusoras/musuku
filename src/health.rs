@@ -81,36 +81,69 @@ impl HealthReport {
         }
     }
 
+    /// Renders the report as human-readable text.
+    ///
+    /// ANSI colors are decided at format time (see [`crate::colors::should_color`]);
+    /// the [`HealthReport`] data itself stays color-free so `--json` stays clean.
     pub fn format_text(&self) -> String {
+        self.format_text_with(crate::colors::should_color())
+    }
+
+    /// Renders the report as human-readable text, applying ANSI colors only
+    /// when `color` is true. `format_text_with(false)` is always plain text.
+    pub fn format_text_with(&self, color: bool) -> String {
         let mut output = String::from("geico health\n\n");
-        output.push_str(&format!(
-            "Terminal graphics: {}\n",
-            if self.terminal_graphics.supported {
-                "[ok]"
-            } else {
-                "[warning]"
-            }
-        ));
+        if self.terminal_graphics.supported {
+            output.push_str(&format!(
+                "{} your terminal supports the kitty graphics protocol\n",
+                crate::colors::green(color, "✅ OK")
+            ));
+        } else {
+            output.push_str(&format!(
+                "{} your terminal does not support the kitty graphics protocol\n",
+                crate::colors::yellow(color, "⚠ WARNING")
+            ));
+        }
         output.push_str("SVG converters:\n");
         for tool in &self.svg_tools {
-            output.push_str(&format!("  {} {}\n", mark(tool.available), tool.name));
+            output.push_str(&format!(
+                "  {} {}\n",
+                mark(tool.available, color),
+                tool.name
+            ));
         }
         output.push_str("Desktop utilities:\n");
         for tool in &self.desktop_tools {
-            output.push_str(&format!("  {} {}\n", mark(tool.available), tool.name));
+            output.push_str(&format!(
+                "  {} {}\n",
+                mark(tool.available, color),
+                tool.name
+            ));
         }
         output.push_str("Environment paths:\n");
         for path in &self.environment_paths {
             output.push_str(&format!(
                 "  {} {} ({})\n",
-                mark(path.configured),
+                mark(path.configured, color),
                 path.name,
                 path.path.display()
             ));
         }
+        // Only one count is emphasized: the broken tally in yellow when there
+        // are broken entries, otherwise the healthy tally in green.
+        let healthy = if self.app_summary.broken == 0 {
+            crate::colors::green(color, &self.app_summary.healthy.to_string())
+        } else {
+            self.app_summary.healthy.to_string()
+        };
+        let broken = if self.app_summary.broken > 0 {
+            crate::colors::yellow(color, &self.app_summary.broken.to_string())
+        } else {
+            self.app_summary.broken.to_string()
+        };
         output.push_str(&format!(
             "Registry: {} healthy, {} broken, {} total\n",
-            self.app_summary.healthy, self.app_summary.broken, self.app_summary.total
+            healthy, broken, self.app_summary.total
         ));
         output
     }
@@ -177,6 +210,10 @@ fn find_in_path(name: &str) -> Option<PathBuf> {
         .find(|candidate| candidate.is_file())
 }
 
-fn mark(ok: bool) -> &'static str {
-    if ok { "[ok]" } else { "[warning]" }
+fn mark(ok: bool, color: bool) -> String {
+    if ok {
+        crate::colors::green(color, "[ok]")
+    } else {
+        crate::colors::yellow(color, "[warning]")
+    }
 }
