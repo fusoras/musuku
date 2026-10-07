@@ -2,7 +2,8 @@
 
 use crate::models::AppRegistry;
 use serde::Serialize;
-use std::path::PathBuf;
+use std::ffi::OsStr;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 #[derive(Debug, Clone, Serialize)]
@@ -71,10 +72,12 @@ impl HealthReport {
                 PathCheck {
                     name: "XDG_DATA_DIRS".into(),
                     path: applications,
-                    configured: std::env::split_paths(
-                        &std::env::var_os("XDG_DATA_DIRS").unwrap_or_default(),
-                    )
-                    .any(|path| path == data_dir),
+                    configured: data_dir_discoverable(
+                        &data_dir,
+                        std::env::var_os("XDG_DATA_HOME").as_deref(),
+                        std::env::var_os("XDG_DATA_DIRS").as_deref(),
+                        &crate::desktop::default_base_dir(),
+                    ),
                 },
             ],
             app_summary: RegistrySummary::from_registry(registry),
@@ -93,15 +96,16 @@ impl HealthReport {
     /// when `color` is true. `format_text_with(false)` is always plain text.
     pub fn format_text_with(&self, color: bool) -> String {
         let mut output = String::from("geico health\n\n");
+        output.push_str("Terminal graphics:\n");
         if self.terminal_graphics.supported {
             output.push_str(&format!(
-                "{} your terminal supports the kitty graphics protocol\n",
-                crate::colors::green(color, "✅ OK")
+                "  {} your terminal supports the kitty graphics protocol\n",
+                mark(true, color)
             ));
         } else {
             output.push_str(&format!(
-                "{} your terminal does not support the kitty graphics protocol\n",
-                crate::colors::yellow(color, "⚠ WARNING")
+                "  {} your terminal does not support the kitty graphics protocol\n",
+                mark(false, color)
             ));
         }
         output.push_str("SVG converters:\n");
@@ -163,6 +167,32 @@ impl RegistrySummary {
             broken: total - healthy,
         }
     }
+}
+
+/// Whether desktop environments can discover `data_dir` for launcher lookup.
+///
+/// The check keeps its historical `XDG_DATA_DIRS` name in the report, but the
+/// criterion is the real XDG data search path: the data dir is discoverable if
+/// it is the default data dir (implicitly covered by `$XDG_DATA_HOME`), if it
+/// equals `$XDG_DATA_HOME`, or if it appears among the `$XDG_DATA_DIRS`
+/// entries. Everything else is a non-standard, undiscoverable location.
+///
+/// Pure by design: environment values are passed in as parameters so tests
+/// never mutate process-wide state (the crate forbids `unsafe_code`, which
+/// rules out `env::set_var` on edition 2024).
+pub fn data_dir_discoverable(
+    data_dir: &Path,
+    xdg_data_home: Option<&OsStr>,
+    xdg_data_dirs: Option<&OsStr>,
+    default_data_dir: &Path,
+) -> bool {
+    if data_dir == default_data_dir {
+        return true;
+    }
+    if xdg_data_home.is_some_and(|home| Path::new(home) == data_dir) {
+        return true;
+    }
+    xdg_data_dirs.is_some_and(|dirs| std::env::split_paths(dirs).any(|path| path == data_dir))
 }
 
 pub fn detect_terminal_graphics(term_program: Option<&str>, term: Option<&str>) -> TerminalCheck {
