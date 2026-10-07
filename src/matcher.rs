@@ -131,3 +131,82 @@ pub fn find_icon(icons_dir: &Path, app_name: &str) -> Result<Option<PathBuf>> {
     }
     Ok(None)
 }
+
+/// Compute Levenshtein distance between two strings
+#[allow(clippy::needless_range_loop)]
+fn levenshtein(a: &str, b: &str) -> usize {
+    let a_chars: Vec<char> = a.chars().collect();
+    let b_chars: Vec<char> = b.chars().collect();
+    let mut dp = vec![vec![0; b_chars.len() + 1]; a_chars.len() + 1];
+
+    for i in 0..=a_chars.len() {
+        dp[i][0] = i;
+    }
+    for j in 0..=b_chars.len() {
+        dp[0][j] = j;
+    }
+
+    for i in 1..=a_chars.len() {
+        for j in 1..=b_chars.len() {
+            let cost = if a_chars[i - 1] == b_chars[j - 1] {
+                0
+            } else {
+                1
+            };
+            dp[i][j] = (dp[i - 1][j] + 1)
+                .min(dp[i][j - 1] + 1)
+                .min(dp[i - 1][j - 1] + cost);
+        }
+    }
+    dp[a_chars.len()][b_chars.len()]
+}
+
+/// Suggest a similar app using normalized Levenshtein edit distance.
+pub fn suggest_similar_app(query: &str, candidates: &[&str]) -> Option<String> {
+    let mut best_match = None;
+    let mut best_dist = usize::MAX;
+
+    let query_lower = query.to_lowercase();
+
+    for &cand in candidates {
+        // We compare the raw candidate and the normalized candidate.
+        let cand_lower = cand.to_lowercase();
+        let norm_cand = normalize_name(&cand_lower);
+
+        for c in [&cand_lower, &norm_cand] {
+            let dist = levenshtein(&query_lower, c);
+            let max_len = query_lower.chars().count().max(c.chars().count());
+            let score = if max_len == 0 {
+                0.0
+            } else {
+                dist as f64 / max_len as f64
+            };
+
+            if (dist <= 2 || score < 0.4) && dist < best_dist {
+                best_dist = dist;
+                best_match = Some(cand.to_string());
+            }
+        }
+    }
+
+    best_match
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_suggest_similar_app() {
+        let candidates = vec!["shotcut", "firefox", "gimp", "vlc"];
+        assert_eq!(
+            suggest_similar_app("shotct", &candidates),
+            Some("shotcut".to_string())
+        );
+        assert_eq!(
+            suggest_similar_app("gim", &candidates),
+            Some("gimp".to_string())
+        );
+        assert_eq!(suggest_similar_app("asdfghj", &candidates), None);
+    }
+}

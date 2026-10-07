@@ -559,7 +559,7 @@ fn test_update_retargets_desktop_and_symlink() {
         .unwrap();
 
     let updated = match outcome {
-        UpdateOutcome::Updated { entry } => entry,
+        UpdateOutcome::Updated { new: entry, .. } => entry,
         UpdateOutcome::NoChanges { .. } => panic!("expected update outcome"),
     };
     assert_eq!(updated.name, "Renamed");
@@ -618,7 +618,7 @@ fn test_update_remove_symlink_deletes_symlink_file_and_updates_registry() {
         .unwrap();
 
     let updated = match outcome {
-        UpdateOutcome::Updated { entry } => entry,
+        UpdateOutcome::Updated { new: entry, .. } => entry,
         UpdateOutcome::NoChanges { .. } => panic!("expected updated outcome after symlink removal"),
     };
     assert!(
@@ -870,7 +870,7 @@ fn test_update_name_updates_symlink_name_when_using_default_id() {
         .unwrap();
 
     let updated = match outcome {
-        UpdateOutcome::Updated { entry } => entry,
+        UpdateOutcome::Updated { new: entry, .. } => entry,
         UpdateOutcome::NoChanges { .. } => panic!("expected updated entry"),
     };
 
@@ -914,7 +914,7 @@ fn test_update_categories_modifies_desktop_file_and_normalizes() {
         .unwrap();
 
     let updated = match outcome {
-        UpdateOutcome::Updated { entry } => entry,
+        UpdateOutcome::Updated { new: entry, .. } => entry,
         UpdateOutcome::NoChanges { .. } => panic!("expected updated entry"),
     };
 
@@ -1040,7 +1040,7 @@ fn test_show_nonexistent_application_returns_error() {
         .unwrap_err()
         .to_string();
 
-    assert_eq!(error, "application not found: missing");
+    assert_eq!(error, "Application 'missing' not found.");
 }
 
 #[test]
@@ -1785,7 +1785,7 @@ fn test_update_categories_query_errors_for_unknown_app() {
         "query mode must fail for an unknown app; stderr: {stderr}"
     );
     assert!(
-        stderr.contains("application not found: missing-app"),
+        stderr.contains("Application 'missing-app' not found."),
         "expected the normal not-found error, got: {stderr}"
     );
 }

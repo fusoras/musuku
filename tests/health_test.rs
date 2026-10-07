@@ -21,6 +21,7 @@ fn capability_report(svg_tools: Vec<ToolCheck>, desktop_tools: Vec<ToolCheck>) -
         terminal_graphics: detect_terminal_graphics(Some("ghostty"), None),
         svg_tools,
         desktop_tools,
+        sandbox_tools: vec![tool("bwrap", true)],
         environment_paths: vec![],
         app_summary: RegistrySummary {
             total: 0,
@@ -35,6 +36,7 @@ fn supported_report() -> HealthReport {
         terminal_graphics: detect_terminal_graphics(Some("ghostty"), None),
         svg_tools: vec![],
         desktop_tools: vec![],
+        sandbox_tools: vec![tool("bwrap", true)],
         environment_paths: vec![],
         app_summary: RegistrySummary {
             total: 0,
@@ -49,6 +51,7 @@ fn unsupported_report() -> HealthReport {
         terminal_graphics: detect_terminal_graphics(Some("xterm-256color"), Some("xterm-256color")),
         svg_tools: vec![],
         desktop_tools: vec![],
+        sandbox_tools: vec![tool("bwrap", true)],
         environment_paths: vec![],
         app_summary: RegistrySummary {
             total: 0,
@@ -145,6 +148,12 @@ fn rich_report() -> HealthReport {
             path: None,
             version: None,
         }],
+        sandbox_tools: vec![geico::health::ToolCheck {
+            name: "bwrap".into(),
+            available: true,
+            path: None,
+            version: None,
+        }],
         environment_paths: vec![geico::health::PathCheck {
             name: "PATH".into(),
             path: PathBuf::from("/home/user/.local/bin"),
@@ -163,6 +172,7 @@ fn clean_registry_report() -> HealthReport {
         terminal_graphics: detect_terminal_graphics(Some("kitty"), None),
         svg_tools: vec![],
         desktop_tools: vec![],
+        sandbox_tools: vec![tool("bwrap", true)],
         environment_paths: vec![],
         app_summary: RegistrySummary {
             total: 1,
@@ -656,6 +666,12 @@ fn test_health_cli_accepts_verbose_flag_short_and_long() {
             other => panic!("expected Command::Health, got {other:?}"),
         }
     }
+}
+
+#[test]
+fn test_health_cli_default_verbose_is_false() {
+    use clap::Parser;
+    use geico::cli::{Cli, Command};
 
     let cli = Cli::try_parse_from(["geico", "health"]).expect("plain health must parse");
     match cli.command {
@@ -665,4 +681,15 @@ fn test_health_cli_accepts_verbose_flag_short_and_long() {
         ),
         other => panic!("expected Command::Health, got {other:?}"),
     }
+}
+
+#[test]
+fn test_health_sandbox_group_lists_available_backend() {
+    let mut report = supported_report();
+    report.sandbox_tools = vec![tool("bwrap", true), tool("firejail", false)];
+    let text = report.format_text_with(false);
+    assert!(
+        text.contains("Sandbox backends:\n  [ok] bwrap\n"),
+        "expected Sandbox backends with bwrap in:\n{text}"
+    );
 }

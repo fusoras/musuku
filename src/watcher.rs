@@ -101,13 +101,22 @@ pub fn sync_directories(
 
             if let Some(cand) = matching_candidate {
                 if !dry_run {
-                    manager.update(
+                    let outcome = manager.update(
                         &app.id,
                         crate::manager::UpdateOptions {
                             target: Some(cand.path.clone()),
                             ..Default::default()
                         },
                     )?;
+                    if let crate::manager::UpdateOutcome::Updated { old, new } = outcome {
+                        println!(
+                            "{}Auto-upgraded '{}'{}",
+                            crate::colors::BOLD_BLUE,
+                            new.name,
+                            crate::colors::RESET
+                        );
+                        print!("{}", crate::manager::format_visual_diff(&old, &new));
+                    }
                 }
                 claimed_paths.insert(cand.path.clone());
                 report.updated += 1;
@@ -141,13 +150,22 @@ pub fn sync_directories(
 
             if let Some(cand) = newer_candidate {
                 if !dry_run {
-                    manager.update(
+                    let outcome = manager.update(
                         &app.id,
                         crate::manager::UpdateOptions {
                             target: Some(cand.path.clone()),
                             ..Default::default()
                         },
                     )?;
+                    if let crate::manager::UpdateOutcome::Updated { old, new } = outcome {
+                        println!(
+                            "{}Auto-upgraded '{}'{}",
+                            crate::colors::BOLD_BLUE,
+                            new.name,
+                            crate::colors::RESET
+                        );
+                        print!("{}", crate::manager::format_visual_diff(&old, &new));
+                    }
                 }
                 claimed_paths.insert(cand.path.clone());
                 claimed_paths.insert(app.target_bin.clone());

@@ -43,6 +43,29 @@ pub struct Settings {
     pub display: Display,
     #[serde(default)]
     pub watch: WatchConfig,
+    #[serde(default)]
+    pub sandbox: SandboxConfig,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+pub struct SandboxConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default = "default_sandbox_backend")]
+    pub backend: String,
+}
+
+impl Default for SandboxConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            backend: default_sandbox_backend(),
+        }
+    }
+}
+
+fn default_sandbox_backend() -> String {
+    "auto".to_string()
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]

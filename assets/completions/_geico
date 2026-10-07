@@ -1,0 +1,383 @@
+#compdef geico
+
+autoload -U is-at-least
+
+_geico() {
+    typeset -A opt_args
+    typeset -a _arguments_options
+    local ret=1
+
+    if is-at-least 5.2; then
+        _arguments_options=(-s -S -C)
+    else
+        _arguments_options=(-s -C)
+    fi
+
+    local context curcontext="$curcontext" state line
+    _arguments "${_arguments_options[@]}" : \
+'-h[Print help]' \
+'--help[Print help]' \
+":: :_geico_commands" \
+"*::: :->geico" \
+&& ret=0
+    case $state in
+    (geico)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:geico-command-$line[1]:"
+        case $line[1] in
+            (add)
+_arguments "${_arguments_options[@]}" : \
+'--name=[Display name of the application (defaults to executable filename)]:NAME:_default' \
+'--icon=[Path to the icon file (copied to ~/.local/share/icons)]:ICON:_files' \
+'*--categories=[Desktop categories separated by commas (e.g. AudioVideo,Development). Omit the value to list the standard categories without registering anything]::CATEGORIES:_default' \
+'--bin-name=[Custom command name for the terminal symlink]:BIN_NAME:_default' \
+'--dest-bin=[Custom destination directory for the symlink (prompts sudo if outside \$HOME)]:DEST_BIN:_files' \
+'--description=[Application description or tooltip (written as Comment in .desktop)]:DESCRIPTION:_default' \
+'--comment=[Application description or tooltip (written as Comment in .desktop)]:DESCRIPTION:_default' \
+'--no-desktop[Skip creating a .desktop launcher entry]' \
+'--no-symlink[Skip creating a terminal \$PATH symlink]' \
+'--sandbox[Run the application in an isolated sandbox (bwrap or firejail)]' \
+'--isolate[Run the application in an isolated sandbox (bwrap or firejail)]' \
+'--no-sandbox[Disable sandboxing explicitly]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':executable -- Path to the executable file (AppImage, binary, or script):_files' \
+&& ret=0
+;;
+(list)
+_arguments "${_arguments_options[@]}" : \
+'--category=[]:CATEGORY:_default' \
+'-i[Display application icon previews in compatible terminals]' \
+'--icons[Display application icon previews in compatible terminals]' \
+'--image[Display application icon previews in compatible terminals]' \
+'--no-icons[Suppress application icon previews even if supported by the terminal]' \
+'--no-image[Suppress application icon previews even if supported by the terminal]' \
+'-t[]' \
+'--table[]' \
+'--broken[]' \
+'--hide-disabled-symlinks[Hide symlinks when they are disabled]' \
+'--hide-disabled[Hide symlinks when they are disabled]' \
+'--hide-target-ok[Hide target status when it is ok]' \
+'--hide-desktop-ok[Hide desktop file status when it is ok]' \
+'--hide-ok[Hide target and desktop statuses when they are ok]' \
+'--hide-ok-status[Hide target and desktop statuses when they are ok]' \
+'--description[Display application descriptions in list output]' \
+'--descriptions[Display application descriptions in list output]' \
+'--desc[Display application descriptions in list output]' \
+'--no-description[Suppress application descriptions even if enabled in configuration]' \
+'--no-descriptions[Suppress application descriptions even if enabled in configuration]' \
+'--no-desc[Suppress application descriptions even if enabled in configuration]' \
+'--ids[Print only application IDs, one per line (useful for scripting)]' \
+'--json[Output the list of applications as a structured JSON array]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(show)
+_arguments "${_arguments_options[@]}" : \
+'--bin[Print only the target executable path]' \
+'--desktop[Print only the desktop file path]' \
+'--icon[Print only the icon path]' \
+'--symlink[Print only the terminal symlink path]' \
+'--json[Print the application entry as JSON]' \
+'-a[Print full absolute paths instead of collapsing home directory to ~/]' \
+'--absolute[Print full absolute paths instead of collapsing home directory to ~/]' \
+'--full-path[Print full absolute paths instead of collapsing home directory to ~/]' \
+'-i[Display application icon preview in the terminal (default in Kitty/Ghostty)]' \
+'--icons[Display application icon preview in the terminal (default in Kitty/Ghostty)]' \
+'--image[Display application icon preview in the terminal (default in Kitty/Ghostty)]' \
+'--no-icons[Suppress terminal image preview even if supported by the terminal]' \
+'--no-image[Suppress terminal image preview even if supported by the terminal]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':id_or_name -- ID or name of the registered application to inspect:_default' \
+&& ret=0
+;;
+(update)
+_arguments "${_arguments_options[@]}" : \
+'--target=[New path to the executable file]:TARGET:_files' \
+'--icon=[New path to the icon file]:ICON:_files' \
+'--name=[New display name]:NAME:_default' \
+'*--categories=[New desktop categories separated by commas (e.g. AudioVideo,Development). Omit the value to show the current categories without changing anything]::CATEGORIES:_default' \
+'--description=[New application description or tooltip]:DESCRIPTION:_default' \
+'--comment=[New application description or tooltip]:DESCRIPTION:_default' \
+'--remove-symlink[Remove the terminal symlink for this application]' \
+'--sandbox[Run the application in an isolated sandbox (bwrap or firejail)]' \
+'--isolate[Run the application in an isolated sandbox (bwrap or firejail)]' \
+'--no-sandbox[Disable sandboxing explicitly]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':id_or_name -- ID or name of the registered application to update:_default' \
+&& ret=0
+;;
+(remove)
+_arguments "${_arguments_options[@]}" : \
+'()--all[Remove all registered applications from the system]' \
+'--delete-target[Also delete the original target executable (AppImage or binary) from disk]' \
+'--delete-appimage[Also delete the original target executable (AppImage or binary) from disk]' \
+'-y[Skip the confirmation prompt when deleting the target executable]' \
+'--yes[Skip the confirmation prompt when deleting the target executable]' \
+'-h[Print help]' \
+'--help[Print help]' \
+'*::id_or_names -- IDs or names of the registered applications to remove:_default' \
+&& ret=0
+;;
+(completions)
+_arguments "${_arguments_options[@]}" : \
+'--install[Install completion script automatically into user shell directory (default behavior)]' \
+'--stdout[Print raw completion script to stdout instead of installing to disk]' \
+'-h[Print help]' \
+'--help[Print help]' \
+'::shell -- Shell to generate or install completions for (defaults to active shell):(bash elvish fish powershell zsh)' \
+&& ret=0
+;;
+(health)
+_arguments "${_arguments_options[@]}" : \
+'--json[]' \
+'-v[List every checked tool individually (missing ones as dim \`\[–\]\`)]' \
+'--verbose[List every checked tool individually (missing ones as dim \`\[–\]\`)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(doctor)
+_arguments "${_arguments_options[@]}" : \
+'--fix[Automatically repair detected issues (clean up dead entries, prune broken symlinks)]' \
+'-y[Confirm without interactive prompt]' \
+'--yes[Confirm without interactive prompt]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(run)
+_arguments "${_arguments_options[@]}" : \
+'-h[Print help]' \
+'--help[Print help]' \
+':id_or_name:_default' \
+'*::args:_default' \
+&& ret=0
+;;
+(watch)
+_arguments "${_arguments_options[@]}" : \
+'--icons-dir=[Directory containing icons matched by AppImage name]:ICONS_DIR:_files' \
+'--continuous[Keep running filesystem watcher in foreground (alias\: --foreground)]' \
+'--foreground[Keep running filesystem watcher in foreground (alias\: --foreground)]' \
+'--scan-only[Scan once and exit (alias\: --once)]' \
+'--recursive[Monitor subdirectories recursively]' \
+'--dry-run[Show registrations without changing the registry or filesystem]' \
+'-h[Print help]' \
+'--help[Print help]' \
+'*::directories -- Directories to scan and monitor; defaults to \[watch\].directories. Pass '\''.'\'' for current directory:_files' \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+":: :_geico__subcmd__help_commands" \
+"*::: :->help" \
+&& ret=0
+
+    case $state in
+    (help)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:geico-help-command-$line[1]:"
+        case $line[1] in
+            (add)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(list)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(show)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(update)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(remove)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(completions)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(health)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(doctor)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(run)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(watch)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+        esac
+    ;;
+esac
+}
+
+(( $+functions[_geico_commands] )) ||
+_geico_commands() {
+    local commands; commands=(
+'add:Register an executable and integrate it into the desktop and PATH' \
+'list:List all managed applications with health checks' \
+'show:Show detailed information and paths for a registered application' \
+'update:Update metadata, target executable, icon, or categories of a registered application' \
+'remove:Safely remove desktop launcher and symlink (preserves original executable)' \
+'completions:Generate shell completion script (bash, zsh, fish, elvish, powershell)' \
+'health:Check system environment and desktop integration health' \
+'doctor:Audit and auto-repair broken symlinks, orphaned desktop files, and sandbox configuration' \
+'run:Launch a registered application in the background' \
+'watch:Scan and optionally monitor directories for AppImages' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'geico commands' commands "$@"
+}
+(( $+functions[_geico__subcmd__add_commands] )) ||
+_geico__subcmd__add_commands() {
+    local commands; commands=()
+    _describe -t commands 'geico add commands' commands "$@"
+}
+(( $+functions[_geico__subcmd__completions_commands] )) ||
+_geico__subcmd__completions_commands() {
+    local commands; commands=()
+    _describe -t commands 'geico completions commands' commands "$@"
+}
+(( $+functions[_geico__subcmd__doctor_commands] )) ||
+_geico__subcmd__doctor_commands() {
+    local commands; commands=()
+    _describe -t commands 'geico doctor commands' commands "$@"
+}
+(( $+functions[_geico__subcmd__health_commands] )) ||
+_geico__subcmd__health_commands() {
+    local commands; commands=()
+    _describe -t commands 'geico health commands' commands "$@"
+}
+(( $+functions[_geico__subcmd__help_commands] )) ||
+_geico__subcmd__help_commands() {
+    local commands; commands=(
+'add:Register an executable and integrate it into the desktop and PATH' \
+'list:List all managed applications with health checks' \
+'show:Show detailed information and paths for a registered application' \
+'update:Update metadata, target executable, icon, or categories of a registered application' \
+'remove:Safely remove desktop launcher and symlink (preserves original executable)' \
+'completions:Generate shell completion script (bash, zsh, fish, elvish, powershell)' \
+'health:Check system environment and desktop integration health' \
+'doctor:Audit and auto-repair broken symlinks, orphaned desktop files, and sandbox configuration' \
+'run:Launch a registered application in the background' \
+'watch:Scan and optionally monitor directories for AppImages' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'geico help commands' commands "$@"
+}
+(( $+functions[_geico__subcmd__help__subcmd__add_commands] )) ||
+_geico__subcmd__help__subcmd__add_commands() {
+    local commands; commands=()
+    _describe -t commands 'geico help add commands' commands "$@"
+}
+(( $+functions[_geico__subcmd__help__subcmd__completions_commands] )) ||
+_geico__subcmd__help__subcmd__completions_commands() {
+    local commands; commands=()
+    _describe -t commands 'geico help completions commands' commands "$@"
+}
+(( $+functions[_geico__subcmd__help__subcmd__doctor_commands] )) ||
+_geico__subcmd__help__subcmd__doctor_commands() {
+    local commands; commands=()
+    _describe -t commands 'geico help doctor commands' commands "$@"
+}
+(( $+functions[_geico__subcmd__help__subcmd__health_commands] )) ||
+_geico__subcmd__help__subcmd__health_commands() {
+    local commands; commands=()
+    _describe -t commands 'geico help health commands' commands "$@"
+}
+(( $+functions[_geico__subcmd__help__subcmd__help_commands] )) ||
+_geico__subcmd__help__subcmd__help_commands() {
+    local commands; commands=()
+    _describe -t commands 'geico help help commands' commands "$@"
+}
+(( $+functions[_geico__subcmd__help__subcmd__list_commands] )) ||
+_geico__subcmd__help__subcmd__list_commands() {
+    local commands; commands=()
+    _describe -t commands 'geico help list commands' commands "$@"
+}
+(( $+functions[_geico__subcmd__help__subcmd__remove_commands] )) ||
+_geico__subcmd__help__subcmd__remove_commands() {
+    local commands; commands=()
+    _describe -t commands 'geico help remove commands' commands "$@"
+}
+(( $+functions[_geico__subcmd__help__subcmd__run_commands] )) ||
+_geico__subcmd__help__subcmd__run_commands() {
+    local commands; commands=()
+    _describe -t commands 'geico help run commands' commands "$@"
+}
+(( $+functions[_geico__subcmd__help__subcmd__show_commands] )) ||
+_geico__subcmd__help__subcmd__show_commands() {
+    local commands; commands=()
+    _describe -t commands 'geico help show commands' commands "$@"
+}
+(( $+functions[_geico__subcmd__help__subcmd__update_commands] )) ||
+_geico__subcmd__help__subcmd__update_commands() {
+    local commands; commands=()
+    _describe -t commands 'geico help update commands' commands "$@"
+}
+(( $+functions[_geico__subcmd__help__subcmd__watch_commands] )) ||
+_geico__subcmd__help__subcmd__watch_commands() {
+    local commands; commands=()
+    _describe -t commands 'geico help watch commands' commands "$@"
+}
+(( $+functions[_geico__subcmd__list_commands] )) ||
+_geico__subcmd__list_commands() {
+    local commands; commands=()
+    _describe -t commands 'geico list commands' commands "$@"
+}
+(( $+functions[_geico__subcmd__remove_commands] )) ||
+_geico__subcmd__remove_commands() {
+    local commands; commands=()
+    _describe -t commands 'geico remove commands' commands "$@"
+}
+(( $+functions[_geico__subcmd__run_commands] )) ||
+_geico__subcmd__run_commands() {
+    local commands; commands=()
+    _describe -t commands 'geico run commands' commands "$@"
+}
+(( $+functions[_geico__subcmd__show_commands] )) ||
+_geico__subcmd__show_commands() {
+    local commands; commands=()
+    _describe -t commands 'geico show commands' commands "$@"
+}
+(( $+functions[_geico__subcmd__update_commands] )) ||
+_geico__subcmd__update_commands() {
+    local commands; commands=()
+    _describe -t commands 'geico update commands' commands "$@"
+}
+(( $+functions[_geico__subcmd__watch_commands] )) ||
+_geico__subcmd__watch_commands() {
+    local commands; commands=()
+    _describe -t commands 'geico watch commands' commands "$@"
+}
+
+if [ "$funcstack[1]" = "_geico" ]; then
+    _geico "$@"
+else
+    compdef _geico geico
+fi

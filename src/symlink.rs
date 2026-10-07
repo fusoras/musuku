@@ -11,7 +11,12 @@ pub fn default_base_dir() -> PathBuf {
         .unwrap_or_else(|| PathBuf::from(".local/bin"))
 }
 
-pub fn install(base_dir: &Path, target: &Path, name: &str) -> Result<PathBuf> {
+pub fn install(
+    base_dir: &Path,
+    target: &Path,
+    name: &str,
+    wrapper: Option<&str>,
+) -> Result<PathBuf> {
     fs::create_dir_all(base_dir)
         .with_context(|| format!("failed to create {}", base_dir.display()))?;
     let link = base_dir.join(name);
@@ -19,15 +24,37 @@ pub fn install(base_dir: &Path, target: &Path, name: &str) -> Result<PathBuf> {
         remove(&link)?;
     }
     if writable(base_dir) {
-        std::os::unix::fs::symlink(target, &link)
-            .with_context(|| format!("failed to create {}", link.display()))?;
+        if let Some(cmd) = wrapper {
+            let script = format!("#!/bin/sh\nexec {} \"$@\"\n", cmd);
+            fs::write(&link, script)?;
+            let mut perms = fs::metadata(&link)?.permissions();
+            std::os::unix::fs::PermissionsExt::set_mode(&mut perms, 0o755);
+            fs::set_permissions(&link, perms)?;
+        } else {
+            std::os::unix::fs::symlink(target, &link)
+                .with_context(|| format!("failed to create {}", link.display()))?;
+        }
     } else if outside_home(base_dir) {
-        run_sudo(&[
-            "ln",
-            "-sf",
-            &target.to_string_lossy(),
-            &link.to_string_lossy(),
-        ])?;
+        if let Some(cmd) = wrapper {
+            let script = format!("#!/bin/sh\nexec {} \"$@\"\n", cmd);
+            let temp = std::env::temp_dir().join(name);
+            fs::write(&temp, script)?;
+            run_sudo(&[
+                "install",
+                "-m",
+                "755",
+                &temp.to_string_lossy(),
+                &link.to_string_lossy(),
+            ])?;
+            fs::remove_file(temp).ok();
+        } else {
+            run_sudo(&[
+                "ln",
+                "-sf",
+                &target.to_string_lossy(),
+                &link.to_string_lossy(),
+            ])?;
+        }
     } else {
         return Err(anyhow!(
             "destination is not writable: {}",
