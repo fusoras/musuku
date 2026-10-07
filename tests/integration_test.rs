@@ -1,6 +1,8 @@
 use clap::Parser;
 use geico::cli::{Cli, Command};
-use geico::manager::{AddOptions, Manager, ShowOptions, UpdateOptions, UpdateOutcome};
+use geico::manager::{
+    AddOptions, Manager, RemoveOptions, ShowOptions, UpdateOptions, UpdateOutcome,
+};
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use tempfile::tempdir;
@@ -227,6 +229,134 @@ fn test_remove_deletes_generated_files_but_preserves_original_binary() {
 }
 
 #[test]
+fn test_remove_with_delete_target_deletes_executable_from_disk() {
+    let temp = tempdir().unwrap();
+    let target = temp.path().join("tool");
+    executable(&target);
+    let icon = temp.path().join("tool.png");
+    fs::write(&icon, b"icon").unwrap();
+    let manager = manager_with_settings(&temp);
+    let entry = manager
+        .add(AddOptions {
+            target: target.clone(),
+            icon: Some(icon),
+            ..AddOptions::default()
+        })
+        .unwrap();
+    let desktop = entry.desktop_file.clone().unwrap();
+    let symlink_path = entry.symlink.clone().unwrap();
+    let icon_path = entry.icon_path.clone().unwrap();
+
+    manager
+        .remove_with_options(
+            &entry.id,
+            RemoveOptions {
+                delete_target: true,
+            },
+        )
+        .unwrap();
+
+    assert!(!desktop.exists());
+    assert!(!icon_path.exists());
+    assert!(!symlink_path.exists());
+    assert!(
+        !target.exists(),
+        "delete_target must remove the executable from disk"
+    );
+    let registry = geico::config::load(&temp.path().join("config/apps.toml")).unwrap();
+    assert!(registry.find(&entry.id).is_none());
+}
+
+#[test]
+fn test_remove_default_still_preserves_executable_from_disk() {
+    let temp = tempdir().unwrap();
+    let target = temp.path().join("tool");
+    executable(&target);
+    let manager = manager_with_settings(&temp);
+    let entry = manager
+        .add(AddOptions {
+            target: target.clone(),
+            ..AddOptions::default()
+        })
+        .unwrap();
+    let desktop = entry.desktop_file.clone().unwrap();
+    let symlink_path = entry.symlink.clone().unwrap();
+
+    manager.remove(&entry.id).unwrap();
+
+    assert!(!desktop.exists());
+    assert!(!symlink_path.exists());
+    assert!(
+        target.exists(),
+        "CRITICAL: remove without --delete-target must never delete the target"
+    );
+    assert!(
+        manager
+            .remove_with_options(&entry.id, RemoveOptions::default())
+            .is_err(),
+        "entry must be gone from the registry"
+    );
+}
+
+#[test]
+fn test_remove_delete_target_without_yes_on_noninteractive_stdin_aborts_with_error() {
+    let temp = tempdir().unwrap();
+    let home = temp.path().join("home");
+    let xdg_config = temp.path().join("xdg-config");
+    let xdg_data = temp.path().join("xdg-data");
+    fs::create_dir_all(&home).unwrap();
+    let target = temp.path().join("tool");
+    executable(&target);
+    let manager = Manager::new(
+        xdg_config.join("geico/apps.toml"),
+        xdg_data.clone(),
+        home.join(".local/bin"),
+    );
+    let entry = manager
+        .add(AddOptions {
+            target: target.clone(),
+            ..AddOptions::default()
+        })
+        .unwrap();
+    let desktop = entry.desktop_file.clone().unwrap();
+    let symlink_path = entry.symlink.clone().unwrap();
+
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_geico"))
+        .args(["remove", &entry.id, "--delete-target"])
+        .env("HOME", &home)
+        .env("XDG_CONFIG_HOME", &xdg_config)
+        .env("XDG_DATA_HOME", &xdg_data)
+        .env_remove("SHELL")
+        .stdin(std::process::Stdio::null())
+        .output()
+        .unwrap();
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        !output.status.success(),
+        "non-interactive confirmation must exit with a non-zero status; stderr: {stderr}"
+    );
+    assert!(
+        stderr.contains("--yes"),
+        "error must tell the user how to confirm non-interactively; stderr: {stderr}"
+    );
+    assert!(
+        target.exists(),
+        "CRITICAL: target binary must never be deleted"
+    );
+    assert!(desktop.exists(), "abort must happen before any deletion");
+    assert!(
+        symlink_path.exists(),
+        "abort must happen before any deletion"
+    );
+    let registry = geico::config::load(&xdg_config.join("geico/apps.toml")).unwrap();
+    assert!(
+        registry.find(&entry.id).is_some(),
+        "registry must be untouched after abort"
+    );
+}
+
+#[test]
 fn test_update_retargets_desktop_and_symlink() {
     let temp = tempdir().unwrap();
     let old_target = temp.path().join("old-tool");
@@ -288,6 +418,85 @@ fn test_update_with_no_options_returns_no_changes_outcome_and_does_not_mutate() 
     let outcome = manager.update(&entry.id, UpdateOptions::default()).unwrap();
 
     assert!(matches!(outcome, UpdateOutcome::NoChanges { .. }));
+}
+
+#[test]
+fn test_update_remove_symlink_deletes_symlink_file_and_updates_registry() {
+    let temp = tempdir().unwrap();
+    let target = temp.path().join("tool");
+    executable(&target);
+    let manager = manager_with_settings(&temp);
+    let entry = manager
+        .add(AddOptions {
+            target: target.clone(),
+            ..AddOptions::default()
+        })
+        .unwrap();
+    let desktop = entry.desktop_file.clone().unwrap();
+    let symlink_path = entry.symlink.clone().unwrap();
+    assert!(symlink_path.exists());
+
+    let outcome = manager
+        .update(
+            &entry.id,
+            UpdateOptions {
+                remove_symlink: true,
+                ..UpdateOptions::default()
+            },
+        )
+        .unwrap();
+
+    let updated = match outcome {
+        UpdateOutcome::Updated { entry } => entry,
+        UpdateOutcome::NoChanges { .. } => panic!("expected updated outcome after symlink removal"),
+    };
+    assert!(
+        !symlink_path.exists(),
+        "symlink file must be deleted from disk"
+    );
+    assert!(updated.symlink.is_none());
+    let registry = geico::config::load(&temp.path().join("config/apps.toml")).unwrap();
+    let stored = registry.find(&entry.id).unwrap();
+    assert!(
+        stored.symlink.is_none(),
+        "apps.toml must record symlink = None"
+    );
+    assert!(desktop.exists(), "desktop launcher must remain untouched");
+    assert!(
+        target.exists(),
+        "CRITICAL: target binary must never be deleted"
+    );
+}
+
+#[test]
+fn test_update_remove_symlink_when_none_returns_no_changes() {
+    let temp = tempdir().unwrap();
+    let target = temp.path().join("tool");
+    executable(&target);
+    let manager = manager_with_settings(&temp);
+    let entry = manager
+        .add(AddOptions {
+            target,
+            no_symlink: true,
+            ..AddOptions::default()
+        })
+        .unwrap();
+    assert!(entry.symlink.is_none());
+
+    let outcome = manager
+        .update(
+            &entry.id,
+            UpdateOptions {
+                remove_symlink: true,
+                ..UpdateOptions::default()
+            },
+        )
+        .unwrap();
+
+    assert!(
+        matches!(outcome, UpdateOutcome::NoChanges { .. }),
+        "removing a symlink that does not exist must report NoChanges"
+    );
 }
 
 #[test]
