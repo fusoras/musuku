@@ -189,6 +189,13 @@ geico update <ID_OR_NAME> [OPTIONS]
 | `--icon <PATH>` | Replace the application icon with a new image. |
 | `--name <NAME>` | Update the display name (also syncs `.desktop` and default symlink). |
 | `--categories <LIST>` | Update desktop categories (e.g. `Graphics,3DGraphics`). |
+| `--remove-symlink` | Delete the terminal symlink and clear it from `apps.toml`. |
+
+> [!NOTE]
+> `--remove-symlink` removes only the `$PATH` symlink: the `.desktop` launcher, icon, and
+> original executable stay untouched. Combined with `--target`/`--name`, the symlink is
+> **not** recreated. If the application has no symlink and nothing else changed, `geico`
+> reports "No changes".
 
 ### Examples
 
@@ -201,6 +208,9 @@ geico update obsidian --name "Obsidian Notes"
 
 # Change categories (supports aliases like dev -> Development)
 geico update obsidian --categories Development
+
+# Remove the terminal symlink but keep the desktop launcher
+geico update obsidian --remove-symlink
 ```
 
 ---
@@ -210,17 +220,39 @@ geico update obsidian --categories Development
 Safely removes the `.desktop` launcher, icon, and terminal symlink, and removes the entry from the registry.
 
 ```sh
-geico remove <ID_OR_NAME>
+geico remove <ID_OR_NAME> [--delete-target|--delete-appimage] [-y|--yes]
 ```
 
+### Options
+
+| Option | Description |
+| --- | --- |
+| `<ID_OR_NAME>` | Application ID or display name (case-insensitive). |
+| `--delete-target` | Also delete the original executable/AppImage from disk. Visible alias: `--delete-appimage`. |
+| `-y`, `--yes` | Skip the confirmation prompt (required when stdin is not interactive). |
+
 > [!NOTE]
-> **Safety Guarantee**: Your original AppImage, binary file, or script is **never deleted**. Only the artifacts created by `geico` are removed.
+> **Safety Guarantee**: Without `--delete-target`, your original AppImage, binary file, or
+> script is **never deleted**. Only the artifacts created by `geico` are removed.
+
+> [!IMPORTANT]
+> With `--delete-target`, `geico` prompts
+> `Are you sure you want to permanently delete '<path>'? [y/N]: `. Any answer other than
+> `y`/`yes` prints `Aborted: executable was not deleted.` and removes nothing. When stdin
+> is not a terminal (pipes, CI), the command exits with a non-zero status unless `--yes`
+> (`-y`) is supplied.
 
 ### Examples
 
 ```sh
 geico remove obsidian
 geico remove "Obsidian Notes"
+
+# Complete uninstall including the AppImage (asks for confirmation)
+geico remove obsidian --delete-target
+
+# Same, using the alias and skipping the prompt in scripts
+geico remove obsidian --delete-appimage --yes
 ```
 
 ---

@@ -29,6 +29,14 @@ pub struct UpdateOptions {
     pub icon: Option<PathBuf>,
     pub name: Option<String>,
     pub categories: Option<Vec<String>>,
+    pub remove_symlink: bool,
+}
+
+/// Options for [`Manager::remove_with_options`].
+#[derive(Debug, Clone, Default)]
+pub struct RemoveOptions {
+    /// Also delete the original target executable from disk (opt-in, destructive).
+    pub delete_target: bool,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -326,66 +334,90 @@ impl Manager {
         Ok(output)
     }
 
+    /// Look up a registered application by id or display name.
+    pub fn get(&self, query: &str) -> Result<AppEntry> {
+        let registry = config::load(&self.config_path)?;
+        registry
+            .find(query)
+            .cloned()
+            .ok_or_else(|| anyhow!("application not found: {query}"))
+    }
+
     pub fn update(&self, query: &str, options: UpdateOptions) -> Result<UpdateOutcome> {
         let mut registry = config::load(&self.config_path)?;
         let old = registry
             .find(query)
             .cloned()
             .ok_or_else(|| anyhow!("application not found: {query}"))?;
-        if options.target.is_none()
-            && options.name.is_none()
-            && options.icon.is_none()
-            && options.categories.is_none()
-        {
+        let metadata_change = options.target.is_some()
+            || options.name.is_some()
+            || options.icon.is_some()
+            || options.categories.is_some();
+        if !metadata_change && !options.remove_symlink {
             return Ok(UpdateOutcome::NoChanges { name: old.name });
         }
         let mut entry = old.clone();
-        if let Some(target) = options.target {
-            let canonical = canonicalize_target(&target)?;
-            entry.target_bin = canonical;
+        if options.remove_symlink {
+            if let Some(link) = old.symlink.as_deref() {
+                symlink::remove(link)?;
+            }
+            entry.symlink = None;
         }
-        if let Some(name) = options.name {
-            entry.name = name;
-            entry.id = slugify(&entry.name);
-        }
-        if let Some(categories) = options.categories {
-            entry.categories = Some(
-                categories
-                    .into_iter()
-                    .map(|c| crate::categories::normalize_category(&c))
-                    .filter(|c| !c.is_empty())
-                    .collect(),
-            );
-        }
-        if options.icon.is_some() {
-            desktop::remove(None, entry.icon_path.as_deref())?;
-            entry.icon_path = None;
-        }
-        if let Some(desktop_file) = old.desktop_file.as_deref() {
-            desktop::remove(Some(desktop_file), None)?;
-            let (new_file, icon) = desktop::install(
-                &self.data_dir,
-                &entry.id,
-                &entry.name,
-                &entry.target_bin,
-                options.icon.as_deref().or(entry.icon_path.as_deref()),
-                entry.categories.as_deref(),
-            )?;
-            entry.desktop_file = Some(new_file);
-            entry.icon_path = icon;
-        }
-        if let Some(link) = old.symlink.as_deref() {
-            symlink::remove(link)?;
-            let link_name = match link.file_name().and_then(|name| name.to_str()) {
-                Some(prev_name) if prev_name == old.id => &entry.id,
-                Some(prev_name) => prev_name,
-                None => &entry.id,
-            };
-            entry.symlink = Some(symlink::install(
-                &self.bin_dir,
-                &entry.target_bin,
-                link_name,
-            )?);
+        if metadata_change {
+            if let Some(target) = options.target {
+                let canonical = canonicalize_target(&target)?;
+                entry.target_bin = canonical;
+            }
+            if let Some(name) = options.name {
+                entry.name = name;
+                entry.id = slugify(&entry.name);
+            }
+            if let Some(categories) = options.categories {
+                entry.categories = Some(
+                    categories
+                        .into_iter()
+                        .map(|c| crate::categories::normalize_category(&c))
+                        .filter(|c| !c.is_empty())
+                        .collect(),
+                );
+            }
+            if options.icon.is_some() {
+                desktop::remove(None, entry.icon_path.as_deref())?;
+                entry.icon_path = None;
+            }
+            if let Some(desktop_file) = old.desktop_file.as_deref() {
+                desktop::remove(Some(desktop_file), None)?;
+                let (new_file, icon) = desktop::install(
+                    &self.data_dir,
+                    &entry.id,
+                    &entry.name,
+                    &entry.target_bin,
+                    options.icon.as_deref().or(entry.icon_path.as_deref()),
+                    entry.categories.as_deref(),
+                )?;
+                entry.desktop_file = Some(new_file);
+                entry.icon_path = icon;
+            }
+            // `--remove-symlink` wins: the link is never regenerated, even when
+            // the target or name changed in the same invocation.
+            if let Some(link) = old.symlink.as_deref()
+                && !options.remove_symlink
+            {
+                symlink::remove(link)?;
+                let link_name = match link.file_name().and_then(|name| name.to_str()) {
+                    Some(prev_name) if prev_name == old.id => &entry.id,
+                    Some(prev_name) => prev_name,
+                    None => &entry.id,
+                };
+                entry.symlink = Some(symlink::install(
+                    &self.bin_dir,
+                    &entry.target_bin,
+                    link_name,
+                )?);
+            }
+        } else if old.symlink.is_none() {
+            // `--remove-symlink` on an app that never had one: nothing changed.
+            return Ok(UpdateOutcome::NoChanges { name: old.name });
         }
         let updated = registry
             .update(query, |stored| *stored = entry.clone())
@@ -396,6 +428,10 @@ impl Manager {
     }
 
     pub fn remove(&self, query: &str) -> Result<()> {
+        self.remove_with_options(query, RemoveOptions::default())
+    }
+
+    pub fn remove_with_options(&self, query: &str, options: RemoveOptions) -> Result<()> {
         let mut registry = config::load(&self.config_path)?;
         let entry = registry
             .remove(query)
@@ -403,6 +439,14 @@ impl Manager {
         desktop::remove(entry.desktop_file.as_deref(), entry.icon_path.as_deref())?;
         if let Some(link) = entry.symlink.as_deref() {
             symlink::remove(link)?;
+        }
+        if options.delete_target && entry.target_bin.exists() {
+            fs::remove_file(&entry.target_bin).with_context(|| {
+                format!(
+                    "failed to delete target executable {}",
+                    entry.target_bin.display()
+                )
+            })?;
         }
         config::save(&self.config_path, &registry)
     }

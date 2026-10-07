@@ -236,11 +236,17 @@ case-insensitively.
 | `--icon <PATH>`       | New icon file; the previously copied icon is removed first.       | icon unchanged       |
 | `--name <NAME>`       | New display name; the id is re-derived (slug) from it.            | name unchanged       |
 | `--categories <LIST>` | New desktop categories (e.g. `AudioVideo,Development`).           | categories unchanged |
+| `--remove-symlink`    | Delete the terminal symlink and clear `symlink` in `apps.toml`.   | symlink kept         |
 
 Changing `--target`, `--name`, `--icon`, or `--categories` regenerates the `.desktop` file and
 re-points the terminal symlink automatically when those artifacts exist.
 Running `update` without any of these options displays a notice and leaves the
 application unchanged.
+
+`--remove-symlink` deletes the symlink from `~/.local/bin` and records the change in
+`apps.toml` while keeping the `.desktop` launcher, icon, and original executable intact.
+When combined with `--target`/`--name`, the symlink is **not** regenerated. If the
+application has no symlink and nothing else changed, `NoChanges` is reported.
 
 ```sh
 # point to a new AppImage release
@@ -251,19 +257,36 @@ geico update "My Tool" --name "My Tool Pro"
 
 # assign categories (with smart alias normalization, e.g. dev -> Development)
 geico update my-app --categories Development,Utility
+
+# drop the terminal symlink, keep the desktop launcher
+geico update my-app --remove-symlink
 ```
 
-### `geico remove <ID_OR_NAME>`
+### `geico remove <ID_OR_NAME> [OPTIONS]`
 
 Safely removes the generated `.desktop` launcher, the copied icon, and the
 terminal symlink, then drops the entry from `apps.toml`. The lookup is
 case-insensitive by id or name.
 
-**The original AppImage or binary file is never deleted.**
+**By default the original AppImage or binary file is never deleted.**
+
+| Option                              | Description                                                                                                      | Default |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------- |
+| `<ID_OR_NAME>`                      | ID or name of the registered application to remove.                                                              | required |
+| `--delete-target`                   | Also delete the original executable/AppImage from disk (alias: `--delete-appimage`). Prompts for confirmation.   | off     |
+| `-y`, `--yes`                       | Skip the confirmation prompt (for scripts and automation).                                                       | off     |
+
+With `--delete-target`, `geico` asks
+`Are you sure you want to permanently delete '<path>'? [y/N]: ` before touching the
+file; any answer other than `y`/`yes` aborts with `Aborted: executable was not deleted.`
+and nothing is removed. When stdin is not an interactive terminal, the command refuses
+to guess and exits with a non-zero status unless `--yes` is given.
 
 ```sh
-geico remove my-app        # by id
-geico remove "My App"      # by display name
+geico remove my-app                        # by id (keeps the executable)
+geico remove "My App"                      # by display name
+geico remove my-app --delete-target        # full uninstall, asks first
+geico remove my-app --delete-appimage -y   # same, alias, no prompt
 ```
 
 ### `geico categories`

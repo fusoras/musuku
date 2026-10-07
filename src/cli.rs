@@ -106,6 +106,9 @@ pub struct Update {
     /// New desktop categories separated by commas (e.g. AudioVideo,Development).
     #[arg(long, value_delimiter = ',')]
     pub categories: Option<Vec<String>>,
+    /// Remove the terminal symlink for this application.
+    #[arg(long)]
+    pub remove_symlink: bool,
 }
 
 #[derive(Debug, Args)]
@@ -142,6 +145,12 @@ pub struct Show {
 pub struct Remove {
     /// ID or name of the registered application to remove.
     pub id_or_name: String,
+    /// Also delete the original target executable (AppImage or binary) from disk.
+    #[arg(long, visible_alias = "delete-appimage")]
+    pub delete_target: bool,
+    /// Skip the confirmation prompt when deleting the target executable.
+    #[arg(short = 'y', long)]
+    pub yes: bool,
 }
 
 #[derive(Debug, Args)]

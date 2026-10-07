@@ -1,14 +1,15 @@
 #![forbid(unsafe_code)]
 
-use anyhow::Result;
+use anyhow::{Result, bail};
 use clap::{CommandFactory, Parser};
 use geico::{
     categories,
     cli::{Cli, Command},
     colors, config, desktop,
-    manager::{AddOptions, Manager, UpdateOptions, UpdateOutcome},
+    manager::{AddOptions, Manager, RemoveOptions, UpdateOptions, UpdateOutcome},
     symlink,
 };
+use std::io::{self, IsTerminal, Write};
 
 fn main() -> Result<()> {
     let _ = geico::completions::ensure_completions_installed();
@@ -65,11 +66,12 @@ fn main() -> Result<()> {
                     icon: args.icon,
                     name: args.name,
                     categories: args.categories,
+                    remove_symlink: args.remove_symlink,
                 },
             )?;
             match outcome {
                 UpdateOutcome::NoChanges { name } => println!(
-                    "{}No changes specified for '{}'. Use --target, --name, --icon, or --categories to update.{}",
+                    "{}No changes specified for '{}'. Use --target, --name, --icon, --categories, or --remove-symlink to update.{}",
                     colors::BOLD_YELLOW,
                     name,
                     colors::RESET
@@ -82,7 +84,43 @@ fn main() -> Result<()> {
                 ),
             }
         }
-        Command::Remove(args) => manager.remove(&args.id_or_name)?,
+        Command::Remove(args) => {
+            let entry = manager.get(&args.id_or_name)?;
+            if args.delete_target && !args.yes {
+                let path = entry.target_bin.display().to_string();
+                if !io::stdin().is_terminal() {
+                    bail!(
+                        "--delete-target requires confirmation but stdin is not interactive; re-run with --yes to permanently delete '{path}'"
+                    );
+                }
+                eprint!("Are you sure you want to permanently delete '{path}'? [y/N]: ");
+                io::stderr().flush()?;
+                let mut answer = String::new();
+                io::stdin().read_line(&mut answer)?;
+                if !matches!(answer.trim().to_ascii_lowercase().as_str(), "y" | "yes") {
+                    println!("Aborted: executable was not deleted.");
+                    return Ok(());
+                }
+            }
+            manager.remove_with_options(
+                &args.id_or_name,
+                RemoveOptions {
+                    delete_target: args.delete_target,
+                },
+            )?;
+            let suffix = if args.delete_target {
+                " and deleted target executable"
+            } else {
+                ""
+            };
+            println!(
+                "{}Removed {} ({}){}{suffix}",
+                colors::BOLD_GREEN,
+                entry.name,
+                entry.id,
+                colors::RESET
+            );
+        }
         Command::Health(args) => print!("{}", manager.health(args.json)?),
         Command::Run(args) => manager.run(&args.id_or_name, &args.args)?,
         Command::Categories => print!("{}", categories::format_categories_table()),
