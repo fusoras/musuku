@@ -155,6 +155,7 @@ fn main() -> Result<()> {
         }
         Command::Health(args) => print!("{}", manager.health(args.json, args.verbose)?),
         Command::Run(args) => manager.run(&args.id_or_name, &args.args)?,
+        Command::Watch(args) => geico::watcher::run(args, manager)?,
         Command::Completions(args) => {
             let shell = args.shell.unwrap_or_else(|| {
                 geico::completions::detect_shell(std::env::var("SHELL").ok().as_deref())

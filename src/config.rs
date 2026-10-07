@@ -41,6 +41,45 @@ pub struct Settings {
     pub defaults: Defaults,
     #[serde(default)]
     pub display: Display,
+    #[serde(default)]
+    pub watch: WatchConfig,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct WatchConfig {
+    #[serde(default)]
+    pub directories: Vec<PathBuf>,
+    #[serde(default)]
+    pub icons_dir: Option<PathBuf>,
+    #[serde(default)]
+    pub auto_chmod: bool,
+    #[serde(default)]
+    pub recursive: bool,
+    #[serde(default = "default_clean_on_delete")]
+    pub clean_on_delete: bool,
+    #[serde(default = "default_debounce_ms")]
+    pub debounce_ms: u64,
+}
+
+impl Default for WatchConfig {
+    fn default() -> Self {
+        Self {
+            directories: Vec::new(),
+            icons_dir: None,
+            auto_chmod: false,
+            recursive: false,
+            clean_on_delete: true,
+            debounce_ms: 1000,
+        }
+    }
+}
+
+fn default_clean_on_delete() -> bool {
+    true
+}
+
+fn default_debounce_ms() -> u64 {
+    1000
 }
 
 #[derive(Debug, Clone, Deserialize)]

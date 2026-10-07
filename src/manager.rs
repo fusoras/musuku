@@ -356,6 +356,23 @@ impl Manager {
             .ok_or_else(|| anyhow!("application not found: {query}"))
     }
 
+    pub fn is_registered_target(&self, target: &Path) -> Result<bool> {
+        let target = fs::canonicalize(target).unwrap_or_else(|_| target.to_path_buf());
+        Ok(config::load(&self.config_path)?
+            .apps
+            .iter()
+            .any(|app| app.target_bin == target))
+    }
+
+    pub fn registered_target_query(&self, target: &Path) -> Result<Option<String>> {
+        let target = fs::canonicalize(target).unwrap_or_else(|_| target.to_path_buf());
+        Ok(config::load(&self.config_path)?
+            .apps
+            .into_iter()
+            .find(|app| app.target_bin == target)
+            .map(|app| app.id))
+    }
+
     pub fn update(&self, query: &str, options: UpdateOptions) -> Result<UpdateOutcome> {
         let settings = config::load_settings(self.settings_base())?;
         let mut registry = config::load(&self.config_path)?;
