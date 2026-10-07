@@ -2,7 +2,8 @@
 
 use crate::models::AppRegistry;
 use serde::Serialize;
-use std::path::PathBuf;
+use std::ffi::OsStr;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 #[derive(Debug, Clone, Serialize)]
@@ -53,12 +54,11 @@ impl HealthReport {
                 std::env::var("TERM_PROGRAM").ok().as_deref(),
                 std::env::var("TERM").ok().as_deref(),
             ),
-            svg_tools: check_tools(&["rsvg-convert", "magick", "convert", "inkscape"]),
-            desktop_tools: check_tools(&[
-                "update-desktop-database",
-                "gtk-update-icon-cache",
-                "xdg-icon-resource",
-            ]),
+            // Only tools geico actually invokes: image.rs (SVG rasterizing)
+            // and desktop.rs (launcher/icon cache syncing). Anything else
+            // would be noise in the health report.
+            svg_tools: check_tools(&["rsvg-convert", "magick", "convert"]),
+            desktop_tools: check_tools(&["update-desktop-database", "gtk-update-icon-cache"]),
             environment_paths: vec![
                 PathCheck {
                     name: "PATH".into(),
@@ -71,46 +71,82 @@ impl HealthReport {
                 PathCheck {
                     name: "XDG_DATA_DIRS".into(),
                     path: applications,
-                    configured: std::env::split_paths(
-                        &std::env::var_os("XDG_DATA_DIRS").unwrap_or_default(),
-                    )
-                    .any(|path| path == data_dir),
+                    configured: data_dir_discoverable(
+                        &data_dir,
+                        std::env::var_os("XDG_DATA_HOME").as_deref(),
+                        std::env::var_os("XDG_DATA_DIRS").as_deref(),
+                        &crate::desktop::default_base_dir(),
+                    ),
                 },
             ],
             app_summary: RegistrySummary::from_registry(registry),
         }
     }
 
+    /// Renders the report as human-readable text.
+    ///
+    /// ANSI colors are decided at format time (see [`crate::colors::should_color`]);
+    /// the [`HealthReport`] data itself stays color-free so `--json` stays clean.
     pub fn format_text(&self) -> String {
+        self.format_text_with(crate::colors::should_color())
+    }
+
+    /// Renders the report as human-readable text, applying ANSI colors only
+    /// when `color` is true. `format_text_with(false)` is always plain text.
+    pub fn format_text_with(&self, color: bool) -> String {
         let mut output = String::from("geico health\n\n");
-        output.push_str(&format!(
-            "Terminal graphics: {}\n",
-            if self.terminal_graphics.supported {
-                "[ok]"
-            } else {
-                "[warning]"
-            }
-        ));
+        output.push_str("Terminal graphics:\n");
+        if self.terminal_graphics.supported {
+            output.push_str(&format!(
+                "  {} your terminal supports the kitty graphics protocol\n",
+                mark(true, color)
+            ));
+        } else {
+            output.push_str(&format!(
+                "  {} your terminal does not support the kitty graphics protocol\n",
+                mark(false, color)
+            ));
+        }
         output.push_str("SVG converters:\n");
         for tool in &self.svg_tools {
-            output.push_str(&format!("  {} {}\n", mark(tool.available), tool.name));
+            output.push_str(&format!(
+                "  {} {}\n",
+                mark(tool.available, color),
+                tool.name
+            ));
         }
         output.push_str("Desktop utilities:\n");
         for tool in &self.desktop_tools {
-            output.push_str(&format!("  {} {}\n", mark(tool.available), tool.name));
+            output.push_str(&format!(
+                "  {} {}\n",
+                mark(tool.available, color),
+                tool.name
+            ));
         }
         output.push_str("Environment paths:\n");
         for path in &self.environment_paths {
             output.push_str(&format!(
                 "  {} {} ({})\n",
-                mark(path.configured),
+                mark(path.configured, color),
                 path.name,
                 path.path.display()
             ));
         }
+        // Only one count is emphasized: the broken tally in yellow when there
+        // are broken entries, otherwise the healthy tally in green.
+        let healthy = if self.app_summary.broken == 0 {
+            crate::colors::green(color, &self.app_summary.healthy.to_string())
+        } else {
+            self.app_summary.healthy.to_string()
+        };
+        let broken = if self.app_summary.broken > 0 {
+            crate::colors::yellow(color, &self.app_summary.broken.to_string())
+        } else {
+            self.app_summary.broken.to_string()
+        };
         output.push_str(&format!(
             "Registry: {} healthy, {} broken, {} total\n",
-            self.app_summary.healthy, self.app_summary.broken, self.app_summary.total
+            healthy, broken, self.app_summary.total
         ));
         output
     }
@@ -130,6 +166,32 @@ impl RegistrySummary {
             broken: total - healthy,
         }
     }
+}
+
+/// Whether desktop environments can discover `data_dir` for launcher lookup.
+///
+/// The check keeps its historical `XDG_DATA_DIRS` name in the report, but the
+/// criterion is the real XDG data search path: the data dir is discoverable if
+/// it is the default data dir (implicitly covered by `$XDG_DATA_HOME`), if it
+/// equals `$XDG_DATA_HOME`, or if it appears among the `$XDG_DATA_DIRS`
+/// entries. Everything else is a non-standard, undiscoverable location.
+///
+/// Pure by design: environment values are passed in as parameters so tests
+/// never mutate process-wide state (the crate forbids `unsafe_code`, which
+/// rules out `env::set_var` on edition 2024).
+pub fn data_dir_discoverable(
+    data_dir: &Path,
+    xdg_data_home: Option<&OsStr>,
+    xdg_data_dirs: Option<&OsStr>,
+    default_data_dir: &Path,
+) -> bool {
+    if data_dir == default_data_dir {
+        return true;
+    }
+    if xdg_data_home.is_some_and(|home| Path::new(home) == data_dir) {
+        return true;
+    }
+    xdg_data_dirs.is_some_and(|dirs| std::env::split_paths(dirs).any(|path| path == data_dir))
 }
 
 pub fn detect_terminal_graphics(term_program: Option<&str>, term: Option<&str>) -> TerminalCheck {
@@ -177,6 +239,10 @@ fn find_in_path(name: &str) -> Option<PathBuf> {
         .find(|candidate| candidate.is_file())
 }
 
-fn mark(ok: bool) -> &'static str {
-    if ok { "[ok]" } else { "[warning]" }
+fn mark(ok: bool, color: bool) -> String {
+    if ok {
+        crate::colors::green(color, "[ok]")
+    } else {
+        crate::colors::yellow(color, "[warning]")
+    }
 }
