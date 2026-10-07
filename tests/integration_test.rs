@@ -2168,3 +2168,39 @@ fn test_update_preserves_existing_icon_when_no_new_icon_provided() {
         "existing icon must not be truncated or corrupted when updating"
     );
 }
+
+#[test]
+fn test_list_simple_format_has_two_leading_spaces_indentation() {
+    let temp = tempdir().unwrap();
+    let target = temp.path().join("indented-app");
+    executable(&target);
+    let manager = Manager::new(
+        temp.path().join("config/apps.toml"),
+        temp.path().join("share"),
+        temp.path().join("bin"),
+    );
+    manager
+        .add(AddOptions {
+            target,
+            name: Some("IndentedApp".into()),
+            ..Default::default()
+        })
+        .unwrap();
+
+    let output_no_icons = manager
+        .list_with_options(geico::manager::ListOptions {
+            no_icons: true,
+            ..Default::default()
+        })
+        .unwrap();
+    assert!(
+        output_no_icons.starts_with("  IndentedApp"),
+        "expected list lines to start with 2 leading spaces, got: {output_no_icons:?}"
+    );
+
+    let output_default = manager.list().unwrap();
+    assert!(
+        output_default.starts_with("  "),
+        "expected list lines to start with at least 2 leading spaces, got: {output_default:?}"
+    );
+}
