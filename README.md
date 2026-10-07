@@ -112,11 +112,21 @@ geico remove myapp
 
 ## Commands
 
-`geico` has eight subcommands: [`add`](#geico-add), [`list`](#geico-list),
+`geico` has nine subcommands: [`add`](#geico-add), [`list`](#geico-list),
 [`show`](#geico-show), [`update`](#geico-update), [`remove`](#geico-remove),
-[`completions`](#geico-completions), [`health`](#geico-health), and [`run`](#geico-run).
+[`completions`](#geico-completions), [`health`](#geico-health), [`run`](#geico-run),
+and [`watch`](#geico-watch).
 Every subcommand accepts
 `-h, --help` for its own usage text.
+
+### `geico watch [DIRECTORIES...] [OPTIONS]`
+
+Scans directories for AppImages and registers new applications. Without
+`--scan-only`, the initial scan is followed by a debounced filesystem monitor.
+Use `--recursive` for subdirectories, `--icons-dir <DIR>` to pair icons by
+normalized filename, and `--dry-run` to preview registrations. `--once` is an
+alias for `--scan-only`. See [`docs/watch.md`](docs/watch.md) for the complete
+configuration and lifecycle details.
 
 ### `geico add <EXECUTABLE> [OPTIONS]`
 

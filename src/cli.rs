@@ -30,6 +30,8 @@ pub enum Command {
     Health(Health),
     /// Launch a registered application in the background.
     Run(Run),
+    /// Scan and optionally monitor directories for AppImages.
+    Watch(Watch),
 }
 
 #[derive(Debug, Args)]
@@ -90,6 +92,24 @@ pub struct Run {
     pub id_or_name: String,
     #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
     pub args: Vec<String>,
+}
+
+#[derive(Debug, Args)]
+pub struct Watch {
+    /// Directories to scan and monitor; defaults to [watch].directories.
+    pub directories: Vec<PathBuf>,
+    /// Directory containing icons matched by AppImage name.
+    #[arg(long)]
+    pub icons_dir: Option<PathBuf>,
+    /// Scan once and exit (alias: --once).
+    #[arg(long, alias = "once")]
+    pub scan_only: bool,
+    /// Monitor subdirectories recursively.
+    #[arg(long)]
+    pub recursive: bool,
+    /// Show registrations without changing the registry or filesystem.
+    #[arg(long)]
+    pub dry_run: bool,
 }
 
 #[derive(Debug, Args)]
