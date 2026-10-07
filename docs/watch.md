@@ -1,34 +1,37 @@
 # `geico watch`
 
-`geico watch` scans one or more directories for AppImages and registers new
-files with the normal `geico add` lifecycle. With no `--scan-only`, it keeps a
-debounced filesystem watcher running after the initial scan. AppImages remain
-in their original directories; when a registered file is deleted, its desktop
-entry, symlink, and registry entry are removed when `clean_on_delete` is
-enabled.
+`geico watch` manages "live" AppImage directories. Rather than requiring a persistent, blocking terminal process, `geico` offers transparent, on-demand synchronization:
+- **Clean on delete**: When an AppImage is deleted, its registry entry, `.desktop` launcher, and terminal symlink are automatically removed.
+- **Autonomous version upgrades**: When an existing AppImage is replaced by or accompanied by a newer version (e.g. `sonora-v0.38.0-x86_64.AppImage` -> `sonora-v0.42.1-x86_64.AppImage`), `geico` autonomously updates the registration, retargets the `.desktop` launcher and terminal symlink, and re-extracts the application icon without duplicating entries.
+- **Automatic detection on `geico list`**: Any configured watch directory is automatically synchronized in milliseconds every time `geico list`, `geico show`, or `geico run` is executed.
+- **Fast one-shot sync**: Calling `geico watch [DIRECTORIES...]` synchronizes the folders immediately and exits. It automatically persists new directories to `config.toml` so future commands keep them synchronized.
 
 ```sh
-# Scan once
-geico watch ~/Applications --scan-only
+# Define and synchronize a directory as a live watch folder
+geico watch ~/Applications
 
-# Scan and monitor recursively, using a dedicated icon folder
-geico watch ~/Applications --recursive --icons-dir ~/Applications/Icons
+# Synchronize current directory
+geico watch .
 
-# Preview what would be registered
-geico watch ~/Downloads --scan-only --dry-run
+# Preview what would be synchronized without writing changes
+geico watch ~/Applications --dry-run
+
+# Run persistent foreground watcher loop (optional)
+geico watch ~/Applications --continuous
 ```
 
 Supported options:
 
 | Option | Description |
 | --- | --- |
-| `DIRECTORIES...` | Directories to scan and monitor. Configuration is used when omitted. |
-| `--scan-only`, `--once` | Scan and exit without starting the monitor. |
+| `DIRECTORIES...` | Directories to synchronize and add to watch list (accepts `.`, relative, or absolute paths). Defaults to `[watch].directories` in `config.toml`. |
+| `--continuous`, `--foreground` | Keep running a debounced filesystem watcher in foreground. Default is one-shot sync and exit. |
+| `--scan-only`, `--once` | Scan once and exit (default behavior). |
 | `--icons-dir <DIR>` | Match icons by normalized AppImage name (`png`, `svg`, `webp`, `xpm`, or `ico`). |
 | `--recursive` | Include subdirectories. |
-| `--dry-run` | Report candidates without registering them. |
+| `--dry-run` | Report candidates without registering or updating them. |
 
-Defaults can be stored in `~/.config/geico/config.toml`:
+Configuration in `~/.config/geico/config.toml`:
 
 ```toml
 [watch]
@@ -37,9 +40,6 @@ icons_dir = "~/Applications/Icons"
 auto_chmod = false
 recursive = false
 clean_on_delete = true
+auto_sync = true
 debounce_ms = 1000
 ```
-
-`auto_chmod` is disabled by default. When enabled, detected AppImages receive
-the executable bit before registration. If no matching external icon is found,
-the regular AppImage metadata and `.DirIcon` extraction fallback is used.

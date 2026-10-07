@@ -279,7 +279,7 @@ symlink_appimages = false
     .unwrap();
 
     let settings = config::load_settings(temp.path()).unwrap();
-    assert_eq!(settings.display.images, config::ImagePolicy::Never);
+    assert_eq!(settings.display.icons, config::IconPolicy::Never);
     assert_eq!(settings.display.list_icon_size, config::ListIconSize::Large);
     assert_eq!(
         settings.display.show_icon_size,
@@ -293,4 +293,84 @@ symlink_appimages = false
     assert!(!settings.defaults.update_desktop_db);
     assert_eq!(settings.defaults.dest_bin, PathBuf::from("~/custom-bin"));
     assert!(!settings.defaults.symlink_appimages);
+}
+
+#[test]
+fn test_config_display_icons_persists_and_serializes_with_icons_key() {
+    let temp = tempdir().unwrap();
+    let path = config::settings_path(temp.path());
+
+    // 1. Should load modern `icons` key
+    std::fs::write(
+        &path,
+        r#"
+[display]
+icons = "always"
+"#,
+    )
+    .unwrap();
+
+    let settings = config::load_settings(temp.path()).unwrap();
+    assert_eq!(settings.display.icons, config::IconPolicy::Always);
+
+    // 2. Serializing must write `icons = "..."`, not `images = "..."`
+    let save_dir = tempdir().unwrap();
+    config::save_settings(save_dir.path(), &settings).unwrap();
+    let serialized = std::fs::read_to_string(config::settings_path(save_dir.path())).unwrap();
+    assert!(
+        serialized.contains("icons = \"always\""),
+        "config serialization must use 'icons = ...', got:\n{serialized}"
+    );
+    assert!(
+        !serialized.contains("\nimages ="),
+        "config serialization must not use obsolete 'images = ...', got:\n{serialized}"
+    );
+
+    // 3. Backward compatibility: should still parse legacy `images` key as alias
+    let legacy_dir = tempdir().unwrap();
+    std::fs::write(
+        config::settings_path(legacy_dir.path()),
+        r#"
+[display]
+images = "never"
+"#,
+    )
+    .unwrap();
+    let legacy_settings = config::load_settings(legacy_dir.path()).unwrap();
+    assert_eq!(legacy_settings.display.icons, config::IconPolicy::Never);
+}
+
+#[test]
+fn test_config_display_hide_ok_options_load_and_serialize() {
+    let temp = tempdir().unwrap();
+    let path = config::settings_path(temp.path());
+
+    std::fs::write(
+        &path,
+        r#"
+[display]
+hide_target_ok = true
+hide_desktop_ok = true
+hide_ok_status = true
+"#,
+    )
+    .unwrap();
+
+    let settings = config::load_settings(temp.path()).unwrap();
+    assert!(settings.display.hide_target_ok);
+    assert!(settings.display.hide_desktop_ok);
+    assert!(settings.display.hide_ok_status);
+
+    // Test alias hide_ok
+    let alias_dir = tempdir().unwrap();
+    std::fs::write(
+        config::settings_path(alias_dir.path()),
+        r#"
+[display]
+hide_ok = true
+"#,
+    )
+    .unwrap();
+    let alias_settings = config::load_settings(alias_dir.path()).unwrap();
+    assert!(alias_settings.display.hide_ok_status);
 }

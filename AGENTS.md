@@ -32,10 +32,12 @@ Updates the metadata, target binary path, or icon of a registered application wi
 - `--icon <PATH>`: Update the application icon.
 - `--name <NAME>`: Update the display name.
 
-### `geico remove <ID_OR_NAME>`
-Safely removes the generated `.desktop` launcher file and the terminal symlink.
-- **Guaranteed safety**: The original AppImage or binary file is **never** deleted.
-- Cleans up the corresponding entry from `apps.toml`.
+### `geico remove [ID_OR_NAME...] [OPTIONS]`
+Safely removes generated `.desktop` launcher files and terminal symlinks for one or more applications, or all applications with `--all`.
+- Supports multiple IDs or names in a single invocation (`geico remove app1 app2 ...`).
+- `--all`: Unregisters all applications from `apps.toml` (requires confirmation unless `-y` is passed).
+- **Guaranteed safety**: The original AppImage or binary file is **never** deleted unless `--delete-target` is explicitly requested.
+- Cleans up the corresponding entries from `apps.toml`.
 
 ## Code Navigation & Architecture
 

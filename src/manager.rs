@@ -41,11 +41,17 @@ pub struct RemoveOptions {
 
 #[derive(Debug, Clone, Default)]
 pub struct ListOptions {
+    pub icons: bool,
+    pub no_icons: bool,
     pub image: bool,
     pub no_image: bool,
     pub table: bool,
     pub category: Option<String>,
     pub broken: bool,
+    pub hide_disabled_symlinks: bool,
+    pub hide_target_ok: bool,
+    pub hide_desktop_ok: bool,
+    pub hide_ok: bool,
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -56,6 +62,8 @@ pub struct ShowOptions {
     pub symlink: bool,
     pub json: bool,
     pub absolute: bool,
+    pub icons: bool,
+    pub no_icons: bool,
     pub image: bool,
     pub no_image: bool,
 }
@@ -172,6 +180,7 @@ impl Manager {
 
     pub fn list_with_options(&self, options: ListOptions) -> Result<String> {
         let settings = config::load_settings(self.settings_base())?;
+        let _ = crate::watcher::auto_sync_if_configured(self);
         let registry = config::load(&self.config_path)?;
         let mut output = String::new();
         let apps: Vec<_> = registry
@@ -189,19 +198,32 @@ impl Manager {
             .filter(|app| !options.broken || !app.target_bin.exists())
             .collect();
         let table = options.table || settings.display.list_format == config::ListFormat::Table;
-        let show_images =
-            crate::image::image_requested(settings.display.images, options.image, options.no_image);
+        let show_icons = crate::image::image_requested(
+            settings.display.icons,
+            options.icons || options.image,
+            options.no_icons || options.no_image,
+        );
+        let hide_disabled =
+            options.hide_disabled_symlinks || settings.display.hide_disabled_symlinks;
+        let hide_target_ok = options.hide_target_ok
+            || options.hide_ok
+            || settings.display.hide_target_ok
+            || settings.display.hide_ok_status;
+        let hide_desktop_ok = options.hide_desktop_ok
+            || options.hide_ok
+            || settings.display.hide_desktop_ok
+            || settings.display.hide_ok_status;
         let colored = crate::colors::should_color_policy(settings.display.color);
         if table {
             return Ok(format_table(
                 &apps,
-                show_images,
+                show_icons,
                 settings.display.list_icon_size,
                 colored,
             ));
         }
         for app in apps {
-            if show_images {
+            if show_icons {
                 let rendered = app.icon_path.as_deref().and_then(|icon| {
                     let (cols, rows) = list_icon_dimensions(settings.display.list_icon_size);
                     crate::image::render_icon_preview(icon, cols, rows, true)
@@ -213,22 +235,48 @@ impl Manager {
                     output.push_str("   ");
                 }
             }
-            writeln!(
-                output,
-                "{} {} target={} desktop={} symlink={}",
+            let mut parts = Vec::new();
+            parts.push(format!(
+                "{} {}",
                 app.name,
-                crate::colors::gray(colored, &format!("({})", app.id)),
-                status_with_color(&app.target_bin, colored),
-                optional_status_with_color(app.desktop_file.as_deref(), colored),
-                optional_status_with_color(app.symlink.as_deref(), colored),
-            )
-            .unwrap();
+                crate::colors::gray(colored, &format!("({})", app.id))
+            ));
+
+            let target_is_ok = app.target_bin.exists();
+            if !(hide_target_ok && target_is_ok) {
+                parts.push(format!(
+                    "target={}",
+                    status_with_color(&app.target_bin, colored)
+                ));
+            }
+
+            let desktop_is_ok = app
+                .desktop_file
+                .as_deref()
+                .map(|p| p.exists())
+                .unwrap_or(false);
+            if !(hide_desktop_ok && desktop_is_ok) {
+                parts.push(format!(
+                    "desktop={}",
+                    optional_status_with_color(app.desktop_file.as_deref(), colored)
+                ));
+            }
+
+            if !(hide_disabled && app.symlink.is_none()) {
+                parts.push(format!(
+                    "symlink={}",
+                    optional_status_with_color(app.symlink.as_deref(), colored)
+                ));
+            }
+
+            writeln!(output, "{}", parts.join(" ")).unwrap();
         }
         Ok(output)
     }
 
     pub fn show(&self, query: &str, options: ShowOptions) -> Result<String> {
         let settings = config::load_settings(self.settings_base())?;
+        let _ = crate::watcher::auto_sync_if_configured(self);
         let registry = config::load(&self.config_path)?;
         let app = registry
             .find(query)
@@ -278,7 +326,11 @@ impl Manager {
         let mut output = String::new();
         if let Some(preview) = image_preview(
             app.icon_path.as_deref(),
-            crate::image::image_requested(settings.display.images, options.image, options.no_image),
+            crate::image::image_requested(
+                settings.display.icons,
+                options.icons || options.image,
+                options.no_icons || options.no_image,
+            ),
             settings.display.show_icon_size,
         ) {
             output.push_str(&preview);
@@ -388,6 +440,7 @@ impl Manager {
             return Ok(UpdateOutcome::NoChanges { name: old.name });
         }
         let mut entry = old.clone();
+        let mut extraction_root = None;
         if options.remove_symlink {
             if let Some(link) = old.symlink.as_deref() {
                 symlink::remove(link)?;
@@ -395,9 +448,17 @@ impl Manager {
             entry.symlink = None;
         }
         if metadata_change {
+            let mut extracted_icon = None;
             if let Some(target) = options.target {
                 let canonical = canonicalize_target(&target)?;
                 entry.target_bin = canonical;
+                if options.icon.is_none()
+                    && extractor::is_appimage(&entry.target_bin).unwrap_or(false)
+                    && let Ok(Some(extraction)) = extractor::inspect_and_extract(&entry.target_bin)
+                {
+                    extracted_icon = extraction.icon_path;
+                    extraction_root = Some(extraction.root);
+                }
             }
             if let Some(name) = options.name {
                 entry.name = name;
@@ -412,7 +473,7 @@ impl Manager {
                         .collect(),
                 );
             }
-            if options.icon.is_some() {
+            if options.icon.is_some() || extracted_icon.is_some() {
                 desktop::remove(None, entry.icon_path.as_deref())?;
                 entry.icon_path = None;
             }
@@ -423,7 +484,11 @@ impl Manager {
                     &entry.id,
                     &entry.name,
                     &entry.target_bin,
-                    options.icon.as_deref().or(entry.icon_path.as_deref()),
+                    options
+                        .icon
+                        .as_deref()
+                        .or(extracted_icon.as_deref())
+                        .or(entry.icon_path.as_deref()),
                     entry.categories.as_deref(),
                 )?;
                 entry.desktop_file = Some(new_file);
@@ -457,6 +522,9 @@ impl Manager {
             .ok_or_else(|| anyhow!("application not found: {query}"))?
             .clone();
         config::save(&self.config_path, &registry)?;
+        if let Some(root) = extraction_root {
+            let _ = fs::remove_dir_all(root);
+        }
         self.refresh_desktop_db(&settings);
         Ok(UpdateOutcome::Updated { entry: updated })
     }
@@ -501,6 +569,7 @@ impl Manager {
 
     pub fn run(&self, query: &str, args: &[String]) -> Result<()> {
         use std::process::Stdio;
+        let _ = crate::watcher::auto_sync_if_configured(self);
         let registry = config::load(&self.config_path)?;
         let app = registry
             .find(query)
@@ -522,17 +591,28 @@ impl Manager {
         Ok(())
     }
 
-    fn settings_base(&self) -> &Path {
+    pub fn config_path(&self) -> &Path {
+        &self.config_path
+    }
+
+    pub fn settings_base(&self) -> &Path {
         self.config_path.parent().unwrap_or_else(|| Path::new("."))
     }
 
     fn refresh_desktop_db(&self, settings: &config::Settings) {
         if settings.defaults.update_desktop_db {
+            let applications_dir = self.data_dir.join("applications");
+            let target = if applications_dir.is_dir() {
+                &applications_dir
+            } else {
+                &self.data_dir
+            };
             let _ = std::process::Command::new("update-desktop-database")
-                .arg(&self.data_dir)
+                .arg(target)
+                .stdin(std::process::Stdio::null())
                 .stdout(std::process::Stdio::null())
                 .stderr(std::process::Stdio::null())
-                .status();
+                .spawn();
         }
     }
 }

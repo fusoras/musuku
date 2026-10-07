@@ -7,7 +7,7 @@
 
 use crate::models::AppRegistry;
 use anyhow::{Context, Result};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -35,7 +35,7 @@ pub fn settings_path(base_dir: &Path) -> PathBuf {
     base_dir.join("config.toml")
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct Settings {
     #[serde(default)]
     pub defaults: Defaults,
@@ -45,7 +45,7 @@ pub struct Settings {
     pub watch: WatchConfig,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 pub struct WatchConfig {
     #[serde(default)]
     pub directories: Vec<PathBuf>,
@@ -59,6 +59,8 @@ pub struct WatchConfig {
     pub clean_on_delete: bool,
     #[serde(default = "default_debounce_ms")]
     pub debounce_ms: u64,
+    #[serde(default = "default_auto_sync")]
+    pub auto_sync: bool,
 }
 
 impl Default for WatchConfig {
@@ -70,6 +72,7 @@ impl Default for WatchConfig {
             recursive: false,
             clean_on_delete: true,
             debounce_ms: 1000,
+            auto_sync: true,
         }
     }
 }
@@ -78,11 +81,15 @@ fn default_clean_on_delete() -> bool {
     true
 }
 
+fn default_auto_sync() -> bool {
+    true
+}
+
 fn default_debounce_ms() -> u64 {
     1000
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Defaults {
     #[serde(default = "default_symlink_appimages", alias = "appimage_symlinks")]
     pub symlink_appimages: bool,
@@ -96,10 +103,10 @@ pub struct Defaults {
     pub dest_bin: PathBuf,
 }
 
-#[derive(Debug, Clone, Deserialize, Default)]
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct Display {
-    #[serde(default)]
-    pub images: ImagePolicy,
+    #[serde(default, alias = "images")]
+    pub icons: IconPolicy,
     #[serde(default)]
     pub list_icon_size: ListIconSize,
     #[serde(default)]
@@ -110,18 +117,33 @@ pub struct Display {
     pub color: ColorPolicy,
     #[serde(default)]
     pub list_format: ListFormat,
+    #[serde(default)]
+    pub hide_disabled_symlinks: bool,
+    #[serde(default)]
+    pub hide_target_ok: bool,
+    #[serde(default)]
+    pub hide_desktop_ok: bool,
+    #[serde(
+        default,
+        alias = "hide_ok",
+        alias = "hide_target_desktop_ok",
+        alias = "hide_healthy"
+    )]
+    pub hide_ok_status: bool,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq, Eq)]
+pub type ImagePolicy = IconPolicy;
+
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, Default, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
-pub enum ImagePolicy {
+pub enum IconPolicy {
     #[default]
     Auto,
     Always,
     Never,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, Default, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum ListIconSize {
     #[default]
@@ -130,7 +152,7 @@ pub enum ListIconSize {
     Large,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, Default, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum ShowIconSize {
     #[default]
@@ -138,7 +160,7 @@ pub enum ShowIconSize {
     Compact,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, Default, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum PathPolicy {
     #[default]
@@ -146,7 +168,7 @@ pub enum PathPolicy {
     Absolute,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, Default, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum ColorPolicy {
     #[default]
@@ -155,7 +177,7 @@ pub enum ColorPolicy {
     Never,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, Default, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum ListFormat {
     #[default]
@@ -205,6 +227,20 @@ pub fn load_settings(base_dir: &Path) -> Result<Settings> {
         .with_context(|| format!("failed to read settings file {}", path.display()))?;
     toml::from_str(&contents)
         .with_context(|| format!("failed to parse settings file {}", path.display()))
+}
+
+/// Save optional program settings to `config.toml` in `base_dir`.
+pub fn save_settings(base_dir: &Path, settings: &Settings) -> Result<()> {
+    let path = settings_path(base_dir);
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .with_context(|| format!("failed to create settings dir {}", parent.display()))?;
+    }
+    let contents =
+        toml::to_string_pretty(settings).context("failed to serialize settings to TOML")?;
+    fs::write(&path, contents)
+        .with_context(|| format!("failed to write settings file {}", path.display()))?;
+    Ok(())
 }
 
 /// The real user config path: `~/.config/geico/apps.toml`.

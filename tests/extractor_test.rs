@@ -28,3 +28,29 @@ fn test_extractor_skips_non_appimage_files() {
     fs::set_permissions(&script, fs::Permissions::from_mode(0o755)).unwrap();
     assert!(inspect_and_extract(&script).unwrap().is_none());
 }
+
+#[test]
+fn test_extractor_ignores_non_image_files_with_matching_stem() {
+    let temp = tempdir().unwrap();
+    let root = temp.path();
+
+    // Create an XML file with matching stem in a subdirectory
+    let mime_dir = root.join("usr/share/mime");
+    fs::create_dir_all(&mime_dir).unwrap();
+    let xml_file = mime_dir.join("org.shotcut.Shotcut.xml");
+    fs::write(&xml_file, "<mime-info></mime-info>").unwrap();
+
+    // Ensure find_icon doesn't return the XML file
+    let found = geico::extractor::find_icon(root, Some("org.shotcut.Shotcut"));
+    assert_ne!(
+        found,
+        Some(xml_file),
+        "find_icon should never pick an XML file as an icon"
+    );
+
+    // Now add a valid SVG icon and ensure it is selected
+    let svg_file = root.join("org.shotcut.Shotcut.svg");
+    fs::write(&svg_file, "<svg></svg>").unwrap();
+    let found_svg = geico::extractor::find_icon(root, Some("org.shotcut.Shotcut"));
+    assert_eq!(found_svg, Some(svg_file));
+}

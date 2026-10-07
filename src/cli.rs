@@ -65,17 +65,29 @@ pub struct Add {
 #[derive(Debug, Args, Default)]
 pub struct List {
     /// Display application icon previews in compatible terminals.
-    #[arg(short = 'i', long)]
-    pub image: bool,
+    #[arg(short = 'i', long = "icons", visible_alias = "image")]
+    pub icons: bool,
     /// Suppress application icon previews even if supported by the terminal.
-    #[arg(long)]
-    pub no_image: bool,
+    #[arg(long = "no-icons", visible_alias = "no-image")]
+    pub no_icons: bool,
     #[arg(short = 't', long)]
     pub table: bool,
     #[arg(long)]
     pub category: Option<String>,
     #[arg(long)]
     pub broken: bool,
+    /// Hide symlinks when they are disabled.
+    #[arg(long, visible_alias = "hide-disabled")]
+    pub hide_disabled_symlinks: bool,
+    /// Hide target status when it is ok.
+    #[arg(long)]
+    pub hide_target_ok: bool,
+    /// Hide desktop file status when it is ok.
+    #[arg(long)]
+    pub hide_desktop_ok: bool,
+    /// Hide target and desktop statuses when they are ok.
+    #[arg(long, visible_alias = "hide-ok-status")]
+    pub hide_ok: bool,
 }
 
 #[derive(Debug, Args, Default)]
@@ -96,11 +108,14 @@ pub struct Run {
 
 #[derive(Debug, Args)]
 pub struct Watch {
-    /// Directories to scan and monitor; defaults to [watch].directories.
+    /// Directories to scan and monitor; defaults to [watch].directories. Pass '.' for current directory.
     pub directories: Vec<PathBuf>,
     /// Directory containing icons matched by AppImage name.
     #[arg(long)]
     pub icons_dir: Option<PathBuf>,
+    /// Keep running filesystem watcher in foreground (alias: --foreground).
+    #[arg(long, visible_alias = "foreground")]
+    pub continuous: bool,
     /// Scan once and exit (alias: --once).
     #[arg(long, alias = "once")]
     pub scan_only: bool,
@@ -157,17 +172,21 @@ pub struct Show {
     #[arg(long, short = 'a', visible_alias = "full-path")]
     pub absolute: bool,
     /// Display application icon preview in the terminal (default in Kitty/Ghostty).
-    #[arg(short = 'i', long)]
-    pub image: bool,
+    #[arg(short = 'i', long = "icons", visible_alias = "image")]
+    pub icons: bool,
     /// Suppress terminal image preview even if supported by the terminal.
-    #[arg(long)]
-    pub no_image: bool,
+    #[arg(long = "no-icons", visible_alias = "no-image")]
+    pub no_icons: bool,
 }
 
 #[derive(Debug, Args)]
 pub struct Remove {
-    /// ID or name of the registered application to remove.
-    pub id_or_name: String,
+    /// IDs or names of the registered applications to remove.
+    #[arg(required_unless_present = "all")]
+    pub id_or_names: Vec<String>,
+    /// Remove all registered applications from the system.
+    #[arg(long, conflicts_with = "id_or_names")]
+    pub all: bool,
     /// Also delete the original target executable (AppImage or binary) from disk.
     #[arg(long, visible_alias = "delete-appimage")]
     pub delete_target: bool,

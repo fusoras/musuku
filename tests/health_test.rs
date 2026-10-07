@@ -60,7 +60,7 @@ fn unsupported_report() -> HealthReport {
 
 #[test]
 fn test_health_text_graphics_supported_reports_ok_message() {
-    let text = supported_report().format_text();
+    let text = supported_report().format_text_with(false);
     assert!(
         text.contains("Terminal graphics:"),
         "expected 'Terminal graphics:' section header in:\n{text}"
@@ -111,7 +111,7 @@ fn test_health_text_graphics_supported_omits_detected_terminal_name() {
 
 #[test]
 fn test_health_text_graphics_unsupported_reports_warning_message() {
-    let text = unsupported_report().format_text();
+    let text = unsupported_report().format_text_with(false);
     assert!(
         text.contains("Terminal graphics:"),
         "expected 'Terminal graphics:' section header in:\n{text}"

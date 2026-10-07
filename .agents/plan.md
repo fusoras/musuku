@@ -1,112 +1,102 @@
-# Plan: config.toml options
+# Plan: `geico watch` & Icon Folder Integration
 
-**Status:** implemented.
+**Status:** completed.
 **Date:** 2026-10-07
-**Source:** options defined by Antigravity and agreed by the user.
-
-All options below are implemented in `src/config.rs`, `src/manager.rs`,
-`src/image.rs`, and `src/colors.rs`, and documented in `docs/config.md`.
+**Objective:** Add folder monitoring and batch scanning for AppImages with automated icon pairing and configuration support.
 
 ---
 
-## Planned `~/.config/geico/config.toml`
+## Agreed Requirements & Decisions
 
-### `[display]`
-
-Controls the look and feel of `geico list` / `geico show` and terminal output.
-
-| Key | Type | Values | Default | What it does |
-|---|---|---|---|---|
-| `images` | string | `"auto"` \| `"always"` \| `"never"` | `"auto"` | Controls Kitty/Ghostty image previews: `auto` = only if the terminal supports it, `always` = force, `never` = disable. |
-| `list_icon_size` | string | `"compact"` (2x1) \| `"medium"` (4x2) \| `"large"` (8x4) | `"compact"` | Default icon size in `geico list`. |
-| `show_icon_size` | string | `"standard"` (10x5) \| `"compact"` (6x3) | `"standard"` | Default icon size in `geico show`. |
-| `paths` | string | `"tilde"` (`~/`) \| `"absolute"` (`/home/user/...`) | `"tilde"` | How file paths are formatted in `show`. |
-| `color` | string | `"auto"` \| `"always"` \| `"never"` | `"auto"` | Output color policy (respects `NO_COLOR` when `auto`). |
-| `list_format` | string | `"simple"` \| `"table"` | `"simple"` | Default list style: `simple` = current compact view, `table` = aligned table with borders. |
-
-### `[defaults]`
-
-Default behavior of `geico add` / lifecycle operations.
-
-| Key | Type | Values | Default | What it does |
-|---|---|---|---|---|
-| `symlink_appimages` | bool | `true` \| `false` (alias `appimage_symlinks`) | `false` | When `false` (the default), `geico add` skips the `$PATH` symlink for AppImage targets. Set `true` to enable it. |
-| `categories` | array of strings | e.g. `["Utility"]` | `["Utility"]` | Fallback desktop category if none specified during `geico add`. |
-| `auto_extract` | bool | `true` \| `false` | `true` | Auto-extract embedded icons and `.desktop` metadata from AppImages. |
-| `update_desktop_db` | bool | `true` \| `false` | `true` | Silently refresh the desktop database after add/update/remove. |
-| `dest_bin` | string | path (supports `~`) | `"~/.local/bin"` | Default directory for terminal symlinks. |
+1. **CLI Command**:
+   - `geico watch [DIRECTORIES]... [OPTIONS]`
+   - Flag `--scan-only` (alias `--once`): Scans the directories, registers any new AppImages, and exits immediately.
+   - Default without `--scan-only`: Performs the initial scan and then continuously monitors filesystem events with debouncing.
+   - Additional flags: `--icons-dir <DIR>`, `--recursive`, `--dry-run`.
+2. **Icon Pairing & Fallback**:
+   - When an AppImage is detected, search the dedicated icons directory for a matching icon by app/stem name (`.png`, `.svg`, `.webp`, `.xpm`, `.ico`).
+   - If not found or no icons folder specified, **fallback to integrated extraction** (`extractor::inspect_and_extract` / `.DirIcon` / internal `.desktop`).
+3. **Configuration (`config.toml`)**:
+   - Add `[watch]` section to `~/.config/geico/config.toml` to define default watch directories, icons directory, auto-chmod flag, clean-on-delete, and debounce duration.
+4. **Lifecycle & Deletion Behavior (Option A)**:
+   - Non-destructive retention: AppImages remain in the watched directory.
+   - When an AppImage is deleted or moved out of the watched directory by the user, `geico watch` detects the event and automatically unregisters it (removes `.desktop`, symlink, and entry in `apps.toml`).
+5. **Execution Permissions**:
+   - Do not force `chmod +x` by default.
+   - Configurable via `auto_chmod = true` in `[watch]` section of `config.toml`.
 
 ---
 
-## Full example
+## Configuration Specification
+
+In `~/.config/geico/config.toml`:
 
 ```toml
-[display]
-# Controls Kitty/Ghostty image previews: "auto" (if supported), "always", or "never"
-images = "auto"
+[watch]
+# Default directories to watch if none provided to `geico watch`
+directories = ["~/Applications"]
 
-# Default icon size in 'geico list': "compact" (2x1), "medium" (4x2), or "large" (8x4)
-list_icon_size = "compact"
+# Dedicated icons folder to match against AppImage names
+icons_dir = "~/Applications/Icons"
 
-# Default icon size in 'geico show': "standard" (10x5) or "compact" (6x3)
-show_icon_size = "standard"
+# Automatically apply `chmod +x` to detected AppImages (default: false)
+auto_chmod = false
 
-# How file paths are formatted in 'show': "tilde" (~/) or "absolute" (/home/user/...)
-paths = "tilde"
+# Monitor subdirectories recursively (default: false)
+recursive = false
 
-# Output color policy: "auto", "always", "never"
-color = "auto"
+# Unregister application (.desktop, symlink, apps.toml) when AppImage is deleted (default: true)
+clean_on_delete = true
 
-# Default list style: "simple" (current compact view) or "table" (aligned table with borders)
-list_format = "simple"
-
-[defaults]
-# Fallback desktop category if none specified during 'geico add'
-categories = ["Utility"]
-
-# Auto-extract embedded icons and .desktop metadata from AppImages
-auto_extract = true
-
-# Silently refresh desktop database after add/update/remove
-update_desktop_db = true
-
-# Default directory for terminal symlinks
-dest_bin = "~/.local/bin"
-
-# Skip $PATH symlink for AppImage targets (default)
-symlink_appimages = false
+# Event debounce delay in milliseconds (default: 1000)
+debounce_ms = 1000
 ```
 
 ---
 
-## Planned improvement: `list_format = "table"` view
+## Architecture & Code Changes
 
-The `table` list style needs a proper visual overhaul before it can be considered
-usable as the default alternative to `simple`:
+### 1. Dependencies (`Cargo.toml`)
+- Add `notify-debouncer-mini = "0.7"` (or `notify = "8.0"`) for debounced filesystem event monitoring in Linux.
 
-- **Column alignment**: all columns must be aligned and share a consistent width —
-  every row must render with the same total width (pad cells to the widest entry per
-  column; no ragged rows).
-- **Images**: the table must support inline icon/image previews in the icon column
-  (same cell footprint rules as the `simple` view; honor `display.images` and
-  `display.list_icon_size`).
-- **Colors**: cell content keeps the existing color policy (`display.color`, `NO_COLOR`).
-- **Borders**: the table borders/box drawing must be **gray** so they read as structure
-  and not as content.
+### 2. CLI Definition (`src/cli.rs`)
+- Add `Command::Watch(Watch)`:
+  - `directories`: `Vec<PathBuf>` (positional, optional, falls back to config).
+  - `icons_dir`: `Option<PathBuf>`.
+  - `scan_only`: `bool` (`--scan-only`, alias `--once`).
+  - `recursive`: `bool` (`--recursive`).
+  - `dry_run`: `bool` (`--dry-run`).
+
+### 3. Config Model (`src/config.rs`)
+- Add `WatchConfig` struct with serde defaults inside `Settings`.
+
+### 4. Icon & Name Matcher (`src/matcher.rs` - NEW)
+- Name normalization: Clean version suffixes (`-1.0.0`, `_v2`), architectures (`-x86_64`, `_amd64`), and extract search slugs.
+- Icon finder: Scan `--icons-dir` for matching stems (`<name>.{png,svg,webp,xpm,ico}`). Case-insensitive and normalized.
+- Fallback orchestration: If icon matched $\rightarrow$ use it. If not $\rightarrow$ `None` (triggers `extractor::inspect_and_extract`).
+
+### 5. Watcher & Scanner Engine (`src/watcher.rs` - NEW)
+- `scan_directory`: Recursively/flatly collect AppImages, skip already registered paths, resolve icons, and call `manager.add()`.
+- `watch_directory`: Initialize debounced inotify watcher. On `Create`/`Modify` $\rightarrow$ register. On `Remove` $\rightarrow$ if `clean_on_delete`, unregister via `manager.remove()`.
+- Unix permission check: Apply `chmod +x` only if `auto_chmod == true`.
+
+### 6. CLI Dispatcher (`src/main.rs`)
+- Wire `Command::Watch` to `watcher::run(args, manager)`.
+
+### 7. Documentation (`docs/watch.md` & `README.md`)
+- Document the new `watch` command, flags, and `[watch]` configuration options.
 
 ---
 
-## Implementation checklist (future work)
+## Implementation Checklist
 
-- [x] Extend `Settings`/`Defaults` structs in `src/config.rs`; add new `[display]` section struct.
-- [x] Wire `display.images` into image preview logic (`src/image.rs`) — CLI flags retain precedence.
-- [x] Wire `list_icon_size` / `show_icon_size` into `geico list` / `geico show`.
-- [x] Wire `paths` into `show` path formatting.
-- [x] Wire `color` into color output helpers (`src/colors.rs`), respecting `NO_COLOR`.
-- [x] Wire `list_format` into `geico list`.
-- [x] Improve `table` view: aligned columns with uniform row width, inline image support, colors, gray borders.
-- [x] Wire `defaults.categories` as fallback in `geico add`.
-- [x] Wire `defaults.auto_extract` into AppImage extraction.
-- [x] Wire `defaults.update_desktop_db` into desktop DB refresh.
-- [x] Wire `defaults.dest_bin` as default symlink target dir (CLI `--dest-bin` keeps precedence).
-- [x] Add dedicated configuration/display behavior tests; verify RED against the pre-implementation tree, then GREEN with the implementation, and document all options in `docs/config.md` (English).
+- [x] Add `notify-debouncer-mini` (or `notify`) to `Cargo.toml`.
+- [x] Implement `WatchConfig` in `src/config.rs`.
+- [x] Add `Watch` command and arguments in `src/cli.rs`.
+- [x] Implement `src/matcher.rs` with unit tests for name cleanup and icon lookup.
+- [x] Implement `src/watcher.rs` with batch scanning and debounced live watching.
+- [x] Integrate optional `auto_chmod` and reactive `clean_on_delete`.
+- [x] Wire `Command::Watch` in `src/main.rs`.
+- [x] Write automated tests in `tests/watch_and_matcher_test.rs`.
+- [x] Verify test suite with `cargo test` and `cargo clippy`.
+- [x] Update documentation (`docs/watch.md` and `README.md`).

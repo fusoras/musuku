@@ -114,16 +114,24 @@ pub fn inspect_and_extract(target: &Path) -> Result<Option<Extraction>> {
     }))
 }
 
-fn find_icon(root: &Path, requested: Option<&str>) -> Option<PathBuf> {
+pub fn find_icon(root: &Path, requested: Option<&str>) -> Option<PathBuf> {
     if let Some(name) = requested {
-        let requested = root.join(name);
-        if requested.is_file() {
-            return Some(requested);
+        let direct = root.join(name);
+        if direct.is_file() && crate::matcher::is_icon_file(&direct) {
+            return Some(direct);
+        }
+        for ext in crate::matcher::ICON_EXTENSIONS {
+            let candidate = root.join(format!("{name}.{ext}"));
+            if candidate.is_file() {
+                return Some(candidate);
+            }
         }
         if let Some(found) = find_file(root, |path| {
-            path.file_stem()
-                .and_then(|stem| stem.to_str())
-                .is_some_and(|stem| stem == name)
+            crate::matcher::is_icon_file(path)
+                && path
+                    .file_stem()
+                    .and_then(|stem| stem.to_str())
+                    .is_some_and(|stem| stem == name)
         }) {
             return Some(found);
         }
@@ -132,11 +140,15 @@ fn find_icon(root: &Path, requested: Option<&str>) -> Option<PathBuf> {
     if dir_icon.is_file() {
         return Some(dir_icon);
     }
-    find_file(root, |path| {
-        path.extension().is_some_and(|extension| {
-            extension.eq_ignore_ascii_case("png") || extension.eq_ignore_ascii_case("svg")
-        })
-    })
+    if let Ok(entries) = fs::read_dir(root) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file() && crate::matcher::is_icon_file(&path) {
+                return Some(path);
+            }
+        }
+    }
+    find_file(root, crate::matcher::is_icon_file)
 }
 
 fn find_file(root: &Path, predicate: impl Fn(&Path) -> bool + Copy) -> Option<PathBuf> {

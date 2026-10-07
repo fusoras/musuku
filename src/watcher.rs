@@ -17,42 +17,295 @@ use std::{
     time::Duration,
 };
 
-pub fn run(args: Watch, manager: Manager) -> Result<()> {
-    let settings = config::load_settings(&config::default_base_dir())?;
-    let watch = settings.watch;
-    let directories = if args.directories.is_empty() {
-        watch.directories.clone()
-    } else {
-        args.directories
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct SyncReport {
+    pub added: usize,
+    pub updated: usize,
+    pub removed: usize,
+}
+
+pub fn sync_directories(
+    manager: &Manager,
+    directories: &[PathBuf],
+    icons_dir: Option<&Path>,
+    recursive: bool,
+    auto_chmod: bool,
+    clean_on_delete: bool,
+    dry_run: bool,
+) -> Result<SyncReport> {
+    let mut resolved_dirs = Vec::new();
+    for d in directories {
+        if let Ok(resolved) = resolve_directory(d.clone()) {
+            resolved_dirs.push(resolved);
+        } else if d.is_dir() {
+            resolved_dirs.push(d.clone());
+        }
     }
-    .into_iter()
-    .map(expand_home)
-    .collect::<Vec<_>>();
-    if directories.is_empty() {
+    if resolved_dirs.is_empty() {
+        return Ok(SyncReport::default());
+    }
+
+    let mut current_files = Vec::new();
+    for dir in &resolved_dirs {
+        collect_appimages(dir, recursive, &mut current_files)?;
+    }
+
+    struct Candidate {
+        path: PathBuf,
+        norm_name: String,
+        version: Option<String>,
+        mtime: Option<std::time::SystemTime>,
+    }
+
+    let mut candidates: Vec<Candidate> = Vec::new();
+    for file in current_files {
+        let canonical = fs::canonicalize(&file).unwrap_or(file);
+        let filename = canonical
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or_default();
+        let norm_name = matcher::normalize_name(filename);
+        let version = matcher::extract_version(filename);
+        let mtime = fs::metadata(&canonical)
+            .ok()
+            .and_then(|m| m.modified().ok());
+        candidates.push(Candidate {
+            path: canonical,
+            norm_name,
+            version,
+            mtime,
+        });
+    }
+
+    let mut claimed_paths: std::collections::HashSet<PathBuf> = std::collections::HashSet::new();
+    let mut report = SyncReport::default();
+
+    let registry = config::load(manager.config_path())?;
+    for app in &registry.apps {
+        let in_watched_dir = resolved_dirs.iter().any(|d| app.target_bin.starts_with(d));
+        if !in_watched_dir {
+            continue;
+        }
+
+        let app_norm = matcher::normalize_name(&app.id);
+
+        if !app.target_bin.exists() {
+            // Target was deleted from disk! Check if there is an alternative version candidate.
+            let matching_candidate = candidates
+                .iter()
+                .filter(|c| c.norm_name == app_norm)
+                .max_by(|a, b| match (&a.version, &b.version) {
+                    (Some(v1), Some(v2)) => matcher::compare_versions(v1, v2),
+                    _ => a.mtime.cmp(&b.mtime),
+                });
+
+            if let Some(cand) = matching_candidate {
+                if !dry_run {
+                    manager.update(
+                        &app.id,
+                        crate::manager::UpdateOptions {
+                            target: Some(cand.path.clone()),
+                            ..Default::default()
+                        },
+                    )?;
+                }
+                claimed_paths.insert(cand.path.clone());
+                report.updated += 1;
+            } else if clean_on_delete {
+                if !dry_run {
+                    manager.remove(&app.id)?;
+                }
+                report.removed += 1;
+            }
+        } else {
+            // Target exists; check if a newer version candidate is available
+            let app_filename = app
+                .target_bin
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or_default();
+            let app_version = matcher::extract_version(app_filename);
+            let app_mtime = fs::metadata(&app.target_bin)
+                .ok()
+                .and_then(|m| m.modified().ok());
+
+            let newer_candidate = candidates
+                .iter()
+                .filter(|c| c.norm_name == app_norm && c.path != app.target_bin)
+                .find(|c| match (&c.version, &app_version) {
+                    (Some(v_new), Some(v_old)) => {
+                        matcher::compare_versions(v_new, v_old) == std::cmp::Ordering::Greater
+                    }
+                    _ => c.mtime > app_mtime,
+                });
+
+            if let Some(cand) = newer_candidate {
+                if !dry_run {
+                    manager.update(
+                        &app.id,
+                        crate::manager::UpdateOptions {
+                            target: Some(cand.path.clone()),
+                            ..Default::default()
+                        },
+                    )?;
+                }
+                claimed_paths.insert(cand.path.clone());
+                claimed_paths.insert(app.target_bin.clone());
+                report.updated += 1;
+            } else {
+                claimed_paths.insert(app.target_bin.clone());
+            }
+        }
+    }
+
+    // Register new candidates
+    for cand in candidates {
+        if claimed_paths.contains(&cand.path) {
+            continue;
+        }
+        if manager.is_registered_target(&cand.path)? {
+            continue;
+        }
+        if auto_chmod && let Ok(metadata) = fs::metadata(&cand.path) {
+            let mut permissions = metadata.permissions();
+            permissions.set_mode(permissions.mode() | 0o111);
+            let _ = fs::set_permissions(&cand.path, permissions);
+        }
+        if !is_executable(&cand.path)? {
+            continue;
+        }
+        let icon = icons_dir
+            .map(|dir| matcher::find_icon(dir, cand.path.to_string_lossy().as_ref()))
+            .transpose()?
+            .flatten();
+        if !dry_run {
+            manager.add(AddOptions {
+                target: cand.path.clone(),
+                name: Some(cand.norm_name.clone()),
+                icon,
+                ..AddOptions::default()
+            })?;
+        }
+        report.added += 1;
+    }
+
+    Ok(report)
+}
+
+pub fn auto_sync_if_configured(manager: &Manager) -> Result<Option<SyncReport>> {
+    let settings = config::load_settings(manager.settings_base())?;
+    if !settings.watch.auto_sync || settings.watch.directories.is_empty() {
+        return Ok(None);
+    }
+    let icons_dir = settings
+        .watch
+        .icons_dir
+        .as_ref()
+        .map(|d| expand_home(d.clone()))
+        .and_then(|d| {
+            if d.is_dir() {
+                fs::canonicalize(&d).ok()
+            } else {
+                None
+            }
+        });
+    let report = sync_directories(
+        manager,
+        &settings.watch.directories,
+        icons_dir.as_deref(),
+        settings.watch.recursive,
+        settings.watch.auto_chmod,
+        settings.watch.clean_on_delete,
+        false,
+    )?;
+    Ok(Some(report))
+}
+
+pub fn run(args: Watch, manager: Manager) -> Result<()> {
+    let base_dir = manager.settings_base().to_path_buf();
+    let mut settings = config::load_settings(&base_dir)?;
+    let raw_directories = if args.directories.is_empty() {
+        settings.watch.directories.clone()
+    } else {
+        args.directories.clone()
+    };
+
+    if raw_directories.is_empty() {
         anyhow::bail!("no watch directories configured or provided");
     }
-    let icons_dir = args.icons_dir.or(watch.icons_dir.clone()).map(expand_home);
-    let recursive = args.recursive || watch.recursive;
-    scan_directories(
+
+    let mut directories = Vec::new();
+    for dir in &raw_directories {
+        let resolved = resolve_directory(dir.clone())?;
+        directories.push(resolved);
+    }
+
+    // Persist new explicitly passed directories to config.toml so list will auto-sync them
+    if !args.directories.is_empty() {
+        let mut modified = false;
+        for dir in &directories {
+            if !settings.watch.directories.contains(dir) {
+                settings.watch.directories.push(dir.clone());
+                modified = true;
+            }
+        }
+        if modified {
+            let _ = config::save_settings(&base_dir, &settings);
+        }
+    }
+
+    let icons_dir = args
+        .icons_dir
+        .or(settings.watch.icons_dir.clone())
+        .map(expand_home)
+        .and_then(|dir| {
+            if dir.is_dir() {
+                fs::canonicalize(&dir).ok()
+            } else {
+                None
+            }
+        });
+
+    let recursive = args.recursive || settings.watch.recursive;
+
+    println!("Synchronizing watch directories...");
+    let report = sync_directories(
         &manager,
         &directories,
         icons_dir.as_deref(),
         recursive,
-        watch.auto_chmod,
+        settings.watch.auto_chmod,
+        settings.watch.clean_on_delete,
         args.dry_run,
     )?;
-    if args.scan_only {
-        return Ok(());
+
+    println!(
+        "Sync complete: {} registered, {} updated, {} removed.",
+        report.added, report.updated, report.removed
+    );
+
+    if args.continuous {
+        println!(
+            "\n{}Watching for AppImages (press Ctrl+C to stop):{}",
+            crate::colors::BOLD_BLUE,
+            crate::colors::RESET
+        );
+        for dir in &directories {
+            println!("  • {}", dir.display());
+        }
+
+        watch_directories(
+            manager,
+            directories,
+            icons_dir,
+            recursive,
+            settings.watch.auto_chmod,
+            settings.watch.clean_on_delete,
+            settings.watch.debounce_ms,
+        )?;
     }
-    watch_directories(
-        manager,
-        directories,
-        icons_dir,
-        recursive,
-        watch.auto_chmod,
-        watch.clean_on_delete,
-        watch.debounce_ms,
-    )
+
+    Ok(())
 }
 
 pub fn scan_directories(
@@ -84,17 +337,32 @@ pub fn scan_directories(
                 .map(|dir| matcher::find_icon(dir, path.to_string_lossy().as_ref()))
                 .transpose()?
                 .flatten();
+            let app_name = matcher::normalize_name(
+                path.file_name()
+                    .and_then(|name| name.to_str())
+                    .unwrap_or_default(),
+            );
             if !dry_run {
-                manager.add(AddOptions {
+                let entry = manager.add(AddOptions {
                     target: path.clone(),
-                    name: Some(matcher::normalize_name(
-                        path.file_name()
-                            .and_then(|name| name.to_str())
-                            .unwrap_or_default(),
-                    )),
+                    name: Some(app_name.clone()),
                     icon,
                     ..AddOptions::default()
                 })?;
+                println!(
+                    "{}Registered {} ({}) from {}{}",
+                    crate::colors::BOLD_GREEN,
+                    entry.name,
+                    entry.id,
+                    path.display(),
+                    crate::colors::RESET
+                );
+            } else {
+                println!(
+                    "[dry-run] Would register {} from {}",
+                    app_name,
+                    path.display()
+                );
             }
         }
     }
@@ -160,7 +428,18 @@ fn handle_events(
             && !path.exists()
             && let Some(query) = manager.registered_target_query(&path)?
         {
-            manager.remove(&query)?;
+            if let Ok(entry) = manager.get(&query) {
+                manager.remove(&query)?;
+                println!(
+                    "{}Removed {} ({}) - AppImage deleted from disk{}",
+                    crate::colors::BOLD_YELLOW,
+                    entry.name,
+                    entry.id,
+                    crate::colors::RESET
+                );
+            } else {
+                manager.remove(&query)?;
+            }
         }
     }
     Ok(())
@@ -191,6 +470,17 @@ fn is_appimage_path(path: &Path) -> bool {
 
 fn is_executable(path: &Path) -> Result<bool> {
     Ok(fs::metadata(path)?.permissions().mode() & 0o111 != 0 || extractor::is_appimage(path)?)
+}
+
+fn resolve_directory(path: PathBuf) -> Result<PathBuf> {
+    let expanded = expand_home(path);
+    if !expanded.exists() {
+        anyhow::bail!("directory does not exist: {}", expanded.display());
+    }
+    if !expanded.is_dir() {
+        anyhow::bail!("path is not a directory: {}", expanded.display());
+    }
+    Ok(fs::canonicalize(&expanded)?)
 }
 
 fn expand_home(path: PathBuf) -> PathBuf {

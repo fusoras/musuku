@@ -30,13 +30,18 @@ pub fn install(
             .file_name()
             .ok_or_else(|| anyhow!("icon path has no filename: {}", source.display()))?;
         let destination = icons.join(file_name);
-        fs::copy(source, &destination).with_context(|| {
-            format!(
-                "failed to copy icon {} to {}",
-                source.display(),
-                destination.display()
-            )
-        })?;
+        let same_file = source == destination
+            || (destination.exists()
+                && fs::canonicalize(source).ok() == fs::canonicalize(&destination).ok());
+        if !same_file {
+            fs::copy(source, &destination).with_context(|| {
+                format!(
+                    "failed to copy icon {} to {}",
+                    source.display(),
+                    destination.display()
+                )
+            })?;
+        }
         Some(destination)
     } else {
         None

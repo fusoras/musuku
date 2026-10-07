@@ -87,11 +87,15 @@ geico list [OPTIONS]
 
 | Option | Description |
 | --- | --- |
-| `-i, --image` | Display application icon previews in compatible terminals (Kitty graphics protocol). |
-| `--no-image` | Suppress application icon previews even in compatible terminals. |
+| `-i, --icons` | Display application icon previews in compatible terminals (Kitty graphics protocol). Visible alias: `--image`. |
+| `--no-icons` | Suppress application icon previews even in compatible terminals. Visible alias: `--no-image`. |
 | `-t, --table` | Display aligned `ICON`, `NAME`, `ID`, `CATEGORIES`, and `STATUS` columns. |
 | `--category <CAT>` | Show only applications containing the category (case-insensitive). |
 | `--broken` | Show only applications whose target executable is missing. |
+| `--hide-disabled-symlinks` | Hide symlinks when they are disabled (`symlink=disabled`). Visible alias: `--hide-disabled`. |
+| `--hide-target-ok` | Hide target status when healthy (`target=ok`). |
+| `--hide-desktop-ok` | Hide desktop file status when healthy (`desktop=ok`). |
+| `--hide-ok` | Hide both target and desktop statuses when healthy. Visible alias: `--hide-ok-status`. |
 
 ### Output Format
 
