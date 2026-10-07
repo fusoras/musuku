@@ -303,3 +303,44 @@ fn test_list_automatically_syncs_configured_watch_directories() {
     let app = manager.get("sonora").unwrap();
     assert_eq!(app.target_bin, fs::canonicalize(&new_appimage).unwrap());
 }
+
+#[test]
+fn test_auto_sync_skips_when_directories_unchanged() {
+    let temp = tempdir().unwrap();
+    let app_dir = temp.path().join("apps");
+    fs::create_dir_all(&app_dir).unwrap();
+    let appimage_path = app_dir.join("Tool-1.0-x86_64.AppImage");
+    fs::write(&appimage_path, "#!/bin/sh\nexit 0\n").unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = fs::metadata(&appimage_path).unwrap().permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&appimage_path, perms).unwrap();
+    }
+
+    let config_dir = temp.path().join("config");
+    fs::create_dir_all(&config_dir).unwrap();
+    let toml_content = format!(
+        "[watch]\ndirectories = [\"{}\"]\nauto_sync = true\n",
+        app_dir.display()
+    );
+    fs::write(config_dir.join("config.toml"), toml_content).unwrap();
+
+    let manager = geico::manager::Manager::new(
+        config_dir.join("apps.toml"),
+        temp.path().join("data"),
+        temp.path().join("bin"),
+    );
+
+    // First auto_sync: syncs and registers Tool
+    let first = geico::watcher::auto_sync_if_configured(&manager).unwrap();
+    assert!(first.is_some(), "expected first auto-sync to execute");
+
+    // Second auto_sync immediately without changing anything: must return None (fast-path skip)
+    let second = geico::watcher::auto_sync_if_configured(&manager).unwrap();
+    assert!(
+        second.is_none(),
+        "expected unchanged directory to skip auto-sync on fast path"
+    );
+}
