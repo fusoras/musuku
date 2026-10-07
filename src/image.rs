@@ -95,6 +95,13 @@ pub fn rasterize_svg_if_needed(path: &Path) -> Option<PathBuf> {
         return None;
     }
 
+    // Converter priority: specific tool first, general-purpose fallbacks after.
+    // 1. rsvg-convert (librsvg): purpose-built SVG renderer, fastest startup
+    //    and matches GNOME's rendering (same library).
+    // 2. magick / convert (ImageMagick 7 / 6): heavier startup and their SVG
+    //    output depends on delegates and policy.xml, which may block SVG.
+    // Without any of them the preview is skipped silently; the desktop
+    // launcher is unaffected because .desktop icons are copied as-is.
     let tool = ["rsvg-convert", "magick", "convert"]
         .into_iter()
         .find_map(find_in_path)?;
