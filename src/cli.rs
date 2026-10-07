@@ -60,6 +60,9 @@ pub struct Add {
     /// Custom destination directory for the symlink (prompts sudo if outside $HOME).
     #[arg(long)]
     pub dest_bin: Option<PathBuf>,
+    /// Application description or tooltip (written as Comment in .desktop).
+    #[arg(long, visible_alias = "comment")]
+    pub description: Option<String>,
 }
 
 #[derive(Debug, Args, Default)]
@@ -147,6 +150,9 @@ pub struct Update {
     /// Remove the terminal symlink for this application.
     #[arg(long)]
     pub remove_symlink: bool,
+    /// New application description or tooltip.
+    #[arg(long, visible_alias = "comment")]
+    pub description: Option<String>,
 }
 
 #[derive(Debug, Args)]
