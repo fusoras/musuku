@@ -90,8 +90,11 @@ impl Manager {
     }
 
     pub fn add(&self, options: AddOptions) -> Result<AppEntry> {
+        let settings = config::load_settings(self.settings_base())?;
         let canonical_target = canonicalize_target(&options.target)?;
-        let extraction = if options.icon.is_none() || options.categories.is_none() {
+        let extraction = if settings.defaults.auto_extract
+            && (options.icon.is_none() || options.categories.is_none())
+        {
             extractor::inspect_and_extract(&canonical_target)?
         } else {
             None
@@ -107,6 +110,7 @@ impl Manager {
                     .as_ref()
                     .and_then(|result| result.metadata.categories.clone())
             })
+            .or_else(|| Some(settings.defaults.categories.clone()))
             .map(|cats| {
                 cats.into_iter()
                     .map(|c| crate::categories::normalize_category(&c))
@@ -132,15 +136,22 @@ impl Manager {
         let should_symlink = if options.no_symlink {
             false
         } else if extractor::is_appimage(&entry.target_bin)? {
-            config::load_settings(self.config_path.parent().unwrap_or_else(|| Path::new(".")))?
-                .defaults
-                .symlink_appimages
+            settings.defaults.symlink_appimages
         } else {
             true
         };
         if should_symlink {
+            let configured_dest =
+                expand_home(&settings.defaults.dest_bin, self.home_dir.as_deref());
+            let destination = options.dest_bin.as_deref().unwrap_or_else(|| {
+                if settings.defaults.dest_bin == Path::new("~/.local/bin") {
+                    &self.bin_dir
+                } else {
+                    &configured_dest
+                }
+            });
             entry.symlink = Some(symlink::install(
-                options.dest_bin.as_deref().unwrap_or(&self.bin_dir),
+                destination,
                 &entry.target_bin,
                 options.bin_name.as_deref().unwrap_or(&entry.id),
             )?);
@@ -151,6 +162,7 @@ impl Manager {
         if let Some(extraction) = extraction {
             let _ = fs::remove_dir_all(extraction.root);
         }
+        self.refresh_desktop_db(&settings);
         Ok(entry)
     }
 
@@ -159,6 +171,7 @@ impl Manager {
     }
 
     pub fn list_with_options(&self, options: ListOptions) -> Result<String> {
+        let settings = config::load_settings(self.settings_base())?;
         let registry = config::load(&self.config_path)?;
         let mut output = String::new();
         let apps: Vec<_> = registry
@@ -175,37 +188,24 @@ impl Manager {
             })
             .filter(|app| !options.broken || !app.target_bin.exists())
             .collect();
-        if options.table {
-            writeln!(output, "ICON | NAME | ID | CATEGORIES | STATUS").unwrap();
-            for app in apps {
-                let categories = app
-                    .categories
-                    .as_ref()
-                    .map(|categories| categories.join(","))
-                    .unwrap_or_else(|| "-".into());
-                writeln!(
-                    output,
-                    "{} | {} | {} | {} | {}",
-                    if app.icon_path.is_some() { "yes" } else { "-" },
-                    app.name,
-                    app.id,
-                    categories,
-                    if app.target_bin.exists() {
-                        "ok"
-                    } else {
-                        "broken"
-                    }
-                )
-                .unwrap();
-            }
-            return Ok(output);
+        let table = options.table || settings.display.list_format == config::ListFormat::Table;
+        let show_images =
+            crate::image::image_requested(settings.display.images, options.image, options.no_image);
+        let colored = crate::colors::should_color_policy(settings.display.color);
+        if table {
+            return Ok(format_table(
+                &apps,
+                show_images,
+                settings.display.list_icon_size,
+                colored,
+            ));
         }
         for app in apps {
-            if options.image && !options.no_image {
-                let rendered = app
-                    .icon_path
-                    .as_deref()
-                    .and_then(|icon| crate::image::render_icon_preview(icon, 2, 1, true));
+            if show_images {
+                let rendered = app.icon_path.as_deref().and_then(|icon| {
+                    let (cols, rows) = list_icon_dimensions(settings.display.list_icon_size);
+                    crate::image::render_icon_preview(icon, cols, rows, true)
+                });
                 if let Some(preview) = rendered {
                     output.push_str(&preview);
                     output.push(' ');
@@ -215,15 +215,12 @@ impl Manager {
             }
             writeln!(
                 output,
-                "{} {}({}){} target={} desktop={} symlink={}{}",
+                "{} {} target={} desktop={} symlink={}",
                 app.name,
-                crate::colors::DIM_GRAY,
-                app.id,
-                crate::colors::RESET,
-                status(&app.target_bin),
-                optional_status(app.desktop_file.as_deref()),
-                optional_status(app.symlink.as_deref()),
-                crate::colors::RESET,
+                crate::colors::gray(colored, &format!("({})", app.id)),
+                status_with_color(&app.target_bin, colored),
+                optional_status_with_color(app.desktop_file.as_deref(), colored),
+                optional_status_with_color(app.symlink.as_deref(), colored),
             )
             .unwrap();
         }
@@ -231,6 +228,7 @@ impl Manager {
     }
 
     pub fn show(&self, query: &str, options: ShowOptions) -> Result<String> {
+        let settings = config::load_settings(self.settings_base())?;
         let registry = config::load(&self.config_path)?;
         let app = registry
             .find(query)
@@ -263,7 +261,12 @@ impl Manager {
             if path.as_os_str().is_empty() {
                 bail!("application has no {label}");
             }
-            return Ok(path.display().to_string());
+            return Ok(format_path(
+                path,
+                self.home_dir.as_deref(),
+                options.absolute,
+                settings.display.paths,
+            ));
         }
 
         let categories = app
@@ -273,9 +276,11 @@ impl Manager {
             .map(|categories| categories.join(", "))
             .unwrap_or_else(|| "none".to_string());
         let mut output = String::new();
-        if let Some(preview) =
-            image_preview(app.icon_path.as_deref(), options.image, options.no_image)
-        {
+        if let Some(preview) = image_preview(
+            app.icon_path.as_deref(),
+            crate::image::image_requested(settings.display.images, options.image, options.no_image),
+            settings.display.show_icon_size,
+        ) {
             output.push_str(&preview);
         }
         writeln!(
@@ -290,8 +295,16 @@ impl Manager {
         writeln!(
             output,
             "  Executable:  {} [{}]",
-            collapse_path(&app.target_bin, self.home_dir.as_deref(), options.absolute),
-            status(&app.target_bin)
+            format_path(
+                &app.target_bin,
+                self.home_dir.as_deref(),
+                options.absolute,
+                settings.display.paths
+            ),
+            status_with_color(
+                &app.target_bin,
+                crate::colors::should_color_policy(settings.display.color)
+            )
         )
         .unwrap();
         writeln!(
@@ -300,7 +313,7 @@ impl Manager {
             optional_path_status(
                 app.desktop_file.as_deref(),
                 self.home_dir.as_deref(),
-                options.absolute
+                options.absolute || settings.display.paths == config::PathPolicy::Absolute
             )
         )
         .unwrap();
@@ -310,7 +323,7 @@ impl Manager {
             optional_path_status(
                 app.icon_path.as_deref(),
                 self.home_dir.as_deref(),
-                options.absolute
+                options.absolute || settings.display.paths == config::PathPolicy::Absolute
             )
         )
         .unwrap();
@@ -320,7 +333,7 @@ impl Manager {
             optional_path_status(
                 app.symlink.as_deref(),
                 self.home_dir.as_deref(),
-                options.absolute
+                options.absolute || settings.display.paths == config::PathPolicy::Absolute
             )
         )
         .unwrap();
@@ -344,6 +357,7 @@ impl Manager {
     }
 
     pub fn update(&self, query: &str, options: UpdateOptions) -> Result<UpdateOutcome> {
+        let settings = config::load_settings(self.settings_base())?;
         let mut registry = config::load(&self.config_path)?;
         let old = registry
             .find(query)
@@ -409,8 +423,10 @@ impl Manager {
                     Some(prev_name) => prev_name,
                     None => &entry.id,
                 };
+                let destination =
+                    configured_destination(&settings, &self.bin_dir, self.home_dir.as_deref());
                 entry.symlink = Some(symlink::install(
-                    &self.bin_dir,
+                    &destination,
                     &entry.target_bin,
                     link_name,
                 )?);
@@ -424,6 +440,7 @@ impl Manager {
             .ok_or_else(|| anyhow!("application not found: {query}"))?
             .clone();
         config::save(&self.config_path, &registry)?;
+        self.refresh_desktop_db(&settings);
         Ok(UpdateOutcome::Updated { entry: updated })
     }
 
@@ -448,7 +465,9 @@ impl Manager {
                 )
             })?;
         }
-        config::save(&self.config_path, &registry)
+        config::save(&self.config_path, &registry)?;
+        self.refresh_desktop_db(&config::load_settings(self.settings_base())?);
+        Ok(())
     }
 
     pub fn health(&self, json: bool, verbose: bool) -> Result<String> {
@@ -485,19 +504,37 @@ impl Manager {
         println!("Launched {} ({}) in background.", app.name, app.id);
         Ok(())
     }
+
+    fn settings_base(&self) -> &Path {
+        self.config_path.parent().unwrap_or_else(|| Path::new("."))
+    }
+
+    fn refresh_desktop_db(&self, settings: &config::Settings) {
+        if settings.defaults.update_desktop_db {
+            let _ = std::process::Command::new("update-desktop-database")
+                .arg(&self.data_dir)
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .status();
+        }
+    }
 }
 
 /// Inline terminal image preview emitted before the `show` text card.
-///
-/// `--no-image` suppresses the preview outright. Without it the preview would
-/// be produced by the Kitty graphics renderer of the image engine, which this
-/// crate does not wire in yet, so the text card alone is returned.
-fn image_preview(icon_path: Option<&Path>, force_image: bool, no_image: bool) -> Option<String> {
-    if no_image {
+fn image_preview(
+    icon_path: Option<&Path>,
+    show_image: bool,
+    size: config::ShowIconSize,
+) -> Option<String> {
+    if !show_image {
         return None;
     }
     let icon = icon_path?;
-    crate::image::render_icon_preview(icon, 10, 5, force_image).map(|mut esc| {
+    let (cols, rows) = match size {
+        config::ShowIconSize::Standard => (10, 5),
+        config::ShowIconSize::Compact => (6, 3),
+    };
+    crate::image::render_icon_preview(icon, cols, rows, true).map(|mut esc| {
         esc.push('\n');
         esc
     })
@@ -516,26 +553,25 @@ fn canonicalize_target(path: &Path) -> Result<PathBuf> {
     Ok(canonical)
 }
 
-fn status(path: &Path) -> String {
+fn status_with_color(path: &Path, colored: bool) -> String {
     if path.exists() {
-        format!("{}ok{}", crate::colors::BOLD_GREEN, crate::colors::RESET)
+        crate::colors::green(colored, "ok")
     } else {
-        format!(
-            "{}missing/broken{}",
-            crate::colors::BOLD_RED,
-            crate::colors::RESET
-        )
+        if colored {
+            format!(
+                "{}missing/broken{}",
+                crate::colors::BOLD_RED,
+                crate::colors::RESET
+            )
+        } else {
+            "missing/broken".to_string()
+        }
     }
 }
 
-fn optional_status(path: Option<&Path>) -> String {
-    path.map(status).unwrap_or_else(|| {
-        format!(
-            "{}disabled{}",
-            crate::colors::BOLD_YELLOW,
-            crate::colors::RESET
-        )
-    })
+fn optional_status_with_color(path: Option<&Path>, colored: bool) -> String {
+    path.map(|path| status_with_color(path, colored))
+        .unwrap_or_else(|| crate::colors::yellow(colored, "disabled"))
 }
 
 fn collapse_path(path: &Path, home_dir: Option<&Path>, absolute: bool) -> String {
@@ -558,7 +594,7 @@ fn optional_path_status(path: Option<&Path>, home_dir: Option<&Path>, absolute: 
         Some(path) => format!(
             "{} [{}]",
             collapse_path(path, home_dir, absolute),
-            status(path)
+            status_with_color(path, crate::colors::should_color())
         ),
         None => format!(
             "{}disabled{}",
@@ -566,4 +602,186 @@ fn optional_path_status(path: Option<&Path>, home_dir: Option<&Path>, absolute: 
             crate::colors::RESET
         ),
     }
+}
+
+fn list_icon_dimensions(size: config::ListIconSize) -> (u32, u32) {
+    match size {
+        config::ListIconSize::Compact => (2, 1),
+        config::ListIconSize::Medium => (4, 2),
+        config::ListIconSize::Large => (8, 4),
+    }
+}
+
+fn format_path(
+    path: &Path,
+    home: Option<&Path>,
+    absolute: bool,
+    policy: config::PathPolicy,
+) -> String {
+    collapse_path(
+        path,
+        home,
+        absolute || policy == config::PathPolicy::Absolute,
+    )
+}
+
+fn expand_home(path: &Path, home: Option<&Path>) -> PathBuf {
+    let Some(home) = home else {
+        return path.to_path_buf();
+    };
+    if path == Path::new("~") {
+        return home.to_path_buf();
+    }
+
+    path.strip_prefix("~")
+        .map(|suffix| home.join(suffix))
+        .unwrap_or_else(|_| path.to_path_buf())
+}
+
+fn configured_destination(
+    settings: &config::Settings,
+    fallback: &Path,
+    home: Option<&Path>,
+) -> PathBuf {
+    if settings.defaults.dest_bin == Path::new("~/.local/bin") {
+        fallback.to_path_buf()
+    } else {
+        expand_home(&settings.defaults.dest_bin, home)
+    }
+}
+
+fn format_table(
+    apps: &[&AppEntry],
+    show_images: bool,
+    icon_size: config::ListIconSize,
+    colored: bool,
+) -> String {
+    let (cols, rows) = list_icon_dimensions(icon_size);
+    let mut table = Vec::new();
+    table.push(vec![
+        "ICON".into(),
+        "NAME".into(),
+        "ID".into(),
+        "CATEGORIES".into(),
+        "STATUS".into(),
+    ]);
+    for app in apps {
+        let icon = if show_images {
+            app.icon_path
+                .as_deref()
+                .and_then(|path| crate::image::render_icon_preview(path, cols, rows, true))
+                .map(|preview| format!("{preview}{}", " ".repeat(cols as usize)))
+                .unwrap_or_else(|| " ".repeat(cols as usize))
+        } else if app.icon_path.is_some() {
+            "yes".into()
+        } else {
+            "-".into()
+        };
+        table.push(vec![
+            icon,
+            app.name.clone(),
+            app.id.clone(),
+            app.categories
+                .as_ref()
+                .map(|c| c.join(","))
+                .unwrap_or_else(|| "-".into()),
+            status_with_color(&app.target_bin, colored),
+        ]);
+    }
+    let widths: Vec<usize> = (0..5)
+        .map(|column| {
+            table
+                .iter()
+                .map(|row| visible_width(&row[column]))
+                .max()
+                .unwrap_or(0)
+        })
+        .collect();
+    let widths = widths
+        .into_iter()
+        .enumerate()
+        .map(|(column, width)| {
+            if column == 0 {
+                width.max(cols as usize)
+            } else {
+                width
+            }
+        })
+        .collect::<Vec<_>>();
+    let border = crate::colors::dim(
+        colored,
+        &format!(
+            "+{}+",
+            widths
+                .iter()
+                .map(|w| format!("-{}-", w))
+                .collect::<String>()
+        ),
+    );
+    let mut output = String::new();
+    for (index, row) in table.iter().enumerate() {
+        let cells = row
+            .iter()
+            .enumerate()
+            .map(|(column, cell)| centered_cell(cell, widths[column]))
+            .collect::<Vec<_>>();
+        writeln!(
+            output,
+            "{}{}{}",
+            crate::colors::dim(colored, "|"),
+            cells.join(&crate::colors::dim(colored, "|")),
+            crate::colors::dim(colored, "|")
+        )
+        .unwrap();
+        if index == 0 || index + 1 == table.len() {
+            output.push_str(&border);
+            output.push('\n');
+        }
+    }
+    output
+}
+
+fn centered_cell(cell: &str, width: usize) -> String {
+    let padding = width.saturating_sub(visible_width(cell));
+    let left = padding / 2;
+    format!(
+        " {}{}{} ",
+        " ".repeat(left),
+        cell,
+        " ".repeat(padding - left)
+    )
+}
+
+fn visible_width(value: &str) -> usize {
+    let bytes = value.as_bytes();
+    let mut width = 0;
+    let mut index = 0;
+    while index < bytes.len() {
+        if bytes[index] != 0x1b {
+            width += 1;
+            index += 1;
+            continue;
+        }
+
+        index += 1;
+        if index < bytes.len() && bytes[index] == b'[' {
+            index += 1;
+            while index < bytes.len() {
+                let byte = bytes[index];
+                index += 1;
+                if byte.is_ascii_alphabetic() {
+                    break;
+                }
+            }
+        } else if index < bytes.len() && bytes[index] == b'_' {
+            while index < bytes.len() {
+                if bytes[index] == 0x1b && bytes.get(index + 1).copied() == Some(b'\\') {
+                    index += 2;
+                    break;
+                }
+                index += 1;
+            }
+        }
+    }
+    width
 }

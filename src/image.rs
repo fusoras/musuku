@@ -55,6 +55,19 @@ pub fn supports_kitty_graphics() -> bool {
     io::stdout().is_terminal() && is_kitty_compatible_terminal()
 }
 
+pub fn image_requested(
+    policy: crate::config::ImagePolicy,
+    explicit: bool,
+    suppressed: bool,
+) -> bool {
+    if suppressed || policy == crate::config::ImagePolicy::Never {
+        return false;
+    }
+    explicit
+        || policy == crate::config::ImagePolicy::Always
+        || (policy == crate::config::ImagePolicy::Auto && supports_kitty_graphics())
+}
+
 pub fn generate_kitty_escape(data: &[u8], cols: u32, rows: u32) -> String {
     if data.is_empty() {
         return String::new();

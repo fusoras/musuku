@@ -39,24 +39,121 @@ pub fn settings_path(base_dir: &Path) -> PathBuf {
 pub struct Settings {
     #[serde(default)]
     pub defaults: Defaults,
+    #[serde(default)]
+    pub display: Display,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Defaults {
     #[serde(default = "default_symlink_appimages", alias = "appimage_symlinks")]
     pub symlink_appimages: bool,
+    #[serde(default = "default_categories")]
+    pub categories: Vec<String>,
+    #[serde(default = "default_auto_extract")]
+    pub auto_extract: bool,
+    #[serde(default = "default_update_desktop_db")]
+    pub update_desktop_db: bool,
+    #[serde(default = "default_dest_bin")]
+    pub dest_bin: PathBuf,
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct Display {
+    #[serde(default)]
+    pub images: ImagePolicy,
+    #[serde(default)]
+    pub list_icon_size: ListIconSize,
+    #[serde(default)]
+    pub show_icon_size: ShowIconSize,
+    #[serde(default)]
+    pub paths: PathPolicy,
+    #[serde(default)]
+    pub color: ColorPolicy,
+    #[serde(default)]
+    pub list_format: ListFormat,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum ImagePolicy {
+    #[default]
+    Auto,
+    Always,
+    Never,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum ListIconSize {
+    #[default]
+    Compact,
+    Medium,
+    Large,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum ShowIconSize {
+    #[default]
+    Standard,
+    Compact,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum PathPolicy {
+    #[default]
+    Tilde,
+    Absolute,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum ColorPolicy {
+    #[default]
+    Auto,
+    Always,
+    Never,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum ListFormat {
+    #[default]
+    Simple,
+    Table,
 }
 
 impl Default for Defaults {
     fn default() -> Self {
         Self {
             symlink_appimages: default_symlink_appimages(),
+            categories: default_categories(),
+            auto_extract: default_auto_extract(),
+            update_desktop_db: default_update_desktop_db(),
+            dest_bin: default_dest_bin(),
         }
     }
 }
 
 fn default_symlink_appimages() -> bool {
+    false
+}
+
+fn default_categories() -> Vec<String> {
+    vec!["Utility".to_string()]
+}
+
+fn default_auto_extract() -> bool {
     true
+}
+
+fn default_update_desktop_db() -> bool {
+    true
+}
+
+fn default_dest_bin() -> PathBuf {
+    PathBuf::from("~/.local/bin")
 }
 
 /// Load optional program settings, using safe defaults when the file is absent.
