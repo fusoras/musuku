@@ -1,4 +1,4 @@
-use geico::image::{
+use musu::image::{
     encode_base64, generate_kitty_escape, rasterize_svg_if_needed, render_icon_preview,
     supports_kitty_graphics,
 };

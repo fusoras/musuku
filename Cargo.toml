@@ -1,5 +1,5 @@
 [package]
-name = "geico"
+name = "musu"
 version = "0.1.0"
 edition = "2024"
 description = "Lightweight Linux desktop & CLI integrator for portable executables"

@@ -8,11 +8,11 @@ fn test_install_script_not_in_path_outputs_bun_style_notice() {
 
     let script_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("install.sh");
 
-    // Run install.sh with GEICO_INSTALL_DIR pointing to our temp bin dir
+    // Run install.sh with MUSU_INSTALL_DIR pointing to our temp bin dir
     // and a restricted PATH that doesn't contain install_dir
     let output = Command::new("sh")
         .arg(&script_path)
-        .env("GEICO_INSTALL_DIR", &install_dir)
+        .env("MUSU_INSTALL_DIR", &install_dir)
         .env("PATH", "/usr/bin:/bin")
         .env("SHELL", "/usr/bin/zsh")
         .env("HOME", temp.path())
@@ -30,7 +30,7 @@ fn test_install_script_not_in_path_outputs_bun_style_notice() {
         stderr
     );
 
-    let installed_bin = install_dir.join("geico");
+    let installed_bin = install_dir.join("musu");
     assert!(
         installed_bin.exists(),
         "Binary should have been installed to {}",
@@ -45,7 +45,7 @@ fn test_install_script_not_in_path_outputs_bun_style_notice() {
         stdout
     );
     assert!(
-        stdout.contains("geico was installed successfully to"),
+        stdout.contains("musu was installed successfully to"),
         "Missing success message in stdout: {}",
         stdout
     );
@@ -60,7 +60,7 @@ fn test_install_script_not_in_path_outputs_bun_style_notice() {
         stdout
     );
     assert!(
-        stdout.contains("To get started, run:\n\n  geico --help"),
+        stdout.contains("To get started, run:\n\n  musu --help"),
         "Missing getting started line in stdout: {}",
         stdout
     );
@@ -78,7 +78,7 @@ fn test_install_script_when_already_in_path_skips_manual_path_notice() {
 
     let output = Command::new("sh")
         .arg(&script_path)
-        .env("GEICO_INSTALL_DIR", &install_dir)
+        .env("MUSU_INSTALL_DIR", &install_dir)
         .env("PATH", path_with_install_dir)
         .env("SHELL", "/usr/bin/zsh")
         .env("HOME", temp.path())
@@ -88,11 +88,11 @@ fn test_install_script_when_already_in_path_skips_manual_path_notice() {
     let stdout = String::from_utf8_lossy(&output.stdout);
 
     assert!(output.status.success());
-    assert!(stdout.contains("geico was installed successfully to"));
+    assert!(stdout.contains("musu was installed successfully to"));
     assert!(
         !stdout.contains("Manually add the directory to"),
         "Should not ask to manually add directory when it is already in PATH: {}",
         stdout
     );
-    assert!(stdout.contains("To get started, run:\n\n  geico --help"));
+    assert!(stdout.contains("To get started, run:\n\n  musu --help"));
 }

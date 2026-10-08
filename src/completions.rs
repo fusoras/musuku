@@ -29,12 +29,12 @@ pub fn detect_shell(env_shell: Option<&str>) -> Shell {
 /// Returns the standard user-space completions file path for the given shell.
 pub fn get_completion_path(shell: Shell, home: &Path) -> PathBuf {
     match shell {
-        Shell::Zsh => home.join(".local/share/zsh/site-functions/_geico"),
-        Shell::Bash => home.join(".local/share/bash-completion/completions/geico"),
-        Shell::Fish => home.join(".config/fish/completions/geico.fish"),
-        Shell::Elvish => home.join(".config/elvish/lib/geico.elv"),
-        Shell::PowerShell => home.join(".config/powershell/geico.ps1"),
-        _ => home.join(".local/share/bash-completion/completions/geico"),
+        Shell::Zsh => home.join(".local/share/zsh/site-functions/_musu"),
+        Shell::Bash => home.join(".local/share/bash-completion/completions/musu"),
+        Shell::Fish => home.join(".config/fish/completions/musu.fish"),
+        Shell::Elvish => home.join(".config/elvish/lib/musu.elv"),
+        Shell::PowerShell => home.join(".config/powershell/musu.ps1"),
+        _ => home.join(".local/share/bash-completion/completions/musu"),
     }
 }
 
@@ -47,7 +47,7 @@ pub fn install_completions_to(shell: Shell, home: &Path) -> Result<PathBuf> {
     }
     let mut cmd = crate::cli::Cli::command();
     let mut buf = Vec::new();
-    clap_complete::generate(shell, &mut cmd, "geico", &mut buf);
+    clap_complete::generate(shell, &mut cmd, "musu", &mut buf);
     fs::write(&target, buf)
         .with_context(|| format!("failed to write completion script to: {}", target.display()))?;
     Ok(target)
@@ -99,7 +99,7 @@ pub fn ensure_zshrc_source_line(rc_path: &Path) -> Result<bool> {
         String::new()
     };
 
-    if content.contains("_geico") {
+    if content.contains("_musu") {
         return Ok(false);
     }
 
@@ -114,17 +114,17 @@ pub fn ensure_zshrc_source_line(rc_path: &Path) -> Result<bool> {
         .open(rc_path)
         .with_context(|| format!("failed to open {} for appending", rc_path.display()))?;
 
-    let line = "\n# geico completions\n[ -s \"$HOME/.local/share/zsh/site-functions/_geico\" ] && source \"$HOME/.local/share/zsh/site-functions/_geico\"\n";
+    let line = "\n# musu completions\n[ -s \"$HOME/.local/share/zsh/site-functions/_musu\" ] && source \"$HOME/.local/share/zsh/site-functions/_musu\"\n";
     file.write_all(line.as_bytes())
         .with_context(|| format!("failed to write to {}", rc_path.display()))?;
 
     Ok(true)
 }
 
-/// Generates the Carapace YAML spec for geico.
+/// Generates the Carapace YAML spec for musu.
 pub fn generate_carapace_spec() -> String {
     let mut spec = String::from(
-        r#"name: geico
+        r#"name: musu
 description: Integrate portable applications into the desktop
 commands:
   - name: add
@@ -169,7 +169,7 @@ commands:
       --json: Print the application entry as JSON
     completion:
       positional:
-        - ["$(geico list | awk '{print $2}' | tr -d '()')"]
+        - ["$(musu list | awk '{print $2}' | tr -d '()')"]
 
   - name: update
     description: Update metadata, target executable, icon, or categories of a registered application
@@ -180,7 +180,7 @@ commands:
       --categories=: New desktop categories separated by commas
     completion:
       positional:
-        - ["$(geico list | awk '{print $2}' | tr -d '()')"]
+        - ["$(musu list | awk '{print $2}' | tr -d '()')"]
       flag:
         target: ["$files"]
         icon: ["$files"]
@@ -201,7 +201,7 @@ commands:
     description: Safely remove desktop launcher and symlink
     completion:
       positional:
-        - ["$(geico list | awk '{print $2}' | tr -d '()')"]
+        - ["$(musu list | awk '{print $2}' | tr -d '()')"]
 
   - name: categories
     description: List standard FreeDesktop application categories with descriptions and examples
@@ -220,7 +220,7 @@ commands:
     spec
 }
 
-/// Installs the Carapace YAML spec for geico into ~/.config/carapace/specs/geico.yaml.
+/// Installs the Carapace YAML spec for musu into ~/.config/carapace/specs/musu.yaml.
 pub fn install_carapace_spec(home: &Path) -> Result<PathBuf> {
     let spec_dir = home.join(".config/carapace/specs");
     fs::create_dir_all(&spec_dir).with_context(|| {
@@ -229,7 +229,7 @@ pub fn install_carapace_spec(home: &Path) -> Result<PathBuf> {
             spec_dir.display()
         )
     })?;
-    let target = spec_dir.join("geico.yaml");
+    let target = spec_dir.join("musu.yaml");
     let content = generate_carapace_spec();
     fs::write(&target, content)
         .with_context(|| format!("failed to write carapace spec: {}", target.display()))?;
@@ -261,7 +261,7 @@ pub fn ensure_completions_installed() -> Result<Option<PathBuf>> {
 
     // Only install Carapace spec if Carapace binary is actually installed in PATH
     if is_carapace_installed() {
-        let spec_file = home.join(".config/carapace/specs/geico.yaml");
+        let spec_file = home.join(".config/carapace/specs/musu.yaml");
         if !spec_file.exists() {
             let _ = install_carapace_spec(&home);
         }
@@ -299,10 +299,10 @@ pub fn is_dir_in_path_env(dir: &Path) -> bool {
 pub fn format_manual_completion_notice(shell: Shell) -> String {
     match shell {
         Shell::Zsh => {
-            "Manually add the completion to ~/.zshrc (or similar):\n  [ -s \"$HOME/.local/share/zsh/site-functions/_geico\" ] && source \"$HOME/.local/share/zsh/site-functions/_geico\"".to_string()
+            "Manually add the completion to ~/.zshrc (or similar):\n  [ -s \"$HOME/.local/share/zsh/site-functions/_musu\" ] && source \"$HOME/.local/share/zsh/site-functions/_musu\"".to_string()
         }
         Shell::Bash => {
-            "Manually add the completion to ~/.bashrc (or similar):\n  [ -s \"$HOME/.local/share/bash-completion/completions/geico\" ] && source \"$HOME/.local/share/bash-completion/completions/geico\"".to_string()
+            "Manually add the completion to ~/.bashrc (or similar):\n  [ -s \"$HOME/.local/share/bash-completion/completions/musu\" ] && source \"$HOME/.local/share/bash-completion/completions/musu\"".to_string()
         }
         _ => String::new(),
     }
@@ -351,7 +351,7 @@ pub fn format_install_notice(
         "######################################################################## 100.0%\n",
     );
     out.push_str(&format!(
-        "geico was installed successfully to {}\n\n",
+        "musu was installed successfully to {}\n\n",
         display_path
     ));
 
@@ -367,6 +367,6 @@ pub fn format_install_notice(
         }
     }
 
-    out.push_str("To get started, run:\n\n  geico --help\n");
+    out.push_str("To get started, run:\n\n  musu --help\n");
     out
 }

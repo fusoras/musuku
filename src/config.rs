@@ -1,6 +1,6 @@
 //! Persistence for the application registry (`apps.toml`).
 //!
-//! The default location is `~/.config/geico/apps.toml`, but every function
+//! The default location is `~/.config/musu/apps.toml`, but every function
 //! accepts an explicit path and [`config_path`] accepts a custom base
 //! directory, so tests can operate on isolated `tempfile` workspaces without
 //! ever touching the real user configuration.
@@ -11,14 +11,23 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-/// Default base directory for geico state: `$XDG_CONFIG_HOME/geico`
-/// (i.e. `~/.config/geico` on a standard setup).
+/// Default base directory for musu state: `$XDG_CONFIG_HOME/musu`
+/// (i.e. `~/.config/musu` on a standard setup).
+/// Respects legacy `~/.config/geico` directory if it exists and `musu` does not yet.
 pub fn default_base_dir() -> PathBuf {
     let config_dir =
         dirs::config_dir().or_else(|| dirs::home_dir().map(|home| home.join(".config")));
     match config_dir {
-        Some(dir) => dir.join("geico"),
-        None => PathBuf::from(".config/geico"),
+        Some(dir) => {
+            let musu_dir = dir.join("musu");
+            let legacy_dir = dir.join("geico");
+            if !musu_dir.exists() && legacy_dir.exists() {
+                legacy_dir
+            } else {
+                musu_dir
+            }
+        }
+        None => PathBuf::from(".config/musu"),
     }
 }
 
@@ -273,7 +282,7 @@ pub fn save_settings(base_dir: &Path, settings: &Settings) -> Result<()> {
     Ok(())
 }
 
-/// The real user config path: `~/.config/geico/apps.toml`.
+/// The real user config path: `~/.config/musu/apps.toml`.
 pub fn default_config_path() -> PathBuf {
     config_path(&default_base_dir())
 }

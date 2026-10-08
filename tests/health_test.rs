@@ -1,7 +1,7 @@
-use geico::health::{
+use musu::health::{
     HealthReport, RegistrySummary, ToolCheck, data_dir_discoverable, detect_terminal_graphics,
 };
-use geico::models::AppRegistry;
+use musu::models::AppRegistry;
 use std::ffi::OsStr;
 use std::path::PathBuf;
 
@@ -85,7 +85,7 @@ fn test_health_text_graphics_section_layout_matches_contract() {
     assert_eq!(
         lines,
         vec![
-            "geico health",
+            "musu health",
             "",
             "Terminal graphics:",
             "  [ok] your terminal supports the kitty graphics protocol",
@@ -136,25 +136,25 @@ fn test_health_text_graphics_unsupported_reports_warning_message() {
 fn rich_report() -> HealthReport {
     HealthReport {
         terminal_graphics: detect_terminal_graphics(Some("kitty"), None),
-        svg_tools: vec![geico::health::ToolCheck {
+        svg_tools: vec![musu::health::ToolCheck {
             name: "rsvg-convert".into(),
             available: true,
             path: None,
             version: None,
         }],
-        desktop_tools: vec![geico::health::ToolCheck {
+        desktop_tools: vec![musu::health::ToolCheck {
             name: "xdg-icon-resource".into(),
             available: false,
             path: None,
             version: None,
         }],
-        sandbox_tools: vec![geico::health::ToolCheck {
+        sandbox_tools: vec![musu::health::ToolCheck {
             name: "bwrap".into(),
             available: true,
             path: None,
             version: None,
         }],
-        environment_paths: vec![geico::health::PathCheck {
+        environment_paths: vec![musu::health::PathCheck {
             name: "PATH".into(),
             path: PathBuf::from("/home/user/.local/bin"),
             configured: false,
@@ -295,7 +295,7 @@ fn test_health_reports_kitty_terminal_support() {
 
 #[test]
 fn test_health_json_output_is_valid_schema() {
-    let report = HealthReport::collect(&AppRegistry::new(), PathBuf::from("/tmp/geico-test"));
+    let report = HealthReport::collect(&AppRegistry::new(), PathBuf::from("/tmp/musu-test"));
     let json = serde_json::to_value(report).unwrap();
     assert!(json.get("svg_tools").is_some());
     assert!(json.get("desktop_tools").is_some());
@@ -309,7 +309,7 @@ fn test_health_json_output_is_valid_schema() {
 #[test]
 fn test_health_registry_summary_counts_broken_targets() {
     let mut registry = AppRegistry::new();
-    registry.add(geico::models::AppEntry::new(
+    registry.add(musu::models::AppEntry::new(
         Some("missing"),
         PathBuf::from("/definitely/missing"),
     ));
@@ -321,7 +321,7 @@ fn test_health_registry_summary_counts_broken_targets() {
 
 #[test]
 fn test_health_svg_tools_only_lists_converters_the_program_invokes() {
-    let report = HealthReport::collect(&AppRegistry::new(), PathBuf::from("/tmp/geico-test"));
+    let report = HealthReport::collect(&AppRegistry::new(), PathBuf::from("/tmp/musu-test"));
     let names: Vec<&str> = report
         .svg_tools
         .iter()
@@ -334,13 +334,13 @@ fn test_health_svg_tools_only_lists_converters_the_program_invokes() {
     );
     assert!(
         !names.contains(&"inkscape"),
-        "inkscape is never invoked by geico and must not be listed: {names:?}"
+        "inkscape is never invoked by musu and must not be listed: {names:?}"
     );
 }
 
 #[test]
 fn test_health_desktop_tools_only_lists_utilities_the_program_invokes() {
-    let report = HealthReport::collect(&AppRegistry::new(), PathBuf::from("/tmp/geico-test"));
+    let report = HealthReport::collect(&AppRegistry::new(), PathBuf::from("/tmp/musu-test"));
     let names: Vec<&str> = report
         .desktop_tools
         .iter()
@@ -353,7 +353,7 @@ fn test_health_desktop_tools_only_lists_utilities_the_program_invokes() {
     );
     assert!(
         !names.contains(&"xdg-icon-resource"),
-        "xdg-icon-resource is never invoked by geico and must not be listed: {names:?}"
+        "xdg-icon-resource is never invoked by musu and must not be listed: {names:?}"
     );
 }
 
@@ -408,7 +408,7 @@ fn test_data_dir_discoverable_unknown_data_dir_returns_false() {
 
 #[test]
 fn test_health_collect_default_data_dir_marks_xdg_check_configured() {
-    let data_dir = geico::desktop::default_base_dir();
+    let data_dir = musu::desktop::default_base_dir();
     let report = HealthReport::collect(&AppRegistry::new(), data_dir.clone());
     let check = report
         .environment_paths
@@ -654,10 +654,10 @@ fn test_health_verbose_colored_mode_wraps_markers_in_expected_codes() {
 #[test]
 fn test_health_cli_accepts_verbose_flag_short_and_long() {
     use clap::Parser;
-    use geico::cli::{Cli, Command};
+    use musu::cli::{Cli, Command};
 
     for flag in ["--verbose", "-v"] {
-        let cli = Cli::try_parse_from(["geico", "health", flag])
+        let cli = Cli::try_parse_from(["musu", "health", flag])
             .unwrap_or_else(|error| panic!("health must accept {flag}: {error}"));
         match cli.command {
             Command::Health(args) => {
@@ -671,9 +671,9 @@ fn test_health_cli_accepts_verbose_flag_short_and_long() {
 #[test]
 fn test_health_cli_default_verbose_is_false() {
     use clap::Parser;
-    use geico::cli::{Cli, Command};
+    use musu::cli::{Cli, Command};
 
-    let cli = Cli::try_parse_from(["geico", "health"]).expect("plain health must parse");
+    let cli = Cli::try_parse_from(["musu", "health"]).expect("plain health must parse");
     match cli.command {
         Command::Health(args) => assert!(
             !args.verbose,

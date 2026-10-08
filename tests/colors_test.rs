@@ -1,4 +1,4 @@
-use geico::colors::{dim, green, should_color_with, yellow};
+use musu::colors::{dim, green, should_color_with, yellow};
 
 #[test]
 fn test_colors_should_color_disabled_when_no_color_env_is_set() {

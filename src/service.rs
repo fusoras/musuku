@@ -1,4 +1,4 @@
-//! Systemd user service and SysVinit service manager for `geico watch`.
+//! Systemd user service and SysVinit service manager for `musu watch`.
 
 use crate::{cli::WatchServiceCmd, colors, config, manager::Manager};
 use anyhow::{Context, Result, bail};
@@ -13,8 +13,8 @@ use std::{
 pub fn generate_systemd_unit(bin_path: &Path) -> String {
     format!(
         r#"[Unit]
-Description=Geico AppImage Folder Watcher & Desktop Integrator
-Documentation=https://github.com/fusoras/geico
+Description=Musu AppImage Folder Watcher & Desktop Integrator
+Documentation=https://github.com/fusoras/musu
 After=default.target
 
 [Service]
@@ -35,16 +35,16 @@ pub fn generate_sysv_script(bin_path: &Path, user: &str) -> String {
     format!(
         r#"#!/bin/sh
 ### BEGIN INIT INFO
-# Provides:          geico-watch
+# Provides:          musu-watch
 # Required-Start:    $local_fs $remote_fs
 # Required-Stop:     $local_fs $remote_fs
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
-# Short-Description: Geico AppImage Folder Watcher
-# Description:       Geico AppImage Folder Watcher & Desktop Integrator
+# Short-Description: Musu AppImage Folder Watcher
+# Description:       Musu AppImage Folder Watcher & Desktop Integrator
 ### END INIT INFO
 
-NAME="geico-watch"
+NAME="musu-watch"
 DAEMON="{}"
 DAEMON_ARGS="watch --continuous"
 USER="{}"
@@ -91,17 +91,17 @@ exit 0
 /// Path to the systemd user service unit.
 pub fn systemd_unit_path() -> PathBuf {
     dirs::config_dir()
-        .map(|c| c.join("systemd/user/geico-watch.service"))
+        .map(|c| c.join("systemd/user/musu-watch.service"))
         .unwrap_or_else(|| {
             dirs::home_dir()
                 .unwrap_or_else(|| PathBuf::from("."))
-                .join(".config/systemd/user/geico-watch.service")
+                .join(".config/systemd/user/musu-watch.service")
         })
 }
 
 /// Path to the SysV init script.
 pub fn sysv_script_path() -> PathBuf {
-    PathBuf::from("/etc/init.d/geico-watch")
+    PathBuf::from("/etc/init.d/musu-watch")
 }
 
 /// Dispatches the service CLI subcommand.
@@ -133,8 +133,8 @@ pub fn dispatch(cmd: WatchServiceCmd, manager: &Manager) -> Result<()> {
     Ok(())
 }
 
-/// Resolves current geico binary path.
-fn resolve_geico_bin() -> Result<PathBuf> {
+/// Resolves current musu binary path.
+fn resolve_musu_bin() -> Result<PathBuf> {
     if let Ok(exe) = std::env::current_exe() {
         if let Ok(canonical) = fs::canonicalize(&exe) {
             return Ok(canonical);
@@ -143,23 +143,27 @@ fn resolve_geico_bin() -> Result<PathBuf> {
     }
     if let Some(path_var) = std::env::var_os("PATH") {
         for dir in std::env::split_paths(&path_var) {
-            let candidate = dir.join("geico");
+            let candidate = dir.join("musu");
             if candidate.is_file() {
                 return Ok(candidate);
+            }
+            let legacy = dir.join("geico");
+            if legacy.is_file() {
+                return Ok(legacy);
             }
         }
     }
     if let Some(home) = dirs::home_dir() {
-        let cargo_bin = home.join(".cargo/bin/geico");
+        let cargo_bin = home.join(".cargo/bin/musu");
         if cargo_bin.is_file() {
             return Ok(cargo_bin);
         }
-        let local_bin = home.join(".local/bin/geico");
+        let local_bin = home.join(".local/bin/musu");
         if local_bin.is_file() {
             return Ok(local_bin);
         }
     }
-    bail!("could not determine path to geico executable");
+    bail!("could not determine path to musu executable");
 }
 
 /// Installs the background watch service.
@@ -190,7 +194,7 @@ pub fn install(now: bool, sysv: bool, directories: &[PathBuf], manager: &Manager
         }
     }
 
-    let bin_path = resolve_geico_bin()?;
+    let bin_path = resolve_musu_bin()?;
 
     if sysv {
         install_sysv(&bin_path, now)?;
@@ -223,7 +227,7 @@ fn install_systemd(bin_path: &Path, now: bool) -> Result<()> {
 
     if now {
         let status = Command::new("systemctl")
-            .args(["--user", "enable", "--now", "geico-watch.service"])
+            .args(["--user", "enable", "--now", "musu-watch.service"])
             .status();
 
         match status {
@@ -247,7 +251,7 @@ fn install_systemd(bin_path: &Path, now: bool) -> Result<()> {
                     colors::BOLD_YELLOW,
                     colors::RESET
                 );
-                eprintln!("  systemctl --user enable --now geico-watch.service");
+                eprintln!("  systemctl --user enable --now musu-watch.service");
             }
         }
     } else {
@@ -257,13 +261,13 @@ fn install_systemd(bin_path: &Path, now: bool) -> Result<()> {
             unit_file.display(),
             colors::RESET
         );
-        println!("  To enable and start: systemctl --user enable --now geico-watch.service");
+        println!("  To enable and start: systemctl --user enable --now musu-watch.service");
     }
 
     println!("\n{}Control commands:{}", colors::BOLD_CYAN, colors::RESET);
-    println!("  systemctl --user status geico-watch.service");
-    println!("  systemctl --user stop geico-watch.service");
-    println!("  journalctl --user -u geico-watch.service -f");
+    println!("  systemctl --user status musu-watch.service");
+    println!("  systemctl --user stop musu-watch.service");
+    println!("  journalctl --user -u musu-watch.service -f");
 
     Ok(())
 }
@@ -276,7 +280,7 @@ fn install_sysv(bin_path: &Path, now: bool) -> Result<()> {
     // Check if we can write directly or need sudo
     if fs::write(&script_path, &script_content).is_err() {
         // Escalate via sudo
-        let temp_file = std::env::temp_dir().join(format!("geico-watch-{}", std::process::id()));
+        let temp_file = std::env::temp_dir().join(format!("musu-watch-{}", std::process::id()));
         fs::write(&temp_file, &script_content)?;
 
         let status = Command::new("sudo")
@@ -312,14 +316,14 @@ fn install_sysv(bin_path: &Path, now: bool) -> Result<()> {
 
     if now {
         let _ = Command::new("sudo")
-            .args(["service", "geico-watch", "start"])
+            .args(["service", "musu-watch", "start"])
             .status();
     }
 
     println!("\n{}Control commands:{}", colors::BOLD_CYAN, colors::RESET);
-    println!("  sudo service geico-watch status");
-    println!("  sudo service geico-watch stop");
-    println!("  sudo service geico-watch restart");
+    println!("  sudo service musu-watch status");
+    println!("  sudo service musu-watch stop");
+    println!("  sudo service musu-watch restart");
 
     Ok(())
 }
@@ -329,7 +333,7 @@ pub fn uninstall(sysv: bool) -> Result<()> {
     if sysv {
         let script_path = sysv_script_path();
         let _ = Command::new("sudo")
-            .args(["service", "geico-watch", "stop"])
+            .args(["service", "musu-watch", "stop"])
             .status();
         if script_path.exists() {
             let _ = Command::new("sudo")
@@ -344,7 +348,7 @@ pub fn uninstall(sysv: bool) -> Result<()> {
     } else {
         let unit_file = systemd_unit_path();
         let _ = Command::new("systemctl")
-            .args(["--user", "disable", "--now", "geico-watch.service"])
+            .args(["--user", "disable", "--now", "musu-watch.service"])
             .status();
         if unit_file.exists() {
             let _ = fs::remove_file(&unit_file);
@@ -365,12 +369,12 @@ pub fn uninstall(sysv: bool) -> Result<()> {
 pub fn status(sysv: bool) -> Result<()> {
     if sysv {
         Command::new("service")
-            .args(["geico-watch", "status"])
+            .args(["musu-watch", "status"])
             .status()
             .context("failed to check SysV service status")?;
     } else {
         Command::new("systemctl")
-            .args(["--user", "status", "geico-watch.service"])
+            .args(["--user", "status", "musu-watch.service"])
             .status()
             .context("failed to check systemd user service status")?;
     }
@@ -381,16 +385,16 @@ pub fn status(sysv: bool) -> Result<()> {
 pub fn start(sysv: bool) -> Result<()> {
     if sysv {
         Command::new("sudo")
-            .args(["service", "geico-watch", "start"])
+            .args(["service", "musu-watch", "start"])
             .status()
             .context("failed to start SysV service")?;
     } else {
         Command::new("systemctl")
-            .args(["--user", "start", "geico-watch.service"])
+            .args(["--user", "start", "musu-watch.service"])
             .status()
             .context("failed to start systemd user service")?;
         println!(
-            "{}Started geico-watch.service{}",
+            "{}Started musu-watch.service{}",
             colors::BOLD_GREEN,
             colors::RESET
         );
@@ -402,16 +406,16 @@ pub fn start(sysv: bool) -> Result<()> {
 pub fn stop(sysv: bool) -> Result<()> {
     if sysv {
         Command::new("sudo")
-            .args(["service", "geico-watch", "stop"])
+            .args(["service", "musu-watch", "stop"])
             .status()
             .context("failed to stop SysV service")?;
     } else {
         Command::new("systemctl")
-            .args(["--user", "stop", "geico-watch.service"])
+            .args(["--user", "stop", "musu-watch.service"])
             .status()
             .context("failed to stop systemd user service")?;
         println!(
-            "{}Stopped geico-watch.service{}",
+            "{}Stopped musu-watch.service{}",
             colors::BOLD_YELLOW,
             colors::RESET
         );
@@ -423,16 +427,16 @@ pub fn stop(sysv: bool) -> Result<()> {
 pub fn restart(sysv: bool) -> Result<()> {
     if sysv {
         Command::new("sudo")
-            .args(["service", "geico-watch", "restart"])
+            .args(["service", "musu-watch", "restart"])
             .status()
             .context("failed to restart SysV service")?;
     } else {
         Command::new("systemctl")
-            .args(["--user", "restart", "geico-watch.service"])
+            .args(["--user", "restart", "musu-watch.service"])
             .status()
             .context("failed to restart systemd user service")?;
         println!(
-            "{}Restarted geico-watch.service{}",
+            "{}Restarted musu-watch.service{}",
             colors::BOLD_GREEN,
             colors::RESET
         );

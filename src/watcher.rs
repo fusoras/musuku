@@ -446,7 +446,7 @@ pub fn scan_directories(
                     permissions.set_mode(permissions.mode() | 0o111);
                     if let Err(err) = fs::set_permissions(&path, permissions) {
                         eprintln!(
-                            "geico: warning: failed to set chmod +x on {}: {err}",
+                            "musu: warning: failed to set chmod +x on {}: {err}",
                             path.display()
                         );
                     } else {
@@ -482,7 +482,7 @@ pub fn scan_directories(
                     Ok(entry) => entry,
                     Err(err) => {
                         eprintln!(
-                            "{}geico: warning: skipping {}: {err:#}{}",
+                            "{}musu: warning: skipping {}: {err:#}{}",
                             crate::colors::BOLD_YELLOW,
                             path.display(),
                             crate::colors::RESET
@@ -541,7 +541,7 @@ fn watch_directories(
             auto_chmod,
             clean_on_delete,
         ) {
-            eprintln!("geico: warning: watcher loop error: {err:#}");
+            eprintln!("musu: warning: watcher loop error: {err:#}");
         }
     }
     Ok(())
@@ -557,7 +557,7 @@ fn handle_events(
     let events = match result {
         Ok(events) => events,
         Err(err) => {
-            eprintln!("geico: warning: filesystem watcher event error: {err:#}");
+            eprintln!("musu: warning: filesystem watcher event error: {err:#}");
             return Ok(());
         }
     };
@@ -577,7 +577,7 @@ fn handle_events(
                 false,
             ) {
                 eprintln!(
-                    "geico: warning: error scanning {}: {err:#}",
+                    "musu: warning: error scanning {}: {err:#}",
                     parent.display()
                 );
             }
@@ -587,7 +587,7 @@ fn handle_events(
             && let Ok(entry) = manager.get(&query)
         {
             if let Err(err) = manager.remove(&query) {
-                eprintln!("geico: warning: failed to remove {}: {err:#}", entry.name);
+                eprintln!("musu: warning: failed to remove {}: {err:#}", entry.name);
             } else {
                 println!(
                     "{}Removed {} ({}) - AppImage deleted from disk{}",

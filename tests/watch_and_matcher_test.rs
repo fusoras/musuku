@@ -1,6 +1,6 @@
-use geico::cli::{Cli, Command};
-use geico::config::{Settings, WatchConfig};
-use geico::matcher::{find_icon, normalize_name};
+use musu::cli::{Cli, Command};
+use musu::config::{Settings, WatchConfig};
+use musu::matcher::{find_icon, normalize_name};
 use std::fs;
 use std::path::PathBuf;
 use tempfile::tempdir;
@@ -34,7 +34,7 @@ fn test_watch_config_uses_safe_defaults() {
 #[test]
 fn test_watch_cli_parses_scan_only_and_directory_options() {
     let cli = <Cli as clap::Parser>::parse_from([
-        "geico",
+        "musu",
         "watch",
         "/tmp/apps",
         "--icons-dir",
@@ -66,14 +66,14 @@ fn test_watch_scan_directories_finds_and_registers_appimage() {
         fs::set_permissions(&appimage_path, perms).unwrap();
     }
 
-    let manager = geico::manager::Manager::new(
+    let manager = musu::manager::Manager::new(
         temp.path().join("config/apps.toml"),
         temp.path().join("data"),
         temp.path().join("bin"),
     );
 
     let count =
-        geico::watcher::scan_directories(&manager, &[app_dir], None, false, false, false).unwrap();
+        musu::watcher::scan_directories(&manager, &[app_dir], None, false, false, false).unwrap();
 
     assert_eq!(count, 1);
     let app = manager.get("mytool").unwrap();
@@ -84,13 +84,13 @@ fn test_watch_scan_directories_finds_and_registers_appimage() {
 #[test]
 fn test_watch_without_directories_or_config_errors() {
     let temp = tempdir().unwrap();
-    let manager = geico::manager::Manager::new(
+    let manager = musu::manager::Manager::new(
         temp.path().join("config/apps.toml"),
         temp.path().join("data"),
         temp.path().join("bin"),
     );
 
-    let args = geico::cli::Watch {
+    let args = musu::cli::Watch {
         directories: vec![],
         icons_dir: None,
         continuous: false,
@@ -100,7 +100,7 @@ fn test_watch_without_directories_or_config_errors() {
         service: None,
     };
 
-    let result = geico::watcher::run(args, manager);
+    let result = musu::watcher::run(args, manager);
     assert!(result.is_err());
     let err = result.unwrap_err().to_string();
     assert!(
@@ -111,7 +111,7 @@ fn test_watch_without_directories_or_config_errors() {
 
 #[test]
 fn test_extract_version_and_compare() {
-    use geico::matcher::{compare_versions, extract_version};
+    use musu::matcher::{compare_versions, extract_version};
     use std::cmp::Ordering;
 
     assert_eq!(
@@ -142,7 +142,7 @@ fn test_sync_cleans_deleted_appimage_from_registry() {
         fs::set_permissions(&appimage_path, perms).unwrap();
     }
 
-    let manager = geico::manager::Manager::new(
+    let manager = musu::manager::Manager::new(
         temp.path().join("config/apps.toml"),
         temp.path().join("data"),
         temp.path().join("bin"),
@@ -150,7 +150,7 @@ fn test_sync_cleans_deleted_appimage_from_registry() {
 
     // Initial registration
     manager
-        .add(geico::manager::AddOptions {
+        .add(musu::manager::AddOptions {
             target: appimage_path.clone(),
             name: Some("pepomote".to_string()),
             ..Default::default()
@@ -162,7 +162,7 @@ fn test_sync_cleans_deleted_appimage_from_registry() {
     fs::remove_file(&appimage_path).unwrap();
 
     // Live sync should detect file removal and clean it up automatically
-    let report = geico::watcher::sync_directories(
+    let report = musu::watcher::sync_directories(
         &manager,
         &[app_dir],
         None,
@@ -196,7 +196,7 @@ fn test_sync_auto_upgrades_version_when_newer_appimage_detected() {
         fs::set_permissions(&old_appimage, perms).unwrap();
     }
 
-    let manager = geico::manager::Manager::new(
+    let manager = musu::manager::Manager::new(
         temp.path().join("config/apps.toml"),
         temp.path().join("data"),
         temp.path().join("bin"),
@@ -204,7 +204,7 @@ fn test_sync_auto_upgrades_version_when_newer_appimage_detected() {
 
     // Register old version
     manager
-        .add(geico::manager::AddOptions {
+        .add(musu::manager::AddOptions {
             target: old_appimage.clone(),
             name: Some("sonora".to_string()),
             ..Default::default()
@@ -225,7 +225,7 @@ fn test_sync_auto_upgrades_version_when_newer_appimage_detected() {
 
     // Sync
     let report =
-        geico::watcher::sync_directories(&manager, &[app_dir], None, false, false, true, false)
+        musu::watcher::sync_directories(&manager, &[app_dir], None, false, false, true, false)
             .unwrap();
 
     assert_eq!(
@@ -266,7 +266,7 @@ fn test_list_automatically_syncs_configured_watch_directories() {
     );
     fs::write(config_dir.join("config.toml"), toml_content).unwrap();
 
-    let manager = geico::manager::Manager::new(
+    let manager = musu::manager::Manager::new(
         config_dir.join("apps.toml"),
         temp.path().join("data"),
         temp.path().join("bin"),
@@ -274,7 +274,7 @@ fn test_list_automatically_syncs_configured_watch_directories() {
 
     // Register old version
     manager
-        .add(geico::manager::AddOptions {
+        .add(musu::manager::AddOptions {
             target: old_appimage.clone(),
             name: Some("sonora".to_string()),
             ..Default::default()
@@ -295,7 +295,7 @@ fn test_list_automatically_syncs_configured_watch_directories() {
 
     // Call list_with_options: it should auto-sync and update the target to v0.42.1
     let list_output = manager
-        .list_with_options(geico::manager::ListOptions::default())
+        .list_with_options(musu::manager::ListOptions::default())
         .unwrap();
 
     assert!(list_output.contains("sonora"));
@@ -328,18 +328,18 @@ fn test_auto_sync_skips_when_directories_unchanged() {
     );
     fs::write(config_dir.join("config.toml"), toml_content).unwrap();
 
-    let manager = geico::manager::Manager::new(
+    let manager = musu::manager::Manager::new(
         config_dir.join("apps.toml"),
         temp.path().join("data"),
         temp.path().join("bin"),
     );
 
     // First auto_sync: syncs and registers Tool
-    let first = geico::watcher::auto_sync_if_configured(&manager).unwrap();
+    let first = musu::watcher::auto_sync_if_configured(&manager).unwrap();
     assert!(first.is_some(), "expected first auto-sync to execute");
 
     // Second auto_sync immediately without changing anything: must return None (fast-path skip)
-    let second = geico::watcher::auto_sync_if_configured(&manager).unwrap();
+    let second = musu::watcher::auto_sync_if_configured(&manager).unwrap();
     assert!(
         second.is_none(),
         "expected unchanged directory to skip auto-sync on fast path"
@@ -386,14 +386,14 @@ fn test_watch_ignores_temporary_downloads_and_empty_files() {
         fs::set_permissions(&valid_app, perms).unwrap();
     }
 
-    let manager = geico::manager::Manager::new(
+    let manager = musu::manager::Manager::new(
         temp.path().join("config/apps.toml"),
         temp.path().join("data"),
         temp.path().join("bin"),
     );
 
     let count =
-        geico::watcher::scan_directories(&manager, &[app_dir], None, false, false, false).unwrap();
+        musu::watcher::scan_directories(&manager, &[app_dir], None, false, false, false).unwrap();
 
     assert_eq!(
         count, 1,

@@ -88,22 +88,33 @@ pub fn inspect_and_extract(target: &Path) -> Result<Option<Extraction>> {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_nanos();
-    let root = std::env::temp_dir().join(format!("geico-appimage-{}-{stamp}", std::process::id()));
+    let root = std::env::temp_dir().join(format!("musu-appimage-{}-{stamp}", std::process::id()));
     fs::create_dir_all(&root)?;
-    let result = Command::new(target)
-        .arg("--appimage-extract")
-        .current_dir(&root)
-        .output()
-        .with_context(|| format!("failed to inspect AppImage {}", target.display()));
-    let output = match result {
-        Ok(output) if output.status.success() => output,
-        Ok(_) => {
+    let mut attempts = 0;
+    let output = loop {
+        match Command::new(target)
+            .arg("--appimage-extract")
+            .current_dir(&root)
+            .output()
+        {
+            Ok(output) if output.status.success() => break Some(output),
+            Ok(_) => break None,
+            Err(error) if attempts < 5 && error.raw_os_error() == Some(26) => {
+                attempts += 1;
+                std::thread::sleep(std::time::Duration::from_millis(15));
+            }
+            Err(error) => {
+                let _ = fs::remove_dir_all(&root);
+                return Err(error)
+                    .with_context(|| format!("failed to inspect AppImage {}", target.display()));
+            }
+        }
+    };
+    let output = match output {
+        Some(output) => output,
+        None => {
             let _ = fs::remove_dir_all(&root);
             return Ok(None);
-        }
-        Err(error) => {
-            let _ = fs::remove_dir_all(&root);
-            return Err(error);
         }
     };
     let extracted_root = root.join("squashfs-root");

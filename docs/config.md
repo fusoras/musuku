@@ -1,8 +1,8 @@
-# `config.toml` — geico settings
+# `config.toml` — musu settings
 
-`geico` reads the optional file `~/.config/geico/config.toml` (or the
-equivalent `$XDG_CONFIG_HOME/geico/config.toml`). When missing, all safe
-built-in defaults apply. `geico watch <dir>` persists watched directories
+`musu` reads the optional file `~/.config/musu/config.toml` (or the
+equivalent `$XDG_CONFIG_HOME/musu/config.toml`). When missing, all safe
+built-in defaults apply. `musu watch <dir>` persists watched directories
 into this file, while other commands strictly read it. The file is loaded
 for lifecycle operations and for `list`/`show`; malformed files are reported
 as errors.
@@ -31,12 +31,12 @@ description = false            # true, false (alias: show_description)
 | `show_icon_size` | `"standard"` | Preview footprint for `show`: standard `10x5` or compact `6x3`. |
 | `paths` | `"tilde"` | Collapses paths below `$HOME` to `~/`; `absolute` keeps full paths. CLI `show --absolute` always wins. |
 | `color` | `"auto"` | `auto` honors `NO_COLOR` and `CLICOLOR=0`, `always` emits ANSI styles, and `never` disables them. |
-| `list_format` | `"simple"` | Selects the default output of `geico list` (`simple` or `table`). `--table` always selects the aligned table. |
+| `list_format` | `"simple"` | Selects the default output of `musu list` (`simple` or `table`). `--table` always selects the aligned table. |
 | `hide_disabled_symlinks` | `false` | When `true`, suppresses `symlink=disabled` in simple `list` output. CLI `--hide-disabled-symlinks` takes precedence. |
 | `hide_target_ok` | `false` | When `true`, suppresses `target=ok` in simple `list` output when the executable is healthy. Broken or missing targets (`target=missing/broken`) remain visible. CLI `--hide-target-ok` takes precedence. |
 | `hide_desktop_ok` | `false` | When `true`, suppresses `desktop=ok` in simple `list` output when the launcher file is healthy. Missing launchers remain visible. CLI `--hide-desktop-ok` takes precedence. |
 | `hide_ok_status` | `false` | When `true`, suppresses both `target=ok` and `desktop=ok` when healthy. Accepted alias: `hide_ok`. CLI `--hide-ok` takes precedence. |
-| `description` | `false` | When `true`, displays application descriptions in `geico list` output. Accepted aliases: `show_description`, `descriptions`. CLI `--description` forces descriptions; `--no-description` suppresses them. |
+| `description` | `false` | When `true`, displays application descriptions in `musu list` output. Accepted aliases: `show_description`, `descriptions`. CLI `--description` forces descriptions; `--no-description` suppresses them. |
 
 The table renderer pads every column to a common width, keeps icon previews
 in the `ICON` cell, applies the same color policy as the simple view, and uses
@@ -76,13 +76,13 @@ debounce_ms = 1000
 
 | Key | Default | Effect |
 | --- | --- | --- |
-| `directories` | `[]` | List of directories monitored for AppImages. Automatically populated when running `geico watch <DIR>`. |
+| `directories` | `[]` | List of directories monitored for AppImages. Automatically populated when running `musu watch <DIR>`. |
 | `icons_dir` | `None` | Optional external directory containing loose icon files matched against AppImage names. |
 | `auto_chmod` | `false` | When `true`, automatically grants executable permissions (`+x`) to newly discovered AppImages. |
 | `recursive` | `false` | When `true`, scans subdirectories recursively. |
 | `clean_on_delete` | `true` | Automatically unregisters and deletes desktop files/symlinks when an AppImage is removed from disk. |
-| `auto_sync` | `true` | Triggers transparent live folder synchronization during `geico list`, `geico show`, and `geico run`. |
-| `debounce_ms` | `1000` | Debounce interval in milliseconds when running `geico watch --continuous`. |
+| `auto_sync` | `true` | Triggers transparent live folder synchronization during `musu list`, `musu show`, and `musu run`. |
+| `debounce_ms` | `1000` | Debounce interval in milliseconds when running `musu watch --continuous`. |
 
 Unknown keys are ignored. Wrong value types or unsupported enum values produce
 a parse error rather than silently changing behavior. The settings file is

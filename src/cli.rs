@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 #[derive(Debug, Parser)]
 #[command(
-    name = "geico",
+    name = "musu",
     about = "Integrate portable applications into the desktop"
 )]
 pub struct Cli {

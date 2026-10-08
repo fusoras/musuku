@@ -1,9 +1,9 @@
-# Geico Commands Reference
+# Musu Commands Reference
 
-Complete command-line reference, options, flags, and advanced examples for `geico`.
+Complete command-line reference, options, flags, and advanced examples for `musu`.
 
 ```text
-Usage: geico <COMMAND>
+Usage: musu <COMMAND>
 
 Commands:
   add          Register an executable and integrate it into desktop and PATH
@@ -21,12 +21,12 @@ Every command supports `-h, --help` for instant usage text.
 
 ---
 
-## 1. `geico add`
+## 1. `musu add`
 
 Registers an executable file and integrates it into the desktop environment and terminal `$PATH`.
 
 ```sh
-geico add [OPTIONS] <EXECUTABLE>
+musu add [OPTIONS] <EXECUTABLE>
 ```
 
 ### Options
@@ -51,9 +51,9 @@ geico add [OPTIONS] <EXECUTABLE>
 
 ### AppImage Extraction & Symlink Defaults
 
-- For Type 2 AppImages, when `--name`, `--icon`, `--categories`, or `--description` are omitted, `geico` inspects the embedded `.desktop` file and icon via `--appimage-extract`.
+- For Type 2 AppImages, when `--name`, `--icon`, `--categories`, or `--description` are omitted, `musu` inspects the embedded `.desktop` file and icon via `--appimage-extract`.
 - By default, AppImages do **not** receive terminal symlinks to prevent polluting terminal `$PATH` with graphical apps, while standalone binaries and scripts always receive them.
-- To enable terminal symlinks for AppImages by default, configure `~/.config/geico/config.toml`:
+- To enable terminal symlinks for AppImages by default, configure `~/.config/musu/config.toml`:
 
 ```toml
 [defaults]
@@ -66,30 +66,30 @@ The alias `appimage_symlinks = true` is also accepted. Explicit `--no-symlink` a
 
 ```sh
 # Auto-detect icon, name, description, and register AppImage
-geico add ~/Downloads/Obsidian.AppImage
+musu add ~/Downloads/Obsidian.AppImage
 
 # Full integration with explicit metadata
-geico add ~/Downloads/myapp.AppImage \
+musu add ~/Downloads/myapp.AppImage \
   --name "My App" \
   --icon ~/Pictures/myapp.png \
   --categories AudioVideo,Utility \
   --description "Lightweight audio recorder"
 
 # Standalone CLI binary: symlink only, no desktop entry
-geico add /opt/tools/my-cli --no-desktop --bin-name mycli
+musu add /opt/tools/my-cli --no-desktop --bin-name mycli
 
 # Standalone GUI app: desktop launcher only, no terminal symlink
-geico add /opt/blender/blender --no-symlink --icon /opt/blender/icon.png
+musu add /opt/blender/blender --no-symlink --icon /opt/blender/icon.png
 ```
 
 ---
 
-## 2. `geico list`
+## 2. `musu list`
 
 Lists all managed applications with health checks, format options, and terminal icon previews.
 
 ```sh
-geico list [OPTIONS]
+musu list [OPTIONS]
 ```
 
 ### Options
@@ -118,32 +118,32 @@ geico list [OPTIONS]
 
 ```sh
 # Default simple list
-geico list
+musu list
 
 # List with inline terminal icon previews
-geico list --icons
+musu list --icons
 
 # List showing application descriptions
-geico list --description
+musu list --description
 
 # Aligned table view with descriptions
-geico list --table --description
+musu list --table --description
 
 # Filter only broken or missing applications
-geico list --broken
+musu list --broken
 
 # Hide healthy statuses for a cleaner compact view
-geico list --hide-ok --hide-disabled
+musu list --hide-ok --hide-disabled
 ```
 
 ---
 
-## 3. `geico show` (alias: `info`)
+## 3. `musu show` (alias: `info`)
 
 Inspects the metadata, artifact paths, description, and health status of a registered application.
 
 ```sh
-geico show <ID_OR_NAME> [OPTIONS]
+musu show <ID_OR_NAME> [OPTIONS]
 ```
 
 ### Options
@@ -177,20 +177,20 @@ My App (my-app)
 
 ```sh
 # Open the generated desktop file directly in your editor
-nano $(geico show my-app --desktop)
+nano $(musu show my-app --desktop)
 
 # Inspect the raw JSON entry
-geico show my-app --json | jq .
+musu show my-app --json | jq .
 ```
 
 ---
 
-## 4. `geico update`
+## 4. `musu update`
 
 Updates the metadata, target executable path, icon, categories, or description of a registered application without re-registering it.
 
 ```sh
-geico update <ID_OR_NAME> [OPTIONS]
+musu update <ID_OR_NAME> [OPTIONS]
 ```
 
 ### Options
@@ -213,29 +213,29 @@ geico update <ID_OR_NAME> [OPTIONS]
 
 ```sh
 # Point application to a newly downloaded AppImage version
-geico update my-app --target ~/Downloads/myapp-v2.AppImage
+musu update my-app --target ~/Downloads/myapp-v2.AppImage
 
 # Rename application
-geico update my-app --name "My App Pro"
+musu update my-app --name "My App Pro"
 
 # Update application description
-geico update my-app --description "New updated audio suite"
+musu update my-app --description "New updated audio suite"
 
 # Update categories
-geico update my-app --categories AudioVideo,Development
+musu update my-app --categories AudioVideo,Development
 
 # Remove terminal symlink while keeping desktop launcher
-geico update my-app --remove-symlink
+musu update my-app --remove-symlink
 ```
 
 ---
 
-## 5. `geico remove`
+## 5. `musu remove`
 
 Safely removes the generated `.desktop` launcher, copied icon, and terminal symlink, and drops the entry from `apps.toml`.
 
 ```sh
-geico remove [ID_OR_NAME...] [OPTIONS]
+musu remove [ID_OR_NAME...] [OPTIONS]
 ```
 
 ### Options
@@ -248,33 +248,33 @@ geico remove [ID_OR_NAME...] [OPTIONS]
 | `-y, --yes` | Skip confirmation prompts (required for scripts/non-interactive stdin). | `false` |
 
 > [!NOTE]
-> **Safety Guarantee**: Without `--delete-target`, your original AppImage, binary file, or script is **never deleted**. Only the artifacts created by `geico` are removed.
-> When `--delete-target` is used, `geico` asks for explicit confirmation before touching the executable on disk.
+> **Safety Guarantee**: Without `--delete-target`, your original AppImage, binary file, or script is **never deleted**. Only the artifacts created by `musu` are removed.
+> When `--delete-target` is used, `musu` asks for explicit confirmation before touching the executable on disk.
 
 ### Examples
 
 ```sh
 # Remove single application by ID or name
-geico remove my-app
+musu remove my-app
 
 # Remove multiple applications at once
-geico remove app-one app-two app-three
+musu remove app-one app-two app-three
 
 # Remove all applications
-geico remove --all -y
+musu remove --all -y
 
 # Complete uninstall including deleting the original executable from disk
-geico remove my-app --delete-target
+musu remove my-app --delete-target
 ```
 
 ---
 
-## 6. `geico watch`
+## 6. `musu watch`
 
 Scans directories for AppImages and registers new applications. Without `--scan-only`, launches a live debounced filesystem monitor that automatically syncs additions, version upgrades, and removals.
 
 ```sh
-geico watch [DIRECTORIES...] [OPTIONS]
+musu watch [DIRECTORIES...] [OPTIONS]
 ```
 
 ### Options
@@ -293,24 +293,24 @@ See [`docs/watch.md`](watch.md) for full configuration, debounce settings, and l
 
 ```sh
 # Watch the current directory
-geico watch .
+musu watch .
 
 # Watch a specific folder continuously
-geico watch ~/Applications/
+musu watch ~/Applications/
 
 # Scan once without leaving a background watcher
-geico watch ~/Downloads/ --scan-only
+musu watch ~/Downloads/ --scan-only
 
 # Preview changes with dry-run
-geico watch ~/Applications/ --dry-run
+musu watch ~/Applications/ --dry-run
 ```
 
-### Background Service (`geico watch service`)
+### Background Service (`musu watch service`)
 
 Manage a persistent background watcher using systemd (user service) or SysVinit:
 
 ```sh
-geico watch service <SUBCOMMAND> [OPTIONS]
+musu watch service <SUBCOMMAND> [OPTIONS]
 ```
 
 | Subcommand | Description |
@@ -324,22 +324,22 @@ geico watch service <SUBCOMMAND> [OPTIONS]
 
 ```sh
 # Install and start immediately
-geico watch service install
+musu watch service install
 
 # Check status
-systemctl --user status geico-watch.service
+systemctl --user status musu-watch.service
 # or
-geico watch service status
+musu watch service status
 ```
 
 ---
 
-## 7. `geico health`
+## 7. `musu health`
 
 Reports available SVG converters, terminal Kitty Graphics Protocol support, desktop utilities, environment paths, and healthy/broken registry entries.
 
 ```sh
-geico health [OPTIONS]
+musu health [OPTIONS]
 ```
 
 ### Options
@@ -362,23 +362,23 @@ If none is installed, previews are skipped silently without errors and `.desktop
 
 ```sh
 # Capability summary
-geico health
+musu health
 
 # Detailed per-tool inventory
-geico health --verbose
+musu health --verbose
 
 # JSON export
-geico health --json
+musu health --json
 ```
 
 ---
 
-## 8. `geico doctor`
+## 8. `musu doctor`
 
 Audits the environment and application registry to detect missing directories, broken symlinks, missing executables, and orphaned desktop files. Optionally repairs these issues automatically.
 
 ```sh
-geico doctor [OPTIONS]
+musu doctor [OPTIONS]
 ```
 
 ### Options
@@ -392,30 +392,30 @@ geico doctor [OPTIONS]
 
 ```sh
 # Run diagnostics
-geico doctor
+musu doctor
 
 # Auto-repair issues and confirm all prompts
-geico doctor --fix --yes
+musu doctor --fix --yes
 ```
 
 ---
 
-## 9. `geico run`
+## 9. `musu run`
 
 Launches a registered application in the background, detached from the current terminal, passing through any additional arguments.
 
 ```sh
-geico run <ID_OR_NAME> [ARGS...]
+musu run <ID_OR_NAME> [ARGS...]
 ```
 
 ### Examples
 
 ```sh
 # Launch application in background
-geico run obsidian
+musu run obsidian
 
 # Launch with pass-through flags
-geico run obsidian --new-window ~/Notes/
+musu run obsidian --new-window ~/Notes/
 ```
 
 ---
@@ -423,27 +423,27 @@ geico run obsidian --new-window ~/Notes/
 ## 10. Categories Query Mode (`--categories` without a value)
 
 `--categories` accepts no value as a read-only query mode:
-- `geico update <app> --categories`: prints the application's current categories followed by the standard FreeDesktop category table.
-- `geico add <path> --categories`: prints only the standard FreeDesktop category table.
+- `musu update <app> --categories`: prints the application's current categories followed by the standard FreeDesktop category table.
+- `musu add <path> --categories`: prints only the standard FreeDesktop category table.
 
 Values that do not match a standard category (or a known alias) are kept as custom categories, with an advisory `Did you mean:` warning on stderr.
 
 ```sh
 # Query categories for an existing app
-geico update my-app --categories
+musu update my-app --categories
 
 # View standard categories table
-geico add ~/bin/tool --categories
+musu add ~/bin/tool --categories
 ```
 
 ---
 
-## 11. `geico completions`
+## 11. `musu completions`
 
 Generates shell completion scripts for Tab autocompletion.
 
 ```sh
-geico completions [SHELL] [OPTIONS]
+musu completions [SHELL] [OPTIONS]
 ```
 
 - Supported shells: `bash`, `zsh`, `fish`, `elvish`, `powershell` (auto-detected if omitted).
@@ -459,8 +459,8 @@ geico completions [SHELL] [OPTIONS]
 
 ```sh
 # Install completions automatically for current shell
-geico completions --install
+musu completions --install
 
 # Export completions for Fish shell
-geico completions fish --stdout > ~/.config/fish/completions/geico.fish
+musu completions fish --stdout > ~/.config/fish/completions/musu.fish
 ```
