@@ -1,4 +1,4 @@
-use geico::spinner::Spinner;
+use musu::spinner::Spinner;
 use std::time::Duration;
 
 #[test]
@@ -28,7 +28,7 @@ fn test_spinner_stop_cleans_up() {
 
 #[test]
 fn test_spinner_dots_appear_in_order_and_loop() {
-    use geico::spinner::animated_dots;
+    use musu::spinner::animated_dots;
     assert_eq!(animated_dots(0), "   ");
     assert_eq!(animated_dots(4), ".  ");
     assert_eq!(animated_dots(8), ".. ");

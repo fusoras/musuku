@@ -37,7 +37,9 @@ pub fn encode_base64(data: &[u8]) -> String {
 }
 
 pub fn is_kitty_compatible_terminal() -> bool {
-    env::var_os("GEICO_IMAGE").is_some()
+    env::var_os("MUSU_IMAGE")
+        .or_else(|| env::var_os("GEICO_IMAGE"))
+        .is_some()
         || env::var_os("KITTY_WINDOW_ID").is_some()
         || env::var_os("KITTY_PID").is_some()
         || env::var_os("KITTY_INSTALLATION_DIR").is_some()
@@ -107,7 +109,7 @@ pub fn rasterize_svg_if_needed(path: &Path) -> Option<PathBuf> {
     let tool = ["rsvg-convert", "magick", "convert"]
         .into_iter()
         .find_map(find_in_path)?;
-    let output = env::temp_dir().join(format!("geico-icon-{}.png", unique_suffix()));
+    let output = env::temp_dir().join(format!("musu-icon-{}.png", unique_suffix()));
 
     let status = if tool.file_name().and_then(|name| name.to_str()) == Some("rsvg-convert") {
         Command::new(&tool)

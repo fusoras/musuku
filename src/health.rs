@@ -55,7 +55,7 @@ impl HealthReport {
                 std::env::var("TERM_PROGRAM").ok().as_deref(),
                 std::env::var("TERM").ok().as_deref(),
             ),
-            // Only tools geico actually invokes: image.rs (SVG rasterizing),
+            // Only tools musu actually invokes: image.rs (SVG rasterizing),
             // desktop.rs (launcher/icon cache syncing), and sandbox.rs (isolation).
             svg_tools: check_tools(&["rsvg-convert", "magick", "convert"]),
             desktop_tools: check_tools(&["update-desktop-database", "gtk-update-icon-cache"]),
@@ -104,7 +104,7 @@ impl HealthReport {
         self.format_text_with_options(color, false)
     }
 
-    /// Renders the per-tool inventory used by `geico health --verbose`.
+    /// Renders the per-tool inventory used by `musu health --verbose`.
     ///
     /// Every checked tool gets a line: `[ok] name (version)` when available,
     /// a dim `[–] name` when missing (never a warning for a single tool).
@@ -118,7 +118,7 @@ impl HealthReport {
     /// [`Self::format_text_verbose_with`]; `verbose` only affects how the
     /// SVG and desktop tool groups are laid out.
     pub fn format_text_with_options(&self, color: bool, verbose: bool) -> String {
-        let mut output = String::from("geico health\n\n");
+        let mut output = String::from("musu health\n\n");
         output.push_str("Terminal graphics:\n");
         if self.terminal_graphics.supported {
             output.push_str(&format!(
@@ -290,7 +290,7 @@ fn mark(ok: bool, color: bool) -> String {
 /// * `empty_warning` — consequence-oriented message shown when no tool of the
 ///   group is available; in verbose mode it is added on top of the `[–]` list.
 ///
-/// Only tools geico actually invokes appear here, in their current preference
+/// Only tools musu actually invokes appear here, in their current preference
 /// order (see `image.rs` and `desktop.rs`).
 fn write_tool_group(
     output: &mut String,

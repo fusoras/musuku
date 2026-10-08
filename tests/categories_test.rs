@@ -1,4 +1,4 @@
-use geico::categories::{
+use musu::categories::{
     CATEGORY_NAMES, STANDARD_CATEGORIES, format_categories_table, is_known_category,
     normalize_category, render_categories_query, suggest_category, unknown_category_warning,
 };
@@ -68,11 +68,11 @@ fn test_unknown_category_warning_only_for_unknown_values_and_respects_color() {
         "got: {warning}"
     );
     assert!(
-        warning.contains("Run 'geico update <app> --categories'"),
+        warning.contains("Run 'musu update <app> --categories'"),
         "hint must point at the no-value query mode; got: {warning}"
     );
     assert!(
-        !warning.contains("geico categories"),
+        !warning.contains("musu categories"),
         "hint must not reference the removed subcommand; got: {warning}"
     );
     assert!(
@@ -98,7 +98,7 @@ fn test_unknown_category_warning_only_for_unknown_values_and_respects_color() {
 
 #[test]
 fn test_render_categories_query_layout_for_update_and_add() {
-    let update_tip = "Usage tip: geico update openshot --categories Video,AudioVideo";
+    let update_tip = "Usage tip: musu update openshot --categories Video,AudioVideo";
     let update = render_categories_query(
         Some((
             "openshot",
@@ -126,7 +126,7 @@ fn test_render_categories_query_layout_for_update_and_add() {
         "apps without categories must show (none); got: {bare:?}"
     );
 
-    let add_tip = "Usage tip: geico add <path> --categories Video,AudioVideo";
+    let add_tip = "Usage tip: musu add <path> --categories Video,AudioVideo";
     let add = render_categories_query(None, add_tip);
     assert!(
         !add.contains("Current categories"),

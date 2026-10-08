@@ -1,4 +1,4 @@
-_geico() {
+_musu() {
     local i cur prev opts cmd
     COMPREPLY=()
     if [[ "${BASH_VERSINFO[0]}" -ge 4 ]]; then
@@ -14,133 +14,133 @@ _geico() {
     do
         case "${cmd},${i}" in
             ",$1")
-                cmd="geico"
+                cmd="musu"
                 ;;
-            geico,add)
-                cmd="geico__subcmd__add"
+            musu,add)
+                cmd="musu__subcmd__add"
                 ;;
-            geico,completions)
-                cmd="geico__subcmd__completions"
+            musu,completions)
+                cmd="musu__subcmd__completions"
                 ;;
-            geico,doctor)
-                cmd="geico__subcmd__doctor"
+            musu,doctor)
+                cmd="musu__subcmd__doctor"
                 ;;
-            geico,health)
-                cmd="geico__subcmd__health"
+            musu,health)
+                cmd="musu__subcmd__health"
                 ;;
-            geico,help)
-                cmd="geico__subcmd__help"
+            musu,help)
+                cmd="musu__subcmd__help"
                 ;;
-            geico,list)
-                cmd="geico__subcmd__list"
+            musu,list)
+                cmd="musu__subcmd__list"
                 ;;
-            geico,remove)
-                cmd="geico__subcmd__remove"
+            musu,remove)
+                cmd="musu__subcmd__remove"
                 ;;
-            geico,run)
-                cmd="geico__subcmd__run"
+            musu,run)
+                cmd="musu__subcmd__run"
                 ;;
-            geico,show)
-                cmd="geico__subcmd__show"
+            musu,show)
+                cmd="musu__subcmd__show"
                 ;;
-            geico,update)
-                cmd="geico__subcmd__update"
+            musu,update)
+                cmd="musu__subcmd__update"
                 ;;
-            geico,watch)
-                cmd="geico__subcmd__watch"
+            musu,watch)
+                cmd="musu__subcmd__watch"
                 ;;
-            geico__subcmd__help,add)
-                cmd="geico__subcmd__help__subcmd__add"
+            musu__subcmd__help,add)
+                cmd="musu__subcmd__help__subcmd__add"
                 ;;
-            geico__subcmd__help,completions)
-                cmd="geico__subcmd__help__subcmd__completions"
+            musu__subcmd__help,completions)
+                cmd="musu__subcmd__help__subcmd__completions"
                 ;;
-            geico__subcmd__help,doctor)
-                cmd="geico__subcmd__help__subcmd__doctor"
+            musu__subcmd__help,doctor)
+                cmd="musu__subcmd__help__subcmd__doctor"
                 ;;
-            geico__subcmd__help,health)
-                cmd="geico__subcmd__help__subcmd__health"
+            musu__subcmd__help,health)
+                cmd="musu__subcmd__help__subcmd__health"
                 ;;
-            geico__subcmd__help,help)
-                cmd="geico__subcmd__help__subcmd__help"
+            musu__subcmd__help,help)
+                cmd="musu__subcmd__help__subcmd__help"
                 ;;
-            geico__subcmd__help,list)
-                cmd="geico__subcmd__help__subcmd__list"
+            musu__subcmd__help,list)
+                cmd="musu__subcmd__help__subcmd__list"
                 ;;
-            geico__subcmd__help,remove)
-                cmd="geico__subcmd__help__subcmd__remove"
+            musu__subcmd__help,remove)
+                cmd="musu__subcmd__help__subcmd__remove"
                 ;;
-            geico__subcmd__help,run)
-                cmd="geico__subcmd__help__subcmd__run"
+            musu__subcmd__help,run)
+                cmd="musu__subcmd__help__subcmd__run"
                 ;;
-            geico__subcmd__help,show)
-                cmd="geico__subcmd__help__subcmd__show"
+            musu__subcmd__help,show)
+                cmd="musu__subcmd__help__subcmd__show"
                 ;;
-            geico__subcmd__help,update)
-                cmd="geico__subcmd__help__subcmd__update"
+            musu__subcmd__help,update)
+                cmd="musu__subcmd__help__subcmd__update"
                 ;;
-            geico__subcmd__help,watch)
-                cmd="geico__subcmd__help__subcmd__watch"
+            musu__subcmd__help,watch)
+                cmd="musu__subcmd__help__subcmd__watch"
                 ;;
-            geico__subcmd__help__subcmd__watch,install)
-                cmd="geico__subcmd__help__subcmd__watch__subcmd__install"
+            musu__subcmd__help__subcmd__watch,install)
+                cmd="musu__subcmd__help__subcmd__watch__subcmd__install"
                 ;;
-            geico__subcmd__help__subcmd__watch,restart)
-                cmd="geico__subcmd__help__subcmd__watch__subcmd__restart"
+            musu__subcmd__help__subcmd__watch,restart)
+                cmd="musu__subcmd__help__subcmd__watch__subcmd__restart"
                 ;;
-            geico__subcmd__help__subcmd__watch,start)
-                cmd="geico__subcmd__help__subcmd__watch__subcmd__start"
+            musu__subcmd__help__subcmd__watch,start)
+                cmd="musu__subcmd__help__subcmd__watch__subcmd__start"
                 ;;
-            geico__subcmd__help__subcmd__watch,status)
-                cmd="geico__subcmd__help__subcmd__watch__subcmd__status"
+            musu__subcmd__help__subcmd__watch,status)
+                cmd="musu__subcmd__help__subcmd__watch__subcmd__status"
                 ;;
-            geico__subcmd__help__subcmd__watch,stop)
-                cmd="geico__subcmd__help__subcmd__watch__subcmd__stop"
+            musu__subcmd__help__subcmd__watch,stop)
+                cmd="musu__subcmd__help__subcmd__watch__subcmd__stop"
                 ;;
-            geico__subcmd__help__subcmd__watch,uninstall)
-                cmd="geico__subcmd__help__subcmd__watch__subcmd__uninstall"
+            musu__subcmd__help__subcmd__watch,uninstall)
+                cmd="musu__subcmd__help__subcmd__watch__subcmd__uninstall"
                 ;;
-            geico__subcmd__watch,help)
-                cmd="geico__subcmd__watch__subcmd__help"
+            musu__subcmd__watch,help)
+                cmd="musu__subcmd__watch__subcmd__help"
                 ;;
-            geico__subcmd__watch,install)
-                cmd="geico__subcmd__watch__subcmd__install"
+            musu__subcmd__watch,install)
+                cmd="musu__subcmd__watch__subcmd__install"
                 ;;
-            geico__subcmd__watch,restart)
-                cmd="geico__subcmd__watch__subcmd__restart"
+            musu__subcmd__watch,restart)
+                cmd="musu__subcmd__watch__subcmd__restart"
                 ;;
-            geico__subcmd__watch,start)
-                cmd="geico__subcmd__watch__subcmd__start"
+            musu__subcmd__watch,start)
+                cmd="musu__subcmd__watch__subcmd__start"
                 ;;
-            geico__subcmd__watch,status)
-                cmd="geico__subcmd__watch__subcmd__status"
+            musu__subcmd__watch,status)
+                cmd="musu__subcmd__watch__subcmd__status"
                 ;;
-            geico__subcmd__watch,stop)
-                cmd="geico__subcmd__watch__subcmd__stop"
+            musu__subcmd__watch,stop)
+                cmd="musu__subcmd__watch__subcmd__stop"
                 ;;
-            geico__subcmd__watch,uninstall)
-                cmd="geico__subcmd__watch__subcmd__uninstall"
+            musu__subcmd__watch,uninstall)
+                cmd="musu__subcmd__watch__subcmd__uninstall"
                 ;;
-            geico__subcmd__watch__subcmd__help,help)
-                cmd="geico__subcmd__watch__subcmd__help__subcmd__help"
+            musu__subcmd__watch__subcmd__help,help)
+                cmd="musu__subcmd__watch__subcmd__help__subcmd__help"
                 ;;
-            geico__subcmd__watch__subcmd__help,install)
-                cmd="geico__subcmd__watch__subcmd__help__subcmd__install"
+            musu__subcmd__watch__subcmd__help,install)
+                cmd="musu__subcmd__watch__subcmd__help__subcmd__install"
                 ;;
-            geico__subcmd__watch__subcmd__help,restart)
-                cmd="geico__subcmd__watch__subcmd__help__subcmd__restart"
+            musu__subcmd__watch__subcmd__help,restart)
+                cmd="musu__subcmd__watch__subcmd__help__subcmd__restart"
                 ;;
-            geico__subcmd__watch__subcmd__help,start)
-                cmd="geico__subcmd__watch__subcmd__help__subcmd__start"
+            musu__subcmd__watch__subcmd__help,start)
+                cmd="musu__subcmd__watch__subcmd__help__subcmd__start"
                 ;;
-            geico__subcmd__watch__subcmd__help,status)
-                cmd="geico__subcmd__watch__subcmd__help__subcmd__status"
+            musu__subcmd__watch__subcmd__help,status)
+                cmd="musu__subcmd__watch__subcmd__help__subcmd__status"
                 ;;
-            geico__subcmd__watch__subcmd__help,stop)
-                cmd="geico__subcmd__watch__subcmd__help__subcmd__stop"
+            musu__subcmd__watch__subcmd__help,stop)
+                cmd="musu__subcmd__watch__subcmd__help__subcmd__stop"
                 ;;
-            geico__subcmd__watch__subcmd__help,uninstall)
-                cmd="geico__subcmd__watch__subcmd__help__subcmd__uninstall"
+            musu__subcmd__watch__subcmd__help,uninstall)
+                cmd="musu__subcmd__watch__subcmd__help__subcmd__uninstall"
                 ;;
             *)
                 ;;
@@ -148,7 +148,7 @@ _geico() {
     done
 
     case "${cmd}" in
-        geico)
+        musu)
             opts="-h --help add list show update remove completions health doctor run watch help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -162,7 +162,7 @@ _geico() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        geico__subcmd__add)
+        musu__subcmd__add)
             opts="-h --name --icon --categories --bin-name --no-desktop --no-symlink --dest-bin --comment --description --isolate --sandbox --no-sandbox --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -204,7 +204,7 @@ _geico() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        geico__subcmd__completions)
+        musu__subcmd__completions)
             opts="-h --install --stdout --help bash elvish fish powershell zsh"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -218,7 +218,7 @@ _geico() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        geico__subcmd__doctor)
+        musu__subcmd__doctor)
             opts="-y -h --fix --yes --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -232,7 +232,7 @@ _geico() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        geico__subcmd__health)
+        musu__subcmd__health)
             opts="-v -h --json --verbose --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -246,7 +246,7 @@ _geico() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        geico__subcmd__help)
+        musu__subcmd__help)
             opts="add list show update remove completions health doctor run watch help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -260,7 +260,7 @@ _geico() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        geico__subcmd__help__subcmd__add)
+        musu__subcmd__help__subcmd__add)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -274,7 +274,7 @@ _geico() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        geico__subcmd__help__subcmd__completions)
+        musu__subcmd__help__subcmd__completions)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -288,7 +288,7 @@ _geico() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        geico__subcmd__help__subcmd__doctor)
+        musu__subcmd__help__subcmd__doctor)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -302,7 +302,7 @@ _geico() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        geico__subcmd__help__subcmd__health)
+        musu__subcmd__help__subcmd__health)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -316,7 +316,7 @@ _geico() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        geico__subcmd__help__subcmd__help)
+        musu__subcmd__help__subcmd__help)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -330,7 +330,7 @@ _geico() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        geico__subcmd__help__subcmd__list)
+        musu__subcmd__help__subcmd__list)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -344,7 +344,7 @@ _geico() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        geico__subcmd__help__subcmd__remove)
+        musu__subcmd__help__subcmd__remove)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -358,7 +358,7 @@ _geico() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        geico__subcmd__help__subcmd__run)
+        musu__subcmd__help__subcmd__run)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -372,7 +372,7 @@ _geico() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        geico__subcmd__help__subcmd__show)
+        musu__subcmd__help__subcmd__show)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -386,7 +386,7 @@ _geico() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        geico__subcmd__help__subcmd__update)
+        musu__subcmd__help__subcmd__update)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -400,7 +400,7 @@ _geico() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        geico__subcmd__help__subcmd__watch)
+        musu__subcmd__help__subcmd__watch)
             opts="install uninstall status start stop restart"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -414,7 +414,7 @@ _geico() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        geico__subcmd__help__subcmd__watch__subcmd__install)
+        musu__subcmd__help__subcmd__watch__subcmd__install)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -428,7 +428,7 @@ _geico() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        geico__subcmd__help__subcmd__watch__subcmd__restart)
+        musu__subcmd__help__subcmd__watch__subcmd__restart)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -442,7 +442,7 @@ _geico() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        geico__subcmd__help__subcmd__watch__subcmd__start)
+        musu__subcmd__help__subcmd__watch__subcmd__start)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -456,7 +456,7 @@ _geico() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        geico__subcmd__help__subcmd__watch__subcmd__status)
+        musu__subcmd__help__subcmd__watch__subcmd__status)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -470,7 +470,7 @@ _geico() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        geico__subcmd__help__subcmd__watch__subcmd__stop)
+        musu__subcmd__help__subcmd__watch__subcmd__stop)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -484,7 +484,7 @@ _geico() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        geico__subcmd__help__subcmd__watch__subcmd__uninstall)
+        musu__subcmd__help__subcmd__watch__subcmd__uninstall)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -498,7 +498,7 @@ _geico() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        geico__subcmd__list)
+        musu__subcmd__list)
             opts="-i -t -h --image --icons --no-image --no-icons --table --category --broken --hide-disabled --hide-disabled-symlinks --hide-target-ok --hide-desktop-ok --hide-ok-status --hide-ok --descriptions --desc --description --no-descriptions --no-desc --no-description --ids --json --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -516,7 +516,7 @@ _geico() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        geico__subcmd__remove)
+        musu__subcmd__remove)
             opts="-y -h --all --delete-appimage --delete-target --yes --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -530,7 +530,7 @@ _geico() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        geico__subcmd__run)
+        musu__subcmd__run)
             opts="-h --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -544,7 +544,7 @@ _geico() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        geico__subcmd__show)
+        musu__subcmd__show)
             opts="-a -i -h --bin --desktop --icon --symlink --json --full-path --absolute --image --icons --no-image --no-icons --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -558,7 +558,7 @@ _geico() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        geico__subcmd__update)
+        musu__subcmd__update)
             opts="-h --target --icon --name --categories --remove-symlink --comment --description --isolate --sandbox --no-sandbox --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -596,7 +596,7 @@ _geico() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        geico__subcmd__watch)
+        musu__subcmd__watch)
             opts="-h --icons-dir --foreground --continuous --scan-only --recursive --dry-run --help install uninstall status start stop restart help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -614,7 +614,7 @@ _geico() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        geico__subcmd__watch__subcmd__help)
+        musu__subcmd__watch__subcmd__help)
             opts="install uninstall status start stop restart help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -628,7 +628,7 @@ _geico() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        geico__subcmd__watch__subcmd__help__subcmd__help)
+        musu__subcmd__watch__subcmd__help__subcmd__help)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -642,7 +642,7 @@ _geico() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        geico__subcmd__watch__subcmd__help__subcmd__install)
+        musu__subcmd__watch__subcmd__help__subcmd__install)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -656,7 +656,7 @@ _geico() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        geico__subcmd__watch__subcmd__help__subcmd__restart)
+        musu__subcmd__watch__subcmd__help__subcmd__restart)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -670,7 +670,7 @@ _geico() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        geico__subcmd__watch__subcmd__help__subcmd__start)
+        musu__subcmd__watch__subcmd__help__subcmd__start)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -684,7 +684,7 @@ _geico() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        geico__subcmd__watch__subcmd__help__subcmd__status)
+        musu__subcmd__watch__subcmd__help__subcmd__status)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -698,7 +698,7 @@ _geico() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        geico__subcmd__watch__subcmd__help__subcmd__stop)
+        musu__subcmd__watch__subcmd__help__subcmd__stop)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -712,7 +712,7 @@ _geico() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        geico__subcmd__watch__subcmd__help__subcmd__uninstall)
+        musu__subcmd__watch__subcmd__help__subcmd__uninstall)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -726,7 +726,7 @@ _geico() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        geico__subcmd__watch__subcmd__install)
+        musu__subcmd__watch__subcmd__install)
             opts="-h --now --sysv --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -744,7 +744,7 @@ _geico() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        geico__subcmd__watch__subcmd__restart)
+        musu__subcmd__watch__subcmd__restart)
             opts="-h --sysv --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -758,7 +758,7 @@ _geico() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        geico__subcmd__watch__subcmd__start)
+        musu__subcmd__watch__subcmd__start)
             opts="-h --sysv --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -772,7 +772,7 @@ _geico() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        geico__subcmd__watch__subcmd__status)
+        musu__subcmd__watch__subcmd__status)
             opts="-h --sysv --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -786,7 +786,7 @@ _geico() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        geico__subcmd__watch__subcmd__stop)
+        musu__subcmd__watch__subcmd__stop)
             opts="-h --sysv --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -800,7 +800,7 @@ _geico() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        geico__subcmd__watch__subcmd__uninstall)
+        musu__subcmd__watch__subcmd__uninstall)
             opts="-h --sysv --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -818,7 +818,7 @@ _geico() {
 }
 
 if [[ "${BASH_VERSINFO[0]}" -eq 4 && "${BASH_VERSINFO[1]}" -ge 4 || "${BASH_VERSINFO[0]}" -gt 4 ]]; then
-    complete -F _geico -o nosort -o bashdefault -o default geico
+    complete -F _musu -o nosort -o bashdefault -o default musu
 else
-    complete -F _geico -o bashdefault -o default geico
+    complete -F _musu -o bashdefault -o default musu
 fi

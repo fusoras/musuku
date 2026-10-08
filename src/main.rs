@@ -2,7 +2,7 @@
 
 use anyhow::{Result, bail};
 use clap::{CommandFactory, Parser};
-use geico::{
+use musu::{
     categories,
     cli::{Cli, Command},
     colors, config, desktop,
@@ -12,7 +12,7 @@ use geico::{
 use std::io::{self, IsTerminal, Write};
 
 fn main() -> Result<()> {
-    let _ = geico::completions::ensure_completions_installed();
+    let _ = musu::completions::ensure_completions_installed();
     let cli = Cli::parse();
     let manager = Manager::new(
         config::default_config_path(),
@@ -27,7 +27,7 @@ fn main() -> Result<()> {
                     "{}",
                     categories::render_categories_query(
                         None,
-                        "Usage tip: geico add <path> --categories Video,AudioVideo",
+                        "Usage tip: musu add <path> --categories Video,AudioVideo",
                     )
                 );
                 return Ok(());
@@ -54,7 +54,7 @@ fn main() -> Result<()> {
         }
         Command::List(args) => print!(
             "{}",
-            manager.list_with_options(geico::manager::ListOptions {
+            manager.list_with_options(musu::manager::ListOptions {
                 icons: args.icons,
                 no_icons: args.no_icons,
                 image: args.icons,
@@ -76,7 +76,7 @@ fn main() -> Result<()> {
             "{}",
             manager.show(
                 &args.id_or_name,
-                geico::manager::ShowOptions {
+                musu::manager::ShowOptions {
                     desktop: args.desktop,
                     bin: args.bin,
                     icon: args.icon,
@@ -95,7 +95,7 @@ fn main() -> Result<()> {
                 // `--categories` without a value: query mode, never mutates.
                 let entry = manager.get(&args.id_or_name)?;
                 let tip = format!(
-                    "Usage tip: geico update {} --categories Video,AudioVideo",
+                    "Usage tip: musu update {} --categories Video,AudioVideo",
                     entry.name
                 );
                 print!(
@@ -143,7 +143,7 @@ fn main() -> Result<()> {
                         new.name,
                         colors::RESET
                     );
-                    print!("{}", geico::manager::format_visual_diff(&old, &new));
+                    print!("{}", musu::manager::format_visual_diff(&old, &new));
                 }
             }
         }
@@ -151,7 +151,7 @@ fn main() -> Result<()> {
             if args.all {
                 let registry = config::load(&config::default_config_path())?;
                 if registry.apps.is_empty() {
-                    println!("No applications registered in geico.");
+                    println!("No applications registered in musu.");
                     return Ok(());
                 }
                 if !args.yes {
@@ -241,7 +241,7 @@ fn main() -> Result<()> {
         }
         Command::Health(args) => print!("{}", manager.health(args.json, args.verbose)?),
         Command::Doctor(args) => {
-            let report = geico::doctor::run_doctor(&manager, args.fix, args.yes)?;
+            let report = musu::doctor::run_doctor(&manager, args.fix, args.yes)?;
             println!("diagnostics:");
             for detail in report.details {
                 println!("  {}", detail);
@@ -254,25 +254,20 @@ fn main() -> Result<()> {
         Command::Run(args) => manager.run(&args.id_or_name, &args.args)?,
         Command::Watch(args) => {
             if let Some(service_cmd) = args.service {
-                geico::service::dispatch(service_cmd, &manager)?;
+                musu::service::dispatch(service_cmd, &manager)?;
             } else {
-                geico::watcher::run(args, manager)?;
+                musu::watcher::run(args, manager)?;
             }
         }
         Command::Completions(args) => {
             let shell = args.shell.unwrap_or_else(|| {
-                geico::completions::detect_shell(std::env::var("SHELL").ok().as_deref())
+                musu::completions::detect_shell(std::env::var("SHELL").ok().as_deref())
             });
             if args.stdout {
-                clap_complete::generate(
-                    shell,
-                    &mut Cli::command(),
-                    "geico",
-                    &mut std::io::stdout(),
-                );
+                clap_complete::generate(shell, &mut Cli::command(), "musu", &mut std::io::stdout());
             } else {
                 let home = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
-                let path = geico::completions::install_completions_to(shell, &home)?;
+                let path = musu::completions::install_completions_to(shell, &home)?;
                 println!(
                     "{}Installed shell completions for {:?} to {}{}",
                     colors::BOLD_GREEN,
@@ -281,11 +276,11 @@ fn main() -> Result<()> {
                     colors::RESET
                 );
                 if shell == clap_complete::Shell::Zsh {
-                    let zshrc = geico::completions::find_zshrc_path(&home);
-                    let _ = geico::completions::ensure_zshrc_source_line(&zshrc);
+                    let zshrc = musu::completions::find_zshrc_path(&home);
+                    let _ = musu::completions::ensure_zshrc_source_line(&zshrc);
                 }
-                if geico::completions::is_carapace_installed() {
-                    let _ = geico::completions::install_carapace_spec(&home);
+                if musu::completions::is_carapace_installed() {
+                    let _ = musu::completions::install_carapace_spec(&home);
                 }
             }
         }

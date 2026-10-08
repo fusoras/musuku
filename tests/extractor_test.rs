@@ -1,4 +1,4 @@
-use geico::extractor::{DesktopMetadata, inspect_and_extract, parse_desktop_entry};
+use musu::extractor::{DesktopMetadata, inspect_and_extract, parse_desktop_entry};
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use tempfile::tempdir;
@@ -41,7 +41,7 @@ fn test_extractor_ignores_non_image_files_with_matching_stem() {
     fs::write(&xml_file, "<mime-info></mime-info>").unwrap();
 
     // Ensure find_icon doesn't return the XML file
-    let found = geico::extractor::find_icon(root, Some("org.shotcut.Shotcut"));
+    let found = musu::extractor::find_icon(root, Some("org.shotcut.Shotcut"));
     assert_ne!(
         found,
         Some(xml_file),
@@ -51,19 +51,19 @@ fn test_extractor_ignores_non_image_files_with_matching_stem() {
     // Now add a valid SVG icon and ensure it is selected
     let svg_file = root.join("org.shotcut.Shotcut.svg");
     fs::write(&svg_file, "<svg></svg>").unwrap();
-    let found_svg = geico::extractor::find_icon(root, Some("org.shotcut.Shotcut"));
+    let found_svg = musu::extractor::find_icon(root, Some("org.shotcut.Shotcut"));
     assert_eq!(found_svg, Some(svg_file));
 }
 
 #[test]
 fn test_extractor_drop_cleans_up_temp_dir() {
     let temp_parent = tempdir().unwrap();
-    let temp_root = temp_parent.path().join("geico-appimage-test-temp");
+    let temp_root = temp_parent.path().join("musu-appimage-test-temp");
     fs::create_dir_all(&temp_root).unwrap();
     assert!(temp_root.exists());
 
     {
-        let _extraction = geico::extractor::Extraction {
+        let _extraction = musu::extractor::Extraction {
             metadata: DesktopMetadata::default(),
             icon_path: None,
             root: temp_root.clone(),

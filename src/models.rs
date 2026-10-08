@@ -6,7 +6,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
-/// A single application registered with `geico`.
+/// A single application registered with `musu`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AppEntry {
     /// Slugified identifier derived from the display name (e.g. `my-cool-app`).
@@ -97,7 +97,7 @@ pub fn slugify(input: &str) -> String {
 }
 
 /// The auditable collection of registered applications, persisted as
-/// `~/.config/geico/apps.toml`.
+/// `~/.config/musu/apps.toml`.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct AppRegistry {
     /// All managed entries, in registration order.

@@ -1,23 +1,23 @@
-# `geico watch`
+# `musu watch`
 
-`geico watch` manages "live" AppImage directories. Rather than requiring a persistent, blocking terminal process, `geico` offers transparent, on-demand synchronization:
+`musu watch` manages "live" AppImage directories. Rather than requiring a persistent, blocking terminal process, `musu` offers transparent, on-demand synchronization:
 - **Clean on delete**: When an AppImage is deleted, its registry entry, `.desktop` launcher, and terminal symlink are automatically removed.
-- **Autonomous version upgrades**: When an existing AppImage is replaced by or accompanied by a newer version (e.g. `sonora-v0.38.0-x86_64.AppImage` -> `sonora-v0.42.1-x86_64.AppImage`), `geico` autonomously updates the registration, retargets the `.desktop` launcher and terminal symlink, and re-extracts the application icon without duplicating entries.
-- **Automatic detection on `geico list`**: Any configured watch directory is automatically synchronized in milliseconds every time `geico list`, `geico show`, or `geico run` is executed.
-- **Fast one-shot sync**: Calling `geico watch [DIRECTORIES...]` synchronizes the folders immediately and exits. It automatically persists new directories to `config.toml` so future commands keep them synchronized.
+- **Autonomous version upgrades**: When an existing AppImage is replaced by or accompanied by a newer version (e.g. `sonora-v0.38.0-x86_64.AppImage` -> `sonora-v0.42.1-x86_64.AppImage`), `musu` autonomously updates the registration, retargets the `.desktop` launcher and terminal symlink, and re-extracts the application icon without duplicating entries.
+- **Automatic detection on `musu list`**: Any configured watch directory is automatically synchronized in milliseconds every time `musu list`, `musu show`, or `musu run` is executed.
+- **Fast one-shot sync**: Calling `musu watch [DIRECTORIES...]` synchronizes the folders immediately and exits. It automatically persists new directories to `config.toml` so future commands keep them synchronized.
 
 ```sh
 # Define and synchronize a directory as a live watch folder
-geico watch ~/Applications
+musu watch ~/Applications
 
 # Synchronize current directory
-geico watch .
+musu watch .
 
 # Preview what would be synchronized without writing changes
-geico watch ~/Applications --dry-run
+musu watch ~/Applications --dry-run
 
 # Run persistent foreground watcher loop (optional)
-geico watch ~/Applications --continuous
+musu watch ~/Applications --continuous
 ```
 
 Supported options:
@@ -37,28 +37,28 @@ Instead of leaving a terminal process running with `--continuous`, you can manag
 
 ```sh
 # Install and start user systemd service (default, no root needed)
-geico watch service install
+musu watch service install
 
 # Check status natively
-systemctl --user status geico-watch.service
-# or via geico:
-geico watch service status
+systemctl --user status musu-watch.service
+# or via musu:
+musu watch service status
 
 # Follow logs in real time
-journalctl --user -u geico-watch.service -f
+journalctl --user -u musu-watch.service -f
 
 # Uninstall cleanly
-geico watch service uninstall
+musu watch service uninstall
 ```
 
 For SysVinit environments, pass `--sysv`:
 
 ```sh
-sudo geico watch service install --sysv
-sudo service geico-watch status
+sudo musu watch service install --sysv
+sudo service musu-watch status
 ```
 
-Configuration in `~/.config/geico/config.toml`:
+Configuration in `~/.config/musu/config.toml`:
 
 ```toml
 [watch]

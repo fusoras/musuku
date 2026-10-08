@@ -1,8 +1,8 @@
-#compdef geico
+#compdef musu
 
 autoload -U is-at-least
 
-_geico() {
+_musu() {
     typeset -A opt_args
     typeset -a _arguments_options
     local ret=1
@@ -17,14 +17,14 @@ _geico() {
     _arguments "${_arguments_options[@]}" : \
 '-h[Print help]' \
 '--help[Print help]' \
-":: :_geico_commands" \
-"*::: :->geico" \
+":: :_musu_commands" \
+"*::: :->musu" \
 && ret=0
     case $state in
-    (geico)
+    (musu)
         words=($line[1] "${words[@]}")
         (( CURRENT += 1 ))
-        curcontext="${curcontext%:*:*}:geico-command-$line[1]:"
+        curcontext="${curcontext%:*:*}:musu-command-$line[1]:"
         case $line[1] in
             (add)
 _arguments "${_arguments_options[@]}" : \
@@ -169,7 +169,7 @@ _arguments "${_arguments_options[@]}" : \
 '-h[Print help]' \
 '--help[Print help]' \
 '::directories -- Directories to scan and monitor; defaults to \[watch\].directories. Pass '\''.'\'' for current directory:_files' \
-":: :_geico__subcmd__watch_commands" \
+":: :_musu__subcmd__watch_commands" \
 "*::: :->watch" \
 && ret=0
 
@@ -177,7 +177,7 @@ _arguments "${_arguments_options[@]}" : \
     (watch)
         words=($line[2] "${words[@]}")
         (( CURRENT += 1 ))
-        curcontext="${curcontext%:*:*}:geico-watch-command-$line[2]:"
+        curcontext="${curcontext%:*:*}:musu-watch-command-$line[2]:"
         case $line[2] in
             (install)
 _arguments "${_arguments_options[@]}" : \
@@ -225,7 +225,7 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (help)
 _arguments "${_arguments_options[@]}" : \
-":: :_geico__subcmd__watch__subcmd__help_commands" \
+":: :_musu__subcmd__watch__subcmd__help_commands" \
 "*::: :->help" \
 && ret=0
 
@@ -233,7 +233,7 @@ _arguments "${_arguments_options[@]}" : \
     (help)
         words=($line[1] "${words[@]}")
         (( CURRENT += 1 ))
-        curcontext="${curcontext%:*:*}:geico-watch-help-command-$line[1]:"
+        curcontext="${curcontext%:*:*}:musu-watch-help-command-$line[1]:"
         case $line[1] in
             (install)
 _arguments "${_arguments_options[@]}" : \
@@ -273,7 +273,7 @@ esac
 ;;
 (help)
 _arguments "${_arguments_options[@]}" : \
-":: :_geico__subcmd__help_commands" \
+":: :_musu__subcmd__help_commands" \
 "*::: :->help" \
 && ret=0
 
@@ -281,7 +281,7 @@ _arguments "${_arguments_options[@]}" : \
     (help)
         words=($line[1] "${words[@]}")
         (( CURRENT += 1 ))
-        curcontext="${curcontext%:*:*}:geico-help-command-$line[1]:"
+        curcontext="${curcontext%:*:*}:musu-help-command-$line[1]:"
         case $line[1] in
             (add)
 _arguments "${_arguments_options[@]}" : \
@@ -321,7 +321,7 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (watch)
 _arguments "${_arguments_options[@]}" : \
-":: :_geico__subcmd__help__subcmd__watch_commands" \
+":: :_musu__subcmd__help__subcmd__watch_commands" \
 "*::: :->watch" \
 && ret=0
 
@@ -329,7 +329,7 @@ _arguments "${_arguments_options[@]}" : \
     (watch)
         words=($line[1] "${words[@]}")
         (( CURRENT += 1 ))
-        curcontext="${curcontext%:*:*}:geico-help-watch-command-$line[1]:"
+        curcontext="${curcontext%:*:*}:musu-help-watch-command-$line[1]:"
         case $line[1] in
             (install)
 _arguments "${_arguments_options[@]}" : \
@@ -372,8 +372,8 @@ esac
 esac
 }
 
-(( $+functions[_geico_commands] )) ||
-_geico_commands() {
+(( $+functions[_musu_commands] )) ||
+_musu_commands() {
     local commands; commands=(
 'add:Register an executable and integrate it into the desktop and PATH' \
 'list:List all managed applications with health checks' \
@@ -387,30 +387,30 @@ _geico_commands() {
 'watch:Scan and optionally monitor directories for AppImages' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
-    _describe -t commands 'geico commands' commands "$@"
+    _describe -t commands 'musu commands' commands "$@"
 }
-(( $+functions[_geico__subcmd__add_commands] )) ||
-_geico__subcmd__add_commands() {
+(( $+functions[_musu__subcmd__add_commands] )) ||
+_musu__subcmd__add_commands() {
     local commands; commands=()
-    _describe -t commands 'geico add commands' commands "$@"
+    _describe -t commands 'musu add commands' commands "$@"
 }
-(( $+functions[_geico__subcmd__completions_commands] )) ||
-_geico__subcmd__completions_commands() {
+(( $+functions[_musu__subcmd__completions_commands] )) ||
+_musu__subcmd__completions_commands() {
     local commands; commands=()
-    _describe -t commands 'geico completions commands' commands "$@"
+    _describe -t commands 'musu completions commands' commands "$@"
 }
-(( $+functions[_geico__subcmd__doctor_commands] )) ||
-_geico__subcmd__doctor_commands() {
+(( $+functions[_musu__subcmd__doctor_commands] )) ||
+_musu__subcmd__doctor_commands() {
     local commands; commands=()
-    _describe -t commands 'geico doctor commands' commands "$@"
+    _describe -t commands 'musu doctor commands' commands "$@"
 }
-(( $+functions[_geico__subcmd__health_commands] )) ||
-_geico__subcmd__health_commands() {
+(( $+functions[_musu__subcmd__health_commands] )) ||
+_musu__subcmd__health_commands() {
     local commands; commands=()
-    _describe -t commands 'geico health commands' commands "$@"
+    _describe -t commands 'musu health commands' commands "$@"
 }
-(( $+functions[_geico__subcmd__help_commands] )) ||
-_geico__subcmd__help_commands() {
+(( $+functions[_musu__subcmd__help_commands] )) ||
+_musu__subcmd__help_commands() {
     local commands; commands=(
 'add:Register an executable and integrate it into the desktop and PATH' \
 'list:List all managed applications with health checks' \
@@ -424,60 +424,60 @@ _geico__subcmd__help_commands() {
 'watch:Scan and optionally monitor directories for AppImages' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
-    _describe -t commands 'geico help commands' commands "$@"
+    _describe -t commands 'musu help commands' commands "$@"
 }
-(( $+functions[_geico__subcmd__help__subcmd__add_commands] )) ||
-_geico__subcmd__help__subcmd__add_commands() {
+(( $+functions[_musu__subcmd__help__subcmd__add_commands] )) ||
+_musu__subcmd__help__subcmd__add_commands() {
     local commands; commands=()
-    _describe -t commands 'geico help add commands' commands "$@"
+    _describe -t commands 'musu help add commands' commands "$@"
 }
-(( $+functions[_geico__subcmd__help__subcmd__completions_commands] )) ||
-_geico__subcmd__help__subcmd__completions_commands() {
+(( $+functions[_musu__subcmd__help__subcmd__completions_commands] )) ||
+_musu__subcmd__help__subcmd__completions_commands() {
     local commands; commands=()
-    _describe -t commands 'geico help completions commands' commands "$@"
+    _describe -t commands 'musu help completions commands' commands "$@"
 }
-(( $+functions[_geico__subcmd__help__subcmd__doctor_commands] )) ||
-_geico__subcmd__help__subcmd__doctor_commands() {
+(( $+functions[_musu__subcmd__help__subcmd__doctor_commands] )) ||
+_musu__subcmd__help__subcmd__doctor_commands() {
     local commands; commands=()
-    _describe -t commands 'geico help doctor commands' commands "$@"
+    _describe -t commands 'musu help doctor commands' commands "$@"
 }
-(( $+functions[_geico__subcmd__help__subcmd__health_commands] )) ||
-_geico__subcmd__help__subcmd__health_commands() {
+(( $+functions[_musu__subcmd__help__subcmd__health_commands] )) ||
+_musu__subcmd__help__subcmd__health_commands() {
     local commands; commands=()
-    _describe -t commands 'geico help health commands' commands "$@"
+    _describe -t commands 'musu help health commands' commands "$@"
 }
-(( $+functions[_geico__subcmd__help__subcmd__help_commands] )) ||
-_geico__subcmd__help__subcmd__help_commands() {
+(( $+functions[_musu__subcmd__help__subcmd__help_commands] )) ||
+_musu__subcmd__help__subcmd__help_commands() {
     local commands; commands=()
-    _describe -t commands 'geico help help commands' commands "$@"
+    _describe -t commands 'musu help help commands' commands "$@"
 }
-(( $+functions[_geico__subcmd__help__subcmd__list_commands] )) ||
-_geico__subcmd__help__subcmd__list_commands() {
+(( $+functions[_musu__subcmd__help__subcmd__list_commands] )) ||
+_musu__subcmd__help__subcmd__list_commands() {
     local commands; commands=()
-    _describe -t commands 'geico help list commands' commands "$@"
+    _describe -t commands 'musu help list commands' commands "$@"
 }
-(( $+functions[_geico__subcmd__help__subcmd__remove_commands] )) ||
-_geico__subcmd__help__subcmd__remove_commands() {
+(( $+functions[_musu__subcmd__help__subcmd__remove_commands] )) ||
+_musu__subcmd__help__subcmd__remove_commands() {
     local commands; commands=()
-    _describe -t commands 'geico help remove commands' commands "$@"
+    _describe -t commands 'musu help remove commands' commands "$@"
 }
-(( $+functions[_geico__subcmd__help__subcmd__run_commands] )) ||
-_geico__subcmd__help__subcmd__run_commands() {
+(( $+functions[_musu__subcmd__help__subcmd__run_commands] )) ||
+_musu__subcmd__help__subcmd__run_commands() {
     local commands; commands=()
-    _describe -t commands 'geico help run commands' commands "$@"
+    _describe -t commands 'musu help run commands' commands "$@"
 }
-(( $+functions[_geico__subcmd__help__subcmd__show_commands] )) ||
-_geico__subcmd__help__subcmd__show_commands() {
+(( $+functions[_musu__subcmd__help__subcmd__show_commands] )) ||
+_musu__subcmd__help__subcmd__show_commands() {
     local commands; commands=()
-    _describe -t commands 'geico help show commands' commands "$@"
+    _describe -t commands 'musu help show commands' commands "$@"
 }
-(( $+functions[_geico__subcmd__help__subcmd__update_commands] )) ||
-_geico__subcmd__help__subcmd__update_commands() {
+(( $+functions[_musu__subcmd__help__subcmd__update_commands] )) ||
+_musu__subcmd__help__subcmd__update_commands() {
     local commands; commands=()
-    _describe -t commands 'geico help update commands' commands "$@"
+    _describe -t commands 'musu help update commands' commands "$@"
 }
-(( $+functions[_geico__subcmd__help__subcmd__watch_commands] )) ||
-_geico__subcmd__help__subcmd__watch_commands() {
+(( $+functions[_musu__subcmd__help__subcmd__watch_commands] )) ||
+_musu__subcmd__help__subcmd__watch_commands() {
     local commands; commands=(
 'install:Install background watcher service (defaults to systemd user service)' \
 'uninstall:Uninstall and stop background watcher service' \
@@ -486,78 +486,65 @@ _geico__subcmd__help__subcmd__watch_commands() {
 'stop:Stop background watcher service' \
 'restart:Restart background watcher service' \
     )
-    _describe -t commands 'geico help watch commands' commands "$@"
+    _describe -t commands 'musu help watch commands' commands "$@"
 }
-(( $+functions[_geico__subcmd__help__subcmd__watch__subcmd__install_commands] )) ||
-_geico__subcmd__help__subcmd__watch__subcmd__install_commands() {
+(( $+functions[_musu__subcmd__help__subcmd__watch__subcmd__install_commands] )) ||
+_musu__subcmd__help__subcmd__watch__subcmd__install_commands() {
     local commands; commands=()
-    _describe -t commands 'geico help watch install commands' commands "$@"
+    _describe -t commands 'musu help watch install commands' commands "$@"
 }
-(( $+functions[_geico__subcmd__help__subcmd__watch__subcmd__restart_commands] )) ||
-_geico__subcmd__help__subcmd__watch__subcmd__restart_commands() {
+(( $+functions[_musu__subcmd__help__subcmd__watch__subcmd__restart_commands] )) ||
+_musu__subcmd__help__subcmd__watch__subcmd__restart_commands() {
     local commands; commands=()
-    _describe -t commands 'geico help watch restart commands' commands "$@"
+    _describe -t commands 'musu help watch restart commands' commands "$@"
 }
-(( $+functions[_geico__subcmd__help__subcmd__watch__subcmd__start_commands] )) ||
-_geico__subcmd__help__subcmd__watch__subcmd__start_commands() {
+(( $+functions[_musu__subcmd__help__subcmd__watch__subcmd__start_commands] )) ||
+_musu__subcmd__help__subcmd__watch__subcmd__start_commands() {
     local commands; commands=()
-    _describe -t commands 'geico help watch start commands' commands "$@"
+    _describe -t commands 'musu help watch start commands' commands "$@"
 }
-(( $+functions[_geico__subcmd__help__subcmd__watch__subcmd__status_commands] )) ||
-_geico__subcmd__help__subcmd__watch__subcmd__status_commands() {
+(( $+functions[_musu__subcmd__help__subcmd__watch__subcmd__status_commands] )) ||
+_musu__subcmd__help__subcmd__watch__subcmd__status_commands() {
     local commands; commands=()
-    _describe -t commands 'geico help watch status commands' commands "$@"
+    _describe -t commands 'musu help watch status commands' commands "$@"
 }
-(( $+functions[_geico__subcmd__help__subcmd__watch__subcmd__stop_commands] )) ||
-_geico__subcmd__help__subcmd__watch__subcmd__stop_commands() {
+(( $+functions[_musu__subcmd__help__subcmd__watch__subcmd__stop_commands] )) ||
+_musu__subcmd__help__subcmd__watch__subcmd__stop_commands() {
     local commands; commands=()
-    _describe -t commands 'geico help watch stop commands' commands "$@"
+    _describe -t commands 'musu help watch stop commands' commands "$@"
 }
-(( $+functions[_geico__subcmd__help__subcmd__watch__subcmd__uninstall_commands] )) ||
-_geico__subcmd__help__subcmd__watch__subcmd__uninstall_commands() {
+(( $+functions[_musu__subcmd__help__subcmd__watch__subcmd__uninstall_commands] )) ||
+_musu__subcmd__help__subcmd__watch__subcmd__uninstall_commands() {
     local commands; commands=()
-    _describe -t commands 'geico help watch uninstall commands' commands "$@"
+    _describe -t commands 'musu help watch uninstall commands' commands "$@"
 }
-(( $+functions[_geico__subcmd__list_commands] )) ||
-_geico__subcmd__list_commands() {
+(( $+functions[_musu__subcmd__list_commands] )) ||
+_musu__subcmd__list_commands() {
     local commands; commands=()
-    _describe -t commands 'geico list commands' commands "$@"
+    _describe -t commands 'musu list commands' commands "$@"
 }
-(( $+functions[_geico__subcmd__remove_commands] )) ||
-_geico__subcmd__remove_commands() {
+(( $+functions[_musu__subcmd__remove_commands] )) ||
+_musu__subcmd__remove_commands() {
     local commands; commands=()
-    _describe -t commands 'geico remove commands' commands "$@"
+    _describe -t commands 'musu remove commands' commands "$@"
 }
-(( $+functions[_geico__subcmd__run_commands] )) ||
-_geico__subcmd__run_commands() {
+(( $+functions[_musu__subcmd__run_commands] )) ||
+_musu__subcmd__run_commands() {
     local commands; commands=()
-    _describe -t commands 'geico run commands' commands "$@"
+    _describe -t commands 'musu run commands' commands "$@"
 }
-(( $+functions[_geico__subcmd__show_commands] )) ||
-_geico__subcmd__show_commands() {
+(( $+functions[_musu__subcmd__show_commands] )) ||
+_musu__subcmd__show_commands() {
     local commands; commands=()
-    _describe -t commands 'geico show commands' commands "$@"
+    _describe -t commands 'musu show commands' commands "$@"
 }
-(( $+functions[_geico__subcmd__update_commands] )) ||
-_geico__subcmd__update_commands() {
+(( $+functions[_musu__subcmd__update_commands] )) ||
+_musu__subcmd__update_commands() {
     local commands; commands=()
-    _describe -t commands 'geico update commands' commands "$@"
+    _describe -t commands 'musu update commands' commands "$@"
 }
-(( $+functions[_geico__subcmd__watch_commands] )) ||
-_geico__subcmd__watch_commands() {
-    local commands; commands=(
-'install:Install background watcher service (defaults to systemd user service)' \
-'uninstall:Uninstall and stop background watcher service' \
-'status:Show status of background watcher service' \
-'start:Start background watcher service' \
-'stop:Stop background watcher service' \
-'restart:Restart background watcher service' \
-'help:Print this message or the help of the given subcommand(s)' \
-    )
-    _describe -t commands 'geico watch commands' commands "$@"
-}
-(( $+functions[_geico__subcmd__watch__subcmd__help_commands] )) ||
-_geico__subcmd__watch__subcmd__help_commands() {
+(( $+functions[_musu__subcmd__watch_commands] )) ||
+_musu__subcmd__watch_commands() {
     local commands; commands=(
 'install:Install background watcher service (defaults to systemd user service)' \
 'uninstall:Uninstall and stop background watcher service' \
@@ -567,76 +554,89 @@ _geico__subcmd__watch__subcmd__help_commands() {
 'restart:Restart background watcher service' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
-    _describe -t commands 'geico watch help commands' commands "$@"
+    _describe -t commands 'musu watch commands' commands "$@"
 }
-(( $+functions[_geico__subcmd__watch__subcmd__help__subcmd__help_commands] )) ||
-_geico__subcmd__watch__subcmd__help__subcmd__help_commands() {
-    local commands; commands=()
-    _describe -t commands 'geico watch help help commands' commands "$@"
+(( $+functions[_musu__subcmd__watch__subcmd__help_commands] )) ||
+_musu__subcmd__watch__subcmd__help_commands() {
+    local commands; commands=(
+'install:Install background watcher service (defaults to systemd user service)' \
+'uninstall:Uninstall and stop background watcher service' \
+'status:Show status of background watcher service' \
+'start:Start background watcher service' \
+'stop:Stop background watcher service' \
+'restart:Restart background watcher service' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'musu watch help commands' commands "$@"
 }
-(( $+functions[_geico__subcmd__watch__subcmd__help__subcmd__install_commands] )) ||
-_geico__subcmd__watch__subcmd__help__subcmd__install_commands() {
+(( $+functions[_musu__subcmd__watch__subcmd__help__subcmd__help_commands] )) ||
+_musu__subcmd__watch__subcmd__help__subcmd__help_commands() {
     local commands; commands=()
-    _describe -t commands 'geico watch help install commands' commands "$@"
+    _describe -t commands 'musu watch help help commands' commands "$@"
 }
-(( $+functions[_geico__subcmd__watch__subcmd__help__subcmd__restart_commands] )) ||
-_geico__subcmd__watch__subcmd__help__subcmd__restart_commands() {
+(( $+functions[_musu__subcmd__watch__subcmd__help__subcmd__install_commands] )) ||
+_musu__subcmd__watch__subcmd__help__subcmd__install_commands() {
     local commands; commands=()
-    _describe -t commands 'geico watch help restart commands' commands "$@"
+    _describe -t commands 'musu watch help install commands' commands "$@"
 }
-(( $+functions[_geico__subcmd__watch__subcmd__help__subcmd__start_commands] )) ||
-_geico__subcmd__watch__subcmd__help__subcmd__start_commands() {
+(( $+functions[_musu__subcmd__watch__subcmd__help__subcmd__restart_commands] )) ||
+_musu__subcmd__watch__subcmd__help__subcmd__restart_commands() {
     local commands; commands=()
-    _describe -t commands 'geico watch help start commands' commands "$@"
+    _describe -t commands 'musu watch help restart commands' commands "$@"
 }
-(( $+functions[_geico__subcmd__watch__subcmd__help__subcmd__status_commands] )) ||
-_geico__subcmd__watch__subcmd__help__subcmd__status_commands() {
+(( $+functions[_musu__subcmd__watch__subcmd__help__subcmd__start_commands] )) ||
+_musu__subcmd__watch__subcmd__help__subcmd__start_commands() {
     local commands; commands=()
-    _describe -t commands 'geico watch help status commands' commands "$@"
+    _describe -t commands 'musu watch help start commands' commands "$@"
 }
-(( $+functions[_geico__subcmd__watch__subcmd__help__subcmd__stop_commands] )) ||
-_geico__subcmd__watch__subcmd__help__subcmd__stop_commands() {
+(( $+functions[_musu__subcmd__watch__subcmd__help__subcmd__status_commands] )) ||
+_musu__subcmd__watch__subcmd__help__subcmd__status_commands() {
     local commands; commands=()
-    _describe -t commands 'geico watch help stop commands' commands "$@"
+    _describe -t commands 'musu watch help status commands' commands "$@"
 }
-(( $+functions[_geico__subcmd__watch__subcmd__help__subcmd__uninstall_commands] )) ||
-_geico__subcmd__watch__subcmd__help__subcmd__uninstall_commands() {
+(( $+functions[_musu__subcmd__watch__subcmd__help__subcmd__stop_commands] )) ||
+_musu__subcmd__watch__subcmd__help__subcmd__stop_commands() {
     local commands; commands=()
-    _describe -t commands 'geico watch help uninstall commands' commands "$@"
+    _describe -t commands 'musu watch help stop commands' commands "$@"
 }
-(( $+functions[_geico__subcmd__watch__subcmd__install_commands] )) ||
-_geico__subcmd__watch__subcmd__install_commands() {
+(( $+functions[_musu__subcmd__watch__subcmd__help__subcmd__uninstall_commands] )) ||
+_musu__subcmd__watch__subcmd__help__subcmd__uninstall_commands() {
     local commands; commands=()
-    _describe -t commands 'geico watch install commands' commands "$@"
+    _describe -t commands 'musu watch help uninstall commands' commands "$@"
 }
-(( $+functions[_geico__subcmd__watch__subcmd__restart_commands] )) ||
-_geico__subcmd__watch__subcmd__restart_commands() {
+(( $+functions[_musu__subcmd__watch__subcmd__install_commands] )) ||
+_musu__subcmd__watch__subcmd__install_commands() {
     local commands; commands=()
-    _describe -t commands 'geico watch restart commands' commands "$@"
+    _describe -t commands 'musu watch install commands' commands "$@"
 }
-(( $+functions[_geico__subcmd__watch__subcmd__start_commands] )) ||
-_geico__subcmd__watch__subcmd__start_commands() {
+(( $+functions[_musu__subcmd__watch__subcmd__restart_commands] )) ||
+_musu__subcmd__watch__subcmd__restart_commands() {
     local commands; commands=()
-    _describe -t commands 'geico watch start commands' commands "$@"
+    _describe -t commands 'musu watch restart commands' commands "$@"
 }
-(( $+functions[_geico__subcmd__watch__subcmd__status_commands] )) ||
-_geico__subcmd__watch__subcmd__status_commands() {
+(( $+functions[_musu__subcmd__watch__subcmd__start_commands] )) ||
+_musu__subcmd__watch__subcmd__start_commands() {
     local commands; commands=()
-    _describe -t commands 'geico watch status commands' commands "$@"
+    _describe -t commands 'musu watch start commands' commands "$@"
 }
-(( $+functions[_geico__subcmd__watch__subcmd__stop_commands] )) ||
-_geico__subcmd__watch__subcmd__stop_commands() {
+(( $+functions[_musu__subcmd__watch__subcmd__status_commands] )) ||
+_musu__subcmd__watch__subcmd__status_commands() {
     local commands; commands=()
-    _describe -t commands 'geico watch stop commands' commands "$@"
+    _describe -t commands 'musu watch status commands' commands "$@"
 }
-(( $+functions[_geico__subcmd__watch__subcmd__uninstall_commands] )) ||
-_geico__subcmd__watch__subcmd__uninstall_commands() {
+(( $+functions[_musu__subcmd__watch__subcmd__stop_commands] )) ||
+_musu__subcmd__watch__subcmd__stop_commands() {
     local commands; commands=()
-    _describe -t commands 'geico watch uninstall commands' commands "$@"
+    _describe -t commands 'musu watch stop commands' commands "$@"
+}
+(( $+functions[_musu__subcmd__watch__subcmd__uninstall_commands] )) ||
+_musu__subcmd__watch__subcmd__uninstall_commands() {
+    local commands; commands=()
+    _describe -t commands 'musu watch uninstall commands' commands "$@"
 }
 
-if [ "$funcstack[1]" = "_geico" ]; then
-    _geico "$@"
+if [ "$funcstack[1]" = "_musu" ]; then
+    _musu "$@"
 else
-    compdef _geico geico
+    compdef _musu musu
 fi

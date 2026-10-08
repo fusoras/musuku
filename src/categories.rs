@@ -297,8 +297,7 @@ pub fn unknown_category_warning(input: &str, color: bool) -> Option<String> {
         }
         None => format!("Unknown category '{trimmed}' — kept as custom."),
     };
-    let hint =
-        "  Run 'geico update <app> --categories' (sin valor) to see all standard categories.";
+    let hint = "  Run 'musu update <app> --categories' (sin valor) to see all standard categories.";
     Some(crate::colors::yellow(color, &format!("{headline}\n{hint}")))
 }
 

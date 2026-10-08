@@ -1,33 +1,33 @@
 #!/bin/sh
 set -e
 
-# geico - installer script
-# Installs geico into user-space (~/.local/bin) and configures completions.
+# musu - installer script
+# Installs musu into user-space (~/.local/bin) and configures completions.
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd || echo "")"
-BIN_DIR="${GEICO_INSTALL_DIR:-$HOME/.local/bin}"
-TARGET_BIN="$BIN_DIR/geico"
+BIN_DIR="${MUSU_INSTALL_DIR:-${GEICO_INSTALL_DIR:-$HOME/.local/bin}}"
+TARGET_BIN="$BIN_DIR/musu"
 
 mkdir -p "$BIN_DIR"
 
-# 1. Locate or obtain the geico binary
-if [ -f "$SCRIPT_DIR/target/release/geico" ]; then
-    cp "$SCRIPT_DIR/target/release/geico" "$TARGET_BIN"
-elif [ -f "$SCRIPT_DIR/target/debug/geico" ]; then
-    cp "$SCRIPT_DIR/target/debug/geico" "$TARGET_BIN"
-elif [ -f "$SCRIPT_DIR/geico" ]; then
-    cp "$SCRIPT_DIR/geico" "$TARGET_BIN"
+# 1. Locate or obtain the musu binary
+if [ -f "$SCRIPT_DIR/target/release/musu" ]; then
+    cp "$SCRIPT_DIR/target/release/musu" "$TARGET_BIN"
+elif [ -f "$SCRIPT_DIR/target/debug/musu" ]; then
+    cp "$SCRIPT_DIR/target/debug/musu" "$TARGET_BIN"
+elif [ -f "$SCRIPT_DIR/musu" ]; then
+    cp "$SCRIPT_DIR/musu" "$TARGET_BIN"
 elif [ -f "$SCRIPT_DIR/Cargo.toml" ] && command -v cargo >/dev/null 2>&1; then
     cargo build --release --manifest-path "$SCRIPT_DIR/Cargo.toml" --quiet
-    cp "$SCRIPT_DIR/target/release/geico" "$TARGET_BIN"
-elif [ -f "$(command -v geico 2>/dev/null)" ] && [ "$(command -v geico)" != "$TARGET_BIN" ]; then
-    cp "$(command -v geico)" "$TARGET_BIN"
+    cp "$SCRIPT_DIR/target/release/musu" "$TARGET_BIN"
+elif [ -f "$(command -v musu 2>/dev/null)" ] && [ "$(command -v musu)" != "$TARGET_BIN" ]; then
+    cp "$(command -v musu)" "$TARGET_BIN"
 else
     OS="$(uname -s)"
     ARCH="$(uname -m)"
 
     if [ "$OS" != "Linux" ]; then
-        echo "Error: geico is only supported on Linux (detected: $OS)" >&2
+        echo "Error: musu is only supported on Linux (detected: $OS)" >&2
         exit 1
     fi
 
@@ -41,23 +41,23 @@ else
             ;;
     esac
 
-    REPO="uruka1/geico"
-    DOWNLOAD_URL="https://github.com/$REPO/releases/latest/download/geico-$ARCH_SUFFIX.tar.gz"
+    REPO="uruka1/musu"
+    DOWNLOAD_URL="https://github.com/$REPO/releases/latest/download/musu-$ARCH_SUFFIX.tar.gz"
 
-    TMP_DIR="$(mktemp -d 2>/dev/null || mktemp -d -t 'geico')"
-    TARBALL="$TMP_DIR/geico.tar.gz"
+    TMP_DIR="$(mktemp -d 2>/dev/null || mktemp -d -t 'musu')"
+    TARBALL="$TMP_DIR/musu.tar.gz"
 
     if command -v curl >/dev/null 2>&1; then
         curl -# -fLo "$TARBALL" "$DOWNLOAD_URL"
     elif command -v wget >/dev/null 2>&1; then
         wget -q --show-progress -O "$TARBALL" "$DOWNLOAD_URL"
     else
-        echo "Error: curl or wget is required to download geico." >&2
+        echo "Error: curl or wget is required to download musu." >&2
         exit 1
     fi
 
     tar -xzf "$TARBALL" -C "$TMP_DIR"
-    cp "$TMP_DIR/geico" "$TARGET_BIN"
+    cp "$TMP_DIR/musu" "$TARGET_BIN"
     rm -rf "$TMP_DIR"
 fi
 
@@ -115,7 +115,7 @@ fi
 
 # 5. Output Bun-style installation notice
 echo "######################################################################## 100.0%"
-echo "geico was installed successfully to $DISPLAY_TARGET"
+echo "musu was installed successfully to $DISPLAY_TARGET"
 echo ""
 
 if [ "$IN_PATH" -eq 0 ]; then
@@ -130,4 +130,4 @@ fi
 
 echo "To get started, run:"
 echo ""
-echo "  geico --help"
+echo "  musu --help"

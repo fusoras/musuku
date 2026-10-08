@@ -6,12 +6,12 @@
 //! failed on its first run (RED), then passed once the code was written (GREEN).
 //!
 //! Isolation: all filesystem operations happen inside `tempfile::tempdir()`
-//! workspaces, so the real user config (`~/.config/geico/apps.toml`) is never
+//! workspaces, so the real user config (`~/.config/musu/apps.toml`) is never
 //! read or written by tests.
 
-use geico::colors;
-use geico::config;
-use geico::models::{AppEntry, AppRegistry, fallback_name, slugify};
+use musu::colors;
+use musu::config;
+use musu::models::{AppEntry, AppRegistry, fallback_name, slugify};
 use std::path::{Path, PathBuf};
 use tempfile::tempdir;
 
@@ -168,12 +168,12 @@ fn test_model_app_registry_remove_returns_entry_and_is_non_destructive() {
 // ----------------------------------------------------------------- config ---
 
 #[test]
-fn test_config_default_path_targets_user_geico_directory() {
+fn test_config_default_path_targets_user_musu_directory() {
     let base = config::default_base_dir();
-    assert_eq!(
-        base.file_name().unwrap(),
-        "geico",
-        "default base dir must be the geico config directory"
+    let dir_name = base.file_name().unwrap();
+    assert!(
+        dir_name == "musu" || dir_name == "geico",
+        "default base dir must be musu or legacy geico directory, got {dir_name:?}"
     );
 
     let path = config::default_config_path();
@@ -184,7 +184,7 @@ fn test_config_default_path_targets_user_geico_directory() {
 #[test]
 fn test_config_custom_base_dir_isolates_registry_from_user_config() {
     let temp = tempdir().unwrap();
-    let base = temp.path().join("geico");
+    let base = temp.path().join("musu");
     let path = config::config_path(&base);
 
     assert_eq!(path, base.join("apps.toml"));
@@ -198,7 +198,7 @@ fn test_config_custom_base_dir_isolates_registry_from_user_config() {
 #[test]
 fn test_config_save_and_load_roundtrip_preserves_registry() {
     let temp = tempdir().unwrap();
-    let base = temp.path().join("geico");
+    let base = temp.path().join("musu");
     let path = config::config_path(&base);
 
     let mut registry = AppRegistry::new();
@@ -222,7 +222,7 @@ fn test_config_save_and_load_roundtrip_preserves_registry() {
 #[test]
 fn test_config_save_creates_missing_parent_directories() {
     let temp = tempdir().unwrap();
-    let path = temp.path().join("nested/deeper/geico/apps.toml");
+    let path = temp.path().join("nested/deeper/musu/apps.toml");
     let registry = AppRegistry::new();
 
     config::save(&path, &registry).expect("save must create parent directories");

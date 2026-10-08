@@ -1,6 +1,6 @@
 use clap::Parser;
-use geico::cli::{Cli, Command};
-use geico::manager::{
+use musu::cli::{Cli, Command};
+use musu::manager::{
     AddOptions, Manager, RemoveOptions, ShowOptions, UpdateOptions, UpdateOutcome,
 };
 use std::fs;
@@ -297,7 +297,7 @@ fn test_remove_with_delete_target_deletes_executable_from_disk() {
         !target.exists(),
         "delete_target must remove the executable from disk"
     );
-    let registry = geico::config::load(&temp.path().join("config/apps.toml")).unwrap();
+    let registry = musu::config::load(&temp.path().join("config/apps.toml")).unwrap();
     assert!(registry.find(&entry.id).is_none());
 }
 
@@ -342,7 +342,7 @@ fn test_remove_delete_target_without_yes_on_noninteractive_stdin_aborts_with_err
     let target = temp.path().join("tool");
     executable(&target);
     let manager = Manager::new(
-        xdg_config.join("geico/apps.toml"),
+        xdg_config.join("musu/apps.toml"),
         xdg_data.clone(),
         home.join(".local/bin"),
     );
@@ -355,7 +355,7 @@ fn test_remove_delete_target_without_yes_on_noninteractive_stdin_aborts_with_err
     let desktop = entry.desktop_file.clone().unwrap();
     let symlink_path = entry.symlink.clone().unwrap();
 
-    let output = std::process::Command::new(env!("CARGO_BIN_EXE_geico"))
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_musu"))
         .args(["remove", &entry.id, "--delete-target"])
         .env("HOME", &home)
         .env("XDG_CONFIG_HOME", &xdg_config)
@@ -383,7 +383,7 @@ fn test_remove_delete_target_without_yes_on_noninteractive_stdin_aborts_with_err
         symlink_path.exists(),
         "abort must happen before any deletion"
     );
-    let registry = geico::config::load(&xdg_config.join("geico/apps.toml")).unwrap();
+    let registry = musu::config::load(&xdg_config.join("musu/apps.toml")).unwrap();
     assert!(
         registry.find(&entry.id).is_some(),
         "registry must be untouched after abort"
@@ -398,7 +398,7 @@ fn test_remove_accepts_multiple_applications() {
     let xdg_data = temp.path().join("xdg-data");
     fs::create_dir_all(&home).unwrap();
     let manager = Manager::new(
-        xdg_config.join("geico/apps.toml"),
+        xdg_config.join("musu/apps.toml"),
         xdg_data.clone(),
         home.join(".local/bin"),
     );
@@ -419,7 +419,7 @@ fn test_remove_accepts_multiple_applications() {
         })
         .unwrap();
 
-    let output = std::process::Command::new(env!("CARGO_BIN_EXE_geico"))
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_musu"))
         .args(["remove", &first.id, &second.id])
         .env("HOME", &home)
         .env("XDG_CONFIG_HOME", &xdg_config)
@@ -433,7 +433,7 @@ fn test_remove_accepts_multiple_applications() {
         "removing multiple applications failed: {}",
         String::from_utf8_lossy(&output.stderr)
     );
-    let registry = geico::config::load(&xdg_config.join("geico/apps.toml")).unwrap();
+    let registry = musu::config::load(&xdg_config.join("musu/apps.toml")).unwrap();
     assert!(registry.apps.is_empty());
     assert!(first_target.exists());
     assert!(second_target.exists());
@@ -447,7 +447,7 @@ fn test_remove_all_with_yes_removes_every_registered_application() {
     let xdg_data = temp.path().join("xdg-data");
     fs::create_dir_all(&home).unwrap();
     let manager = Manager::new(
-        xdg_config.join("geico/apps.toml"),
+        xdg_config.join("musu/apps.toml"),
         xdg_data.clone(),
         home.join(".local/bin"),
     );
@@ -468,7 +468,7 @@ fn test_remove_all_with_yes_removes_every_registered_application() {
         })
         .unwrap();
 
-    let output = std::process::Command::new(env!("CARGO_BIN_EXE_geico"))
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_musu"))
         .args(["remove", "--all", "-y"])
         .env("HOME", &home)
         .env("XDG_CONFIG_HOME", &xdg_config)
@@ -482,7 +482,7 @@ fn test_remove_all_with_yes_removes_every_registered_application() {
         "remove --all failed: {}",
         String::from_utf8_lossy(&output.stderr)
     );
-    let registry = geico::config::load(&xdg_config.join("geico/apps.toml")).unwrap();
+    let registry = musu::config::load(&xdg_config.join("musu/apps.toml")).unwrap();
     assert!(registry.apps.is_empty());
     assert!(first_target.exists());
     assert!(second_target.exists());
@@ -498,7 +498,7 @@ fn test_remove_all_without_yes_requires_interactive_stdin() {
     let target = temp.path().join("tool");
     executable(&target);
     let manager = Manager::new(
-        xdg_config.join("geico/apps.toml"),
+        xdg_config.join("musu/apps.toml"),
         xdg_data.clone(),
         home.join(".local/bin"),
     );
@@ -509,7 +509,7 @@ fn test_remove_all_without_yes_requires_interactive_stdin() {
         })
         .unwrap();
 
-    let output = std::process::Command::new(env!("CARGO_BIN_EXE_geico"))
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_musu"))
         .args(["remove", "--all"])
         .env("HOME", &home)
         .env("XDG_CONFIG_HOME", &xdg_config)
@@ -523,7 +523,7 @@ fn test_remove_all_without_yes_requires_interactive_stdin() {
     assert!(!output.status.success());
     assert!(stderr.contains("--yes"), "stderr: {stderr}");
     assert!(target.exists());
-    let registry = geico::config::load(&xdg_config.join("geico/apps.toml")).unwrap();
+    let registry = musu::config::load(&xdg_config.join("musu/apps.toml")).unwrap();
     assert!(registry.find(&entry.id).is_some());
 }
 
@@ -626,7 +626,7 @@ fn test_update_remove_symlink_deletes_symlink_file_and_updates_registry() {
         "symlink file must be deleted from disk"
     );
     assert!(updated.symlink.is_none());
-    let registry = geico::config::load(&temp.path().join("config/apps.toml")).unwrap();
+    let registry = musu::config::load(&temp.path().join("config/apps.toml")).unwrap();
     let stored = registry.find(&entry.id).unwrap();
     assert!(
         stored.symlink.is_none(),
@@ -691,9 +691,9 @@ fn test_list_formats_id_with_dim_gray_color() {
     let output = manager.list().unwrap();
     let expected_id_badge = format!(
         "{}({}){}",
-        geico::colors::DIM_GRAY,
+        musu::colors::DIM_GRAY,
         "pepomote",
-        geico::colors::RESET
+        musu::colors::RESET
     );
     assert!(
         output.contains(&expected_id_badge),
@@ -719,7 +719,7 @@ fn test_list_table_format_contains_headers() {
         })
         .unwrap();
     let output = manager
-        .list_with_options(geico::manager::ListOptions {
+        .list_with_options(musu::manager::ListOptions {
             table: true,
             ..Default::default()
         })
@@ -748,7 +748,7 @@ fn test_list_filter_by_category_and_broken() {
         })
         .unwrap();
     let output = manager
-        .list_with_options(geico::manager::ListOptions {
+        .list_with_options(musu::manager::ListOptions {
             category: Some("video".into()),
             ..Default::default()
         })
@@ -756,14 +756,14 @@ fn test_list_filter_by_category_and_broken() {
     assert!(output.contains(&video_entry.name));
     assert!(!output.contains("Missing Tool"));
 
-    let mut registry = geico::config::load(&temp.path().join("config/apps.toml")).unwrap();
-    registry.add(geico::models::AppEntry::new(
+    let mut registry = musu::config::load(&temp.path().join("config/apps.toml")).unwrap();
+    registry.add(musu::models::AppEntry::new(
         Some("Missing Tool"),
         temp.path().join("missing"),
     ));
-    geico::config::save(&temp.path().join("config/apps.toml"), &registry).unwrap();
+    musu::config::save(&temp.path().join("config/apps.toml"), &registry).unwrap();
     let broken = manager
-        .list_with_options(geico::manager::ListOptions {
+        .list_with_options(musu::manager::ListOptions {
             broken: true,
             ..Default::default()
         })
@@ -1062,8 +1062,8 @@ fn test_show_no_image_flag_outputs_text_card() {
         })
         .unwrap();
 
-    let cli = Cli::try_parse_from(["geico", "show", entry.id.as_str(), "--no-icons"])
-        .expect("geico show must accept the --no-icons flag");
+    let cli = Cli::try_parse_from(["musu", "show", entry.id.as_str(), "--no-icons"])
+        .expect("musu show must accept the --no-icons flag");
     let args = match cli.command {
         Command::Show(args) => args,
         other => panic!("expected the show subcommand, got {other:?}"),
@@ -1094,43 +1094,43 @@ fn test_show_no_image_flag_outputs_text_card() {
 
 #[test]
 fn test_list_cli_accepts_image_and_no_image_flags() {
-    let cli_icons = Cli::try_parse_from(["geico", "list", "--icons"])
-        .expect("geico list must accept --icons flag");
+    let cli_icons = Cli::try_parse_from(["musu", "list", "--icons"])
+        .expect("musu list must accept --icons flag");
     match cli_icons.command {
         Command::List(args) => assert!(args.icons),
         other => panic!("expected List command, got {other:?}"),
     }
 
-    let cli_img = Cli::try_parse_from(["geico", "list", "--image"])
-        .expect("geico list must accept --image alias flag");
+    let cli_img = Cli::try_parse_from(["musu", "list", "--image"])
+        .expect("musu list must accept --image alias flag");
     match cli_img.command {
         Command::List(args) => assert!(args.icons),
         other => panic!("expected List command, got {other:?}"),
     }
 
     let cli_short =
-        Cli::try_parse_from(["geico", "list", "-i"]).expect("geico list must accept -i flag");
+        Cli::try_parse_from(["musu", "list", "-i"]).expect("musu list must accept -i flag");
     match cli_short.command {
         Command::List(args) => assert!(args.icons),
         other => panic!("expected List command, got {other:?}"),
     }
 
-    let cli_no_icons = Cli::try_parse_from(["geico", "list", "--no-icons"])
-        .expect("geico list must accept --no-icons flag");
+    let cli_no_icons = Cli::try_parse_from(["musu", "list", "--no-icons"])
+        .expect("musu list must accept --no-icons flag");
     match cli_no_icons.command {
         Command::List(args) => assert!(args.no_icons),
         other => panic!("expected List command, got {other:?}"),
     }
 
-    let cli_no_img = Cli::try_parse_from(["geico", "list", "--no-image"])
-        .expect("geico list must accept --no-image flag");
+    let cli_no_img = Cli::try_parse_from(["musu", "list", "--no-image"])
+        .expect("musu list must accept --no-image flag");
     match cli_no_img.command {
         Command::List(args) => assert!(args.no_icons),
         other => panic!("expected List command, got {other:?}"),
     }
 
-    let cli_hide = Cli::try_parse_from(["geico", "list", "--hide-disabled-symlinks"])
-        .expect("geico list must accept --hide-disabled-symlinks");
+    let cli_hide = Cli::try_parse_from(["musu", "list", "--hide-disabled-symlinks"])
+        .expect("musu list must accept --hide-disabled-symlinks");
     match cli_hide.command {
         Command::List(args) => assert!(args.hide_disabled_symlinks),
         other => panic!("expected List command, got {other:?}"),
@@ -1161,7 +1161,7 @@ fn test_list_with_image_flag_outputs_image_preview() {
         .unwrap();
 
     let output = manager
-        .list_with_options(geico::manager::ListOptions {
+        .list_with_options(musu::manager::ListOptions {
             image: true,
             no_image: false,
             ..Default::default()
@@ -1170,7 +1170,7 @@ fn test_list_with_image_flag_outputs_image_preview() {
 
     assert!(
         output.contains("\x1b_Ga=T,f=100"),
-        "geico list with image=true should contain Kitty escape sequence, got: {output}"
+        "musu list with image=true should contain Kitty escape sequence, got: {output}"
     );
 }
 
@@ -1209,7 +1209,7 @@ fn test_list_with_image_flag_inline_compact_thumbnail_on_left() {
         .unwrap();
 
     let output = manager
-        .list_with_options(geico::manager::ListOptions {
+        .list_with_options(musu::manager::ListOptions {
             image: true,
             no_image: false,
             ..Default::default()
@@ -1270,7 +1270,7 @@ fn test_show_with_image_flag_forces_preview() {
 
     assert!(
         output.contains("\x1b_Ga=T,f=100"),
-        "geico show with image=true should contain Kitty escape sequence even in non-TTY test, got: {output}"
+        "musu show with image=true should contain Kitty escape sequence even in non-TTY test, got: {output}"
     );
 }
 
@@ -1285,7 +1285,7 @@ fn test_show_collapses_home_directory_to_tilde_by_default() {
     executable(&target);
 
     let manager = Manager::new(
-        home.join(".config/geico/apps.toml"),
+        home.join(".config/musu/apps.toml"),
         home.join(".local/share"),
         home.join(".local/bin"),
     )
@@ -1326,7 +1326,7 @@ fn test_show_with_absolute_flag_prints_full_path() {
     executable(&target);
 
     let manager = Manager::new(
-        home.join(".config/geico/apps.toml"),
+        home.join(".config/musu/apps.toml"),
         home.join(".local/share"),
         home.join(".local/bin"),
     )
@@ -1359,22 +1359,22 @@ fn test_show_with_absolute_flag_prints_full_path() {
 
 #[test]
 fn test_show_cli_accepts_absolute_and_full_path_flags() {
-    let cli_abs = Cli::try_parse_from(["geico", "show", "app", "--absolute"])
-        .expect("geico show must accept --absolute");
+    let cli_abs = Cli::try_parse_from(["musu", "show", "app", "--absolute"])
+        .expect("musu show must accept --absolute");
     match cli_abs.command {
         Command::Show(args) => assert!(args.absolute),
         other => panic!("expected Show command, got {other:?}"),
     }
 
-    let cli_full = Cli::try_parse_from(["geico", "show", "app", "--full-path"])
-        .expect("geico show must accept --full-path alias");
+    let cli_full = Cli::try_parse_from(["musu", "show", "app", "--full-path"])
+        .expect("musu show must accept --full-path alias");
     match cli_full.command {
         Command::Show(args) => assert!(args.absolute),
         other => panic!("expected Show command, got {other:?}"),
     }
 
-    let cli_short = Cli::try_parse_from(["geico", "show", "app", "-a"])
-        .expect("geico show must accept -a flag");
+    let cli_short =
+        Cli::try_parse_from(["musu", "show", "app", "-a"]).expect("musu show must accept -a flag");
     match cli_short.command {
         Command::Show(args) => assert!(args.absolute),
         other => panic!("expected Show command, got {other:?}"),
@@ -1496,7 +1496,7 @@ fn test_display_image_never_overrides_explicit_image_flag() {
     );
 
     let output = manager
-        .list_with_options(geico::manager::ListOptions {
+        .list_with_options(musu::manager::ListOptions {
             image: true,
             ..Default::default()
         })
@@ -1517,14 +1517,14 @@ fn test_display_show_size_and_absolute_paths_are_configurable() {
     let icon = temp.path().join("icon.png");
     fs::write(&icon, b"dummy-png-data").unwrap();
     let manager = Manager::new(
-        home.join(".config/geico/apps.toml"),
+        home.join(".config/musu/apps.toml"),
         home.join(".local/share"),
         home.join(".local/bin"),
     )
     .with_home(home.clone());
-    fs::create_dir_all(home.join(".config/geico")).unwrap();
+    fs::create_dir_all(home.join(".config/musu")).unwrap();
     fs::write(
-        home.join(".config/geico/config.toml"),
+        home.join(".config/musu/config.toml"),
         "[display]\nimages = \"always\"\nshow_icon_size = \"compact\"\npaths = \"absolute\"\n",
     )
     .unwrap();
@@ -1570,16 +1570,16 @@ fn test_defaults_categories_and_dest_bin_apply_when_cli_omits_them() {
 }
 // ---------------------------------------------------------------------------
 // `--categories` query mode (flag present without a value) and the removal of
-// the `geico categories` subcommand.
+// the `musu categories` subcommand.
 // ---------------------------------------------------------------------------
 
-fn run_geico(
+fn run_musu(
     home: &std::path::Path,
     xdg_config: &std::path::Path,
     xdg_data: &std::path::Path,
     args: &[&str],
 ) -> std::process::Output {
-    std::process::Command::new(env!("CARGO_BIN_EXE_geico"))
+    std::process::Command::new(env!("CARGO_BIN_EXE_musu"))
         .args(args)
         .env("HOME", home)
         .env("XDG_CONFIG_HOME", xdg_config)
@@ -1593,8 +1593,8 @@ fn run_geico(
 #[test]
 fn test_cli_categories_flag_without_value_parses_as_empty_list() {
     for cmd in [
-        vec!["geico", "update", "my-app", "--categories"],
-        vec!["geico", "add", "/tmp/tool", "--categories"],
+        vec!["musu", "update", "my-app", "--categories"],
+        vec!["musu", "add", "/tmp/tool", "--categories"],
     ] {
         let cli = Cli::try_parse_from(&cmd).unwrap_or_else(|e| panic!("{cmd:?} must parse: {e}"));
         match cli.command {
@@ -1616,13 +1616,13 @@ fn test_cli_categories_flag_without_value_parses_as_empty_list() {
 #[test]
 fn test_cli_categories_flag_with_value_parses_delimited_list() {
     let cli = Cli::try_parse_from([
-        "geico",
+        "musu",
         "update",
         "my-app",
         "--categories",
         "Video,AudioVideo",
     ])
-    .expect("geico update <app> --categories Video,AudioVideo must parse");
+    .expect("musu update <app> --categories Video,AudioVideo must parse");
     match cli.command {
         Command::Update(args) => assert_eq!(
             args.categories,
@@ -1634,7 +1634,7 @@ fn test_cli_categories_flag_with_value_parses_delimited_list() {
 
 #[test]
 fn test_cli_categories_flag_without_value_does_not_swallow_help() {
-    let error = Cli::try_parse_from(["geico", "update", "my-app", "--categories", "--help"])
+    let error = Cli::try_parse_from(["musu", "update", "my-app", "--categories", "--help"])
         .expect_err("--categories with no value must not consume --help");
     assert_eq!(
         error.kind(),
@@ -1645,8 +1645,8 @@ fn test_cli_categories_flag_without_value_does_not_swallow_help() {
 
 #[test]
 fn test_cli_categories_subcommand_is_removed() {
-    let error = Cli::try_parse_from(["geico", "categories"])
-        .expect_err("`geico categories` was removed in favor of `--categories` with no value");
+    let error = Cli::try_parse_from(["musu", "categories"])
+        .expect_err("`musu categories` was removed in favor of `--categories` with no value");
     assert_eq!(
         error.kind(),
         clap::error::ErrorKind::InvalidSubcommand,
@@ -1664,7 +1664,7 @@ fn test_update_categories_query_prints_current_categories_without_mutating_regis
     let target = temp.path().join("openshot");
     executable(&target);
 
-    let registry_path = xdg_config.join("geico/apps.toml");
+    let registry_path = xdg_config.join("musu/apps.toml");
     let manager = Manager::new(
         registry_path.clone(),
         xdg_data.clone(),
@@ -1680,7 +1680,7 @@ fn test_update_categories_query_prints_current_categories_without_mutating_regis
         .unwrap();
     let registry_before = fs::read(&registry_path).unwrap();
 
-    let output = run_geico(
+    let output = run_musu(
         &home,
         &xdg_config,
         &xdg_data,
@@ -1702,7 +1702,7 @@ fn test_update_categories_query_prints_current_categories_without_mutating_regis
         "expected the standard categories table, got: {stdout}"
     );
     assert!(
-        stdout.contains("Usage tip: geico update openshot --categories Video,AudioVideo"),
+        stdout.contains("Usage tip: musu update openshot --categories Video,AudioVideo"),
         "expected the update usage tip, got: {stdout}"
     );
     assert!(
@@ -1711,7 +1711,7 @@ fn test_update_categories_query_prints_current_categories_without_mutating_regis
             .lines()
             .next_back()
             .is_some_and(|line| line
-                .contains("Usage tip: geico update openshot --categories Video,AudioVideo")),
+                .contains("Usage tip: musu update openshot --categories Video,AudioVideo")),
         "usage tip must be the last line, got: {stdout}"
     );
 
@@ -1732,7 +1732,7 @@ fn test_update_categories_query_reports_none_when_app_has_no_categories() {
     let target = temp.path().join("plain");
     executable(&target);
 
-    let registry_path = xdg_config.join("geico/apps.toml");
+    let registry_path = xdg_config.join("musu/apps.toml");
     let manager = Manager::new(
         registry_path.clone(),
         xdg_data.clone(),
@@ -1745,7 +1745,7 @@ fn test_update_categories_query_reports_none_when_app_has_no_categories() {
         })
         .unwrap();
 
-    let output = run_geico(
+    let output = run_musu(
         &home,
         &xdg_config,
         &xdg_data,
@@ -1772,7 +1772,7 @@ fn test_update_categories_query_errors_for_unknown_app() {
     let xdg_data = temp.path().join("xdg-data");
     fs::create_dir_all(&home).unwrap();
 
-    let output = run_geico(
+    let output = run_musu(
         &home,
         &xdg_config,
         &xdg_data,
@@ -1800,7 +1800,7 @@ fn test_add_categories_query_prints_table_and_registers_nothing() {
     let target = temp.path().join("query-tool");
     executable(&target);
 
-    let output = run_geico(
+    let output = run_musu(
         &home,
         &xdg_config,
         &xdg_data,
@@ -1818,7 +1818,7 @@ fn test_add_categories_query_prints_table_and_registers_nothing() {
         "expected the standard categories table, got: {stdout}"
     );
     assert!(
-        stdout.contains("Usage tip: geico add <path> --categories Video,AudioVideo"),
+        stdout.contains("Usage tip: musu add <path> --categories Video,AudioVideo"),
         "expected the add usage tip, got: {stdout}"
     );
     assert!(
@@ -1826,7 +1826,7 @@ fn test_add_categories_query_prints_table_and_registers_nothing() {
         "add query mode must not print a current-categories header, got: {stdout}"
     );
     assert!(
-        !xdg_config.join("geico/apps.toml").exists(),
+        !xdg_config.join("musu/apps.toml").exists(),
         "add query mode must not register anything"
     );
 }
@@ -1841,7 +1841,7 @@ fn test_update_unknown_category_warns_on_stderr_and_keeps_custom_value() {
     let target = temp.path().join("gameapp");
     executable(&target);
 
-    let registry_path = xdg_config.join("geico/apps.toml");
+    let registry_path = xdg_config.join("musu/apps.toml");
     let manager = Manager::new(
         registry_path.clone(),
         xdg_data.clone(),
@@ -1855,7 +1855,7 @@ fn test_update_unknown_category_warns_on_stderr_and_keeps_custom_value() {
         })
         .unwrap();
 
-    let output = run_geico(
+    let output = run_musu(
         &home,
         &xdg_config,
         &xdg_data,
@@ -1877,11 +1877,11 @@ fn test_update_unknown_category_warns_on_stderr_and_keeps_custom_value() {
         "expected a did-you-mean warning, got: {stderr}"
     );
     assert!(
-        stderr.contains("Run 'geico update <app> --categories'"),
+        stderr.contains("Run 'musu update <app> --categories'"),
         "the hint must point at the no-value query mode, got: {stderr}"
     );
     assert!(
-        !stderr.contains("geico categories"),
+        !stderr.contains("musu categories"),
         "the hint must not reference the removed subcommand, got: {stderr}"
     );
     let updated = manager.get(&entry.id).unwrap();
@@ -1891,7 +1891,7 @@ fn test_update_unknown_category_warns_on_stderr_and_keeps_custom_value() {
         "the unknown value must still be kept as a custom category"
     );
 
-    let known = run_geico(
+    let known = run_musu(
         &home,
         &xdg_config,
         &xdg_data,
@@ -1931,7 +1931,7 @@ fn test_list_hides_disabled_symlinks() {
 
     // Register with no symlink
     manager
-        .add(geico::manager::AddOptions {
+        .add(musu::manager::AddOptions {
             target: script.clone(),
             name: Some("NoSymlinkApp".into()),
             no_symlink: true,
@@ -1941,7 +1941,7 @@ fn test_list_hides_disabled_symlinks() {
 
     // Default list shows symlink=disabled
     let default_output = manager
-        .list_with_options(geico::manager::ListOptions {
+        .list_with_options(musu::manager::ListOptions {
             hide_disabled_symlinks: false,
             ..Default::default()
         })
@@ -1953,7 +1953,7 @@ fn test_list_hides_disabled_symlinks() {
 
     // List with hide_disabled_symlinks: true must omit symlink=disabled entirely
     let hidden_output = manager
-        .list_with_options(geico::manager::ListOptions {
+        .list_with_options(musu::manager::ListOptions {
             hide_disabled_symlinks: true,
             ..Default::default()
         })
@@ -2081,7 +2081,7 @@ fn test_list_cli_hides_target_and_desktop_ok() {
         .unwrap();
 
     let output_all_hidden = manager
-        .list_with_options(geico::manager::ListOptions {
+        .list_with_options(musu::manager::ListOptions {
             hide_ok: true,
             ..Default::default()
         })
@@ -2090,7 +2090,7 @@ fn test_list_cli_hides_target_and_desktop_ok() {
     assert!(!output_all_hidden.contains("desktop="));
 
     let output_only_target = manager
-        .list_with_options(geico::manager::ListOptions {
+        .list_with_options(musu::manager::ListOptions {
             hide_target_ok: true,
             ..Default::default()
         })
@@ -2103,20 +2103,20 @@ fn test_list_cli_hides_target_and_desktop_ok() {
 fn test_cli_parses_hide_ok_flags() {
     use clap::Parser;
     let cli =
-        geico::cli::Cli::try_parse_from(["geico", "list", "--hide-target-ok", "--hide-desktop-ok"])
+        musu::cli::Cli::try_parse_from(["musu", "list", "--hide-target-ok", "--hide-desktop-ok"])
             .expect("CLI must parse hide-target-ok and hide-desktop-ok flags");
     match cli.command {
-        geico::cli::Command::List(args) => {
+        musu::cli::Command::List(args) => {
             assert!(args.hide_target_ok);
             assert!(args.hide_desktop_ok);
         }
         _ => panic!("expected List command"),
     }
 
-    let cli_unified = geico::cli::Cli::try_parse_from(["geico", "list", "--hide-ok"])
+    let cli_unified = musu::cli::Cli::try_parse_from(["musu", "list", "--hide-ok"])
         .expect("CLI must parse --hide-ok flag");
     match cli_unified.command {
-        geico::cli::Command::List(args) => {
+        musu::cli::Command::List(args) => {
             assert!(args.hide_ok);
         }
         _ => panic!("expected List command"),
@@ -2188,7 +2188,7 @@ fn test_list_simple_format_has_one_leading_space_indentation() {
         .unwrap();
 
     let output_no_icons = manager
-        .list_with_options(geico::manager::ListOptions {
+        .list_with_options(musu::manager::ListOptions {
             no_icons: true,
             ..Default::default()
         })
@@ -2295,7 +2295,7 @@ fn test_list_with_description_flag_and_config() {
 
     // With description: true
     let output_with_desc = manager
-        .list_with_options(geico::manager::ListOptions {
+        .list_with_options(musu::manager::ListOptions {
             description: true,
             ..Default::default()
         })
@@ -2322,7 +2322,7 @@ fn test_list_with_description_flag_and_config() {
 
     // Override with no_description: true
     let output_suppressed = manager
-        .list_with_options(geico::manager::ListOptions {
+        .list_with_options(musu::manager::ListOptions {
             no_description: true,
             ..Default::default()
         })
@@ -2354,7 +2354,7 @@ fn test_list_table_format_with_description() {
         .unwrap();
 
     let output_table = manager
-        .list_with_options(geico::manager::ListOptions {
+        .list_with_options(musu::manager::ListOptions {
             table: true,
             description: true,
             ..Default::default()
