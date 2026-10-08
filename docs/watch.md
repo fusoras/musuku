@@ -31,6 +31,33 @@ Supported options:
 | `--recursive` | Include subdirectories. |
 | `--dry-run` | Report candidates without registering or updating them. |
 
+## Background Service (systemd & SysV)
+
+Instead of leaving a terminal process running with `--continuous`, you can manage a native background service:
+
+```sh
+# Install and start user systemd service (default, no root needed)
+geico watch service install
+
+# Check status natively
+systemctl --user status geico-watch.service
+# or via geico:
+geico watch service status
+
+# Follow logs in real time
+journalctl --user -u geico-watch.service -f
+
+# Uninstall cleanly
+geico watch service uninstall
+```
+
+For SysVinit environments, pass `--sysv`:
+
+```sh
+sudo geico watch service install --sysv
+sudo service geico-watch status
+```
+
 Configuration in `~/.config/geico/config.toml`:
 
 ```toml
