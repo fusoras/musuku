@@ -97,6 +97,7 @@ fn test_watch_without_directories_or_config_errors() {
         scan_only: true,
         recursive: false,
         dry_run: false,
+        service: None,
     };
 
     let result = geico::watcher::run(args, manager);

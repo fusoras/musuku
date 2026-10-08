@@ -55,29 +55,15 @@ Run the automated installer script:
 curl -fsSL https://raw.githubusercontent.com/fusoras/geico/main/install.sh | bash
 ```
 
-Or from a cloned repository:
-
-```sh
-./install.sh
-```
-
-The script installs `geico` into `~/.local/bin/geico`, automatically wires shell completions, and prints Bun-style configuration guidance if manual `$PATH` setup is needed.
-
 ### Build from source
 
 Prerequisites:
 
 - A stable Rust toolchain (`rustup` + `cargo`)
 
-```sh
-cargo build --release
-```
-
-The binary is produced at `target/release/geico` (stripped and LTO-optimized for small size).
-
-### Install with Cargo
-
-```sh
+```bash
+git clone --depth=1 https://github.com/fusoras/geico.git
+cd fast-alias
 cargo install --path .
 ```
 
@@ -114,6 +100,35 @@ geico add /opt/tools/my-cli --no-desktop
 
 # integrate a GUI app without a terminal symlink
 geico add /opt/blender/blender --no-symlink --icon /opt/blender/icon.png
+```
+
+### Background Watch Service (systemd & SysV)
+
+Run `geico watch` automatically in the background without keeping a terminal open:
+
+```sh
+# 1. Install and start the background service (user-space, no root required)
+geico watch service install
+
+# 2. Check service status
+systemctl --user status geico-watch.service
+
+# SysV alternative:
+sudo geico watch service install --sysv
+sudo service geico-watch status
+```
+
+View live logs:
+
+```sh
+journalctl --user -u geico-watch.service -f
+```
+
+To stop or remove the service:
+
+```sh
+systemctl --user stop geico-watch.service
+geico watch service uninstall
 ```
 
 ## Commands

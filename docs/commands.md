@@ -305,6 +305,33 @@ geico watch ~/Downloads/ --scan-only
 geico watch ~/Applications/ --dry-run
 ```
 
+### Background Service (`geico watch service`)
+
+Manage a persistent background watcher using systemd (user service) or SysVinit:
+
+```sh
+geico watch service <SUBCOMMAND> [OPTIONS]
+```
+
+| Subcommand | Description |
+| --- | --- |
+| `install` | Install and start background service (`--now=false` to skip auto-start, `--sysv` for SysVinit). |
+| `uninstall` | Stop, disable, and remove the background service. |
+| `status` | Show live service status. |
+| `start` | Start the background service. |
+| `stop` | Stop the background service. |
+| `restart` | Restart the background service. |
+
+```sh
+# Install and start immediately
+geico watch service install
+
+# Check status
+systemctl --user status geico-watch.service
+# or
+geico watch service status
+```
+
 ---
 
 ## 7. `geico health`

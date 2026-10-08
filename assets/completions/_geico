@@ -168,8 +168,108 @@ _arguments "${_arguments_options[@]}" : \
 '--dry-run[Show registrations without changing the registry or filesystem]' \
 '-h[Print help]' \
 '--help[Print help]' \
-'*::directories -- Directories to scan and monitor; defaults to \[watch\].directories. Pass '\''.'\'' for current directory:_files' \
+'::directories -- Directories to scan and monitor; defaults to \[watch\].directories. Pass '\''.'\'' for current directory:_files' \
+":: :_geico__subcmd__watch_commands" \
+"*::: :->watch" \
 && ret=0
+
+    case $state in
+    (watch)
+        words=($line[2] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:geico-watch-command-$line[2]:"
+        case $line[2] in
+            (install)
+_arguments "${_arguments_options[@]}" : \
+'--now=[Start and enable service immediately after installation (default\: true). Pass --now=false to skip starting]::NOW:(true false)' \
+'--sysv[Force SysVinit script instead of systemd user service]' \
+'-h[Print help]' \
+'--help[Print help]' \
+'*::directories -- Optional directories to add to watch list during installation:_files' \
+&& ret=0
+;;
+(uninstall)
+_arguments "${_arguments_options[@]}" : \
+'--sysv[Uninstall SysVinit script instead of systemd user service]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(status)
+_arguments "${_arguments_options[@]}" : \
+'--sysv[Check SysVinit service instead of systemd user service]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(start)
+_arguments "${_arguments_options[@]}" : \
+'--sysv[Target SysVinit service instead of systemd user service]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(stop)
+_arguments "${_arguments_options[@]}" : \
+'--sysv[Target SysVinit service instead of systemd user service]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(restart)
+_arguments "${_arguments_options[@]}" : \
+'--sysv[Target SysVinit service instead of systemd user service]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+":: :_geico__subcmd__watch__subcmd__help_commands" \
+"*::: :->help" \
+&& ret=0
+
+    case $state in
+    (help)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:geico-watch-help-command-$line[1]:"
+        case $line[1] in
+            (install)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(uninstall)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(status)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(start)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(stop)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(restart)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+        esac
+    ;;
+esac
 ;;
 (help)
 _arguments "${_arguments_options[@]}" : \
@@ -221,7 +321,43 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (watch)
 _arguments "${_arguments_options[@]}" : \
+":: :_geico__subcmd__help__subcmd__watch_commands" \
+"*::: :->watch" \
 && ret=0
+
+    case $state in
+    (watch)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:geico-help-watch-command-$line[1]:"
+        case $line[1] in
+            (install)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(uninstall)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(status)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(start)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(stop)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(restart)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
 ;;
 (help)
 _arguments "${_arguments_options[@]}" : \
@@ -342,8 +478,45 @@ _geico__subcmd__help__subcmd__update_commands() {
 }
 (( $+functions[_geico__subcmd__help__subcmd__watch_commands] )) ||
 _geico__subcmd__help__subcmd__watch_commands() {
-    local commands; commands=()
+    local commands; commands=(
+'install:Install background watcher service (defaults to systemd user service)' \
+'uninstall:Uninstall and stop background watcher service' \
+'status:Show status of background watcher service' \
+'start:Start background watcher service' \
+'stop:Stop background watcher service' \
+'restart:Restart background watcher service' \
+    )
     _describe -t commands 'geico help watch commands' commands "$@"
+}
+(( $+functions[_geico__subcmd__help__subcmd__watch__subcmd__install_commands] )) ||
+_geico__subcmd__help__subcmd__watch__subcmd__install_commands() {
+    local commands; commands=()
+    _describe -t commands 'geico help watch install commands' commands "$@"
+}
+(( $+functions[_geico__subcmd__help__subcmd__watch__subcmd__restart_commands] )) ||
+_geico__subcmd__help__subcmd__watch__subcmd__restart_commands() {
+    local commands; commands=()
+    _describe -t commands 'geico help watch restart commands' commands "$@"
+}
+(( $+functions[_geico__subcmd__help__subcmd__watch__subcmd__start_commands] )) ||
+_geico__subcmd__help__subcmd__watch__subcmd__start_commands() {
+    local commands; commands=()
+    _describe -t commands 'geico help watch start commands' commands "$@"
+}
+(( $+functions[_geico__subcmd__help__subcmd__watch__subcmd__status_commands] )) ||
+_geico__subcmd__help__subcmd__watch__subcmd__status_commands() {
+    local commands; commands=()
+    _describe -t commands 'geico help watch status commands' commands "$@"
+}
+(( $+functions[_geico__subcmd__help__subcmd__watch__subcmd__stop_commands] )) ||
+_geico__subcmd__help__subcmd__watch__subcmd__stop_commands() {
+    local commands; commands=()
+    _describe -t commands 'geico help watch stop commands' commands "$@"
+}
+(( $+functions[_geico__subcmd__help__subcmd__watch__subcmd__uninstall_commands] )) ||
+_geico__subcmd__help__subcmd__watch__subcmd__uninstall_commands() {
+    local commands; commands=()
+    _describe -t commands 'geico help watch uninstall commands' commands "$@"
 }
 (( $+functions[_geico__subcmd__list_commands] )) ||
 _geico__subcmd__list_commands() {
@@ -372,8 +545,94 @@ _geico__subcmd__update_commands() {
 }
 (( $+functions[_geico__subcmd__watch_commands] )) ||
 _geico__subcmd__watch_commands() {
-    local commands; commands=()
+    local commands; commands=(
+'install:Install background watcher service (defaults to systemd user service)' \
+'uninstall:Uninstall and stop background watcher service' \
+'status:Show status of background watcher service' \
+'start:Start background watcher service' \
+'stop:Stop background watcher service' \
+'restart:Restart background watcher service' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
     _describe -t commands 'geico watch commands' commands "$@"
+}
+(( $+functions[_geico__subcmd__watch__subcmd__help_commands] )) ||
+_geico__subcmd__watch__subcmd__help_commands() {
+    local commands; commands=(
+'install:Install background watcher service (defaults to systemd user service)' \
+'uninstall:Uninstall and stop background watcher service' \
+'status:Show status of background watcher service' \
+'start:Start background watcher service' \
+'stop:Stop background watcher service' \
+'restart:Restart background watcher service' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'geico watch help commands' commands "$@"
+}
+(( $+functions[_geico__subcmd__watch__subcmd__help__subcmd__help_commands] )) ||
+_geico__subcmd__watch__subcmd__help__subcmd__help_commands() {
+    local commands; commands=()
+    _describe -t commands 'geico watch help help commands' commands "$@"
+}
+(( $+functions[_geico__subcmd__watch__subcmd__help__subcmd__install_commands] )) ||
+_geico__subcmd__watch__subcmd__help__subcmd__install_commands() {
+    local commands; commands=()
+    _describe -t commands 'geico watch help install commands' commands "$@"
+}
+(( $+functions[_geico__subcmd__watch__subcmd__help__subcmd__restart_commands] )) ||
+_geico__subcmd__watch__subcmd__help__subcmd__restart_commands() {
+    local commands; commands=()
+    _describe -t commands 'geico watch help restart commands' commands "$@"
+}
+(( $+functions[_geico__subcmd__watch__subcmd__help__subcmd__start_commands] )) ||
+_geico__subcmd__watch__subcmd__help__subcmd__start_commands() {
+    local commands; commands=()
+    _describe -t commands 'geico watch help start commands' commands "$@"
+}
+(( $+functions[_geico__subcmd__watch__subcmd__help__subcmd__status_commands] )) ||
+_geico__subcmd__watch__subcmd__help__subcmd__status_commands() {
+    local commands; commands=()
+    _describe -t commands 'geico watch help status commands' commands "$@"
+}
+(( $+functions[_geico__subcmd__watch__subcmd__help__subcmd__stop_commands] )) ||
+_geico__subcmd__watch__subcmd__help__subcmd__stop_commands() {
+    local commands; commands=()
+    _describe -t commands 'geico watch help stop commands' commands "$@"
+}
+(( $+functions[_geico__subcmd__watch__subcmd__help__subcmd__uninstall_commands] )) ||
+_geico__subcmd__watch__subcmd__help__subcmd__uninstall_commands() {
+    local commands; commands=()
+    _describe -t commands 'geico watch help uninstall commands' commands "$@"
+}
+(( $+functions[_geico__subcmd__watch__subcmd__install_commands] )) ||
+_geico__subcmd__watch__subcmd__install_commands() {
+    local commands; commands=()
+    _describe -t commands 'geico watch install commands' commands "$@"
+}
+(( $+functions[_geico__subcmd__watch__subcmd__restart_commands] )) ||
+_geico__subcmd__watch__subcmd__restart_commands() {
+    local commands; commands=()
+    _describe -t commands 'geico watch restart commands' commands "$@"
+}
+(( $+functions[_geico__subcmd__watch__subcmd__start_commands] )) ||
+_geico__subcmd__watch__subcmd__start_commands() {
+    local commands; commands=()
+    _describe -t commands 'geico watch start commands' commands "$@"
+}
+(( $+functions[_geico__subcmd__watch__subcmd__status_commands] )) ||
+_geico__subcmd__watch__subcmd__status_commands() {
+    local commands; commands=()
+    _describe -t commands 'geico watch status commands' commands "$@"
+}
+(( $+functions[_geico__subcmd__watch__subcmd__stop_commands] )) ||
+_geico__subcmd__watch__subcmd__stop_commands() {
+    local commands; commands=()
+    _describe -t commands 'geico watch stop commands' commands "$@"
+}
+(( $+functions[_geico__subcmd__watch__subcmd__uninstall_commands] )) ||
+_geico__subcmd__watch__subcmd__uninstall_commands() {
+    local commands; commands=()
+    _describe -t commands 'geico watch uninstall commands' commands "$@"
 }
 
 if [ "$funcstack[1]" = "_geico" ]; then

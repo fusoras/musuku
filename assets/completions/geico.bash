@@ -82,6 +82,66 @@ _geico() {
             geico__subcmd__help,watch)
                 cmd="geico__subcmd__help__subcmd__watch"
                 ;;
+            geico__subcmd__help__subcmd__watch,install)
+                cmd="geico__subcmd__help__subcmd__watch__subcmd__install"
+                ;;
+            geico__subcmd__help__subcmd__watch,restart)
+                cmd="geico__subcmd__help__subcmd__watch__subcmd__restart"
+                ;;
+            geico__subcmd__help__subcmd__watch,start)
+                cmd="geico__subcmd__help__subcmd__watch__subcmd__start"
+                ;;
+            geico__subcmd__help__subcmd__watch,status)
+                cmd="geico__subcmd__help__subcmd__watch__subcmd__status"
+                ;;
+            geico__subcmd__help__subcmd__watch,stop)
+                cmd="geico__subcmd__help__subcmd__watch__subcmd__stop"
+                ;;
+            geico__subcmd__help__subcmd__watch,uninstall)
+                cmd="geico__subcmd__help__subcmd__watch__subcmd__uninstall"
+                ;;
+            geico__subcmd__watch,help)
+                cmd="geico__subcmd__watch__subcmd__help"
+                ;;
+            geico__subcmd__watch,install)
+                cmd="geico__subcmd__watch__subcmd__install"
+                ;;
+            geico__subcmd__watch,restart)
+                cmd="geico__subcmd__watch__subcmd__restart"
+                ;;
+            geico__subcmd__watch,start)
+                cmd="geico__subcmd__watch__subcmd__start"
+                ;;
+            geico__subcmd__watch,status)
+                cmd="geico__subcmd__watch__subcmd__status"
+                ;;
+            geico__subcmd__watch,stop)
+                cmd="geico__subcmd__watch__subcmd__stop"
+                ;;
+            geico__subcmd__watch,uninstall)
+                cmd="geico__subcmd__watch__subcmd__uninstall"
+                ;;
+            geico__subcmd__watch__subcmd__help,help)
+                cmd="geico__subcmd__watch__subcmd__help__subcmd__help"
+                ;;
+            geico__subcmd__watch__subcmd__help,install)
+                cmd="geico__subcmd__watch__subcmd__help__subcmd__install"
+                ;;
+            geico__subcmd__watch__subcmd__help,restart)
+                cmd="geico__subcmd__watch__subcmd__help__subcmd__restart"
+                ;;
+            geico__subcmd__watch__subcmd__help,start)
+                cmd="geico__subcmd__watch__subcmd__help__subcmd__start"
+                ;;
+            geico__subcmd__watch__subcmd__help,status)
+                cmd="geico__subcmd__watch__subcmd__help__subcmd__status"
+                ;;
+            geico__subcmd__watch__subcmd__help,stop)
+                cmd="geico__subcmd__watch__subcmd__help__subcmd__stop"
+                ;;
+            geico__subcmd__watch__subcmd__help,uninstall)
+                cmd="geico__subcmd__watch__subcmd__help__subcmd__uninstall"
+                ;;
             *)
                 ;;
         esac
@@ -341,8 +401,92 @@ _geico() {
             return 0
             ;;
         geico__subcmd__help__subcmd__watch)
-            opts=""
+            opts="install uninstall status start stop restart"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        geico__subcmd__help__subcmd__watch__subcmd__install)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        geico__subcmd__help__subcmd__watch__subcmd__restart)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        geico__subcmd__help__subcmd__watch__subcmd__start)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        geico__subcmd__help__subcmd__watch__subcmd__status)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        geico__subcmd__help__subcmd__watch__subcmd__stop)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        geico__subcmd__help__subcmd__watch__subcmd__uninstall)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
@@ -453,7 +597,7 @@ _geico() {
             return 0
             ;;
         geico__subcmd__watch)
-            opts="-h --icons-dir --foreground --continuous --scan-only --recursive --dry-run --help"
+            opts="-h --icons-dir --foreground --continuous --scan-only --recursive --dry-run --help install uninstall status start stop restart help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -463,6 +607,206 @@ _geico() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        geico__subcmd__watch__subcmd__help)
+            opts="install uninstall status start stop restart help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        geico__subcmd__watch__subcmd__help__subcmd__help)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        geico__subcmd__watch__subcmd__help__subcmd__install)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        geico__subcmd__watch__subcmd__help__subcmd__restart)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        geico__subcmd__watch__subcmd__help__subcmd__start)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        geico__subcmd__watch__subcmd__help__subcmd__status)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        geico__subcmd__watch__subcmd__help__subcmd__stop)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        geico__subcmd__watch__subcmd__help__subcmd__uninstall)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        geico__subcmd__watch__subcmd__install)
+            opts="-h --now --sysv --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --now)
+                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        geico__subcmd__watch__subcmd__restart)
+            opts="-h --sysv --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        geico__subcmd__watch__subcmd__start)
+            opts="-h --sysv --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        geico__subcmd__watch__subcmd__status)
+            opts="-h --sysv --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        geico__subcmd__watch__subcmd__stop)
+            opts="-h --sysv --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        geico__subcmd__watch__subcmd__uninstall)
+            opts="-h --sysv --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
                 *)
                     COMPREPLY=()
                     ;;

@@ -130,6 +130,7 @@ pub struct Run {
 }
 
 #[derive(Debug, Args)]
+#[command(subcommand_precedence_over_arg(true))]
 pub struct Watch {
     /// Directories to scan and monitor; defaults to [watch].directories. Pass '.' for current directory.
     pub directories: Vec<PathBuf>,
@@ -148,6 +149,56 @@ pub struct Watch {
     /// Show registrations without changing the registry or filesystem.
     #[arg(long)]
     pub dry_run: bool,
+    /// Service management commands for background execution (systemd / SysV).
+    #[command(subcommand)]
+    pub service: Option<WatchServiceCmd>,
+}
+
+#[derive(Debug, Subcommand, Clone, PartialEq, Eq)]
+pub enum WatchServiceCmd {
+    /// Install background watcher service (defaults to systemd user service)
+    Install {
+        /// Start and enable service immediately after installation (default: true). Pass --now=false to skip starting.
+        #[arg(long, default_value_t = true, action = clap::ArgAction::Set, num_args = 0..=1, default_missing_value = "true")]
+        now: bool,
+
+        /// Force SysVinit script instead of systemd user service
+        #[arg(long)]
+        sysv: bool,
+
+        /// Optional directories to add to watch list during installation
+        directories: Vec<PathBuf>,
+    },
+    /// Uninstall and stop background watcher service
+    Uninstall {
+        /// Uninstall SysVinit script instead of systemd user service
+        #[arg(long)]
+        sysv: bool,
+    },
+    /// Show status of background watcher service
+    Status {
+        /// Check SysVinit service instead of systemd user service
+        #[arg(long)]
+        sysv: bool,
+    },
+    /// Start background watcher service
+    Start {
+        /// Target SysVinit service instead of systemd user service
+        #[arg(long)]
+        sysv: bool,
+    },
+    /// Stop background watcher service
+    Stop {
+        /// Target SysVinit service instead of systemd user service
+        #[arg(long)]
+        sysv: bool,
+    },
+    /// Restart background watcher service
+    Restart {
+        /// Target SysVinit service instead of systemd user service
+        #[arg(long)]
+        sysv: bool,
+    },
 }
 
 #[derive(Debug, Args)]
