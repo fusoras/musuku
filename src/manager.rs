@@ -193,9 +193,7 @@ impl Manager {
         let mut registry = config::load(&self.config_path)?;
         registry.add(entry.clone());
         config::save(&self.config_path, &registry)?;
-        if let Some(extraction) = extraction {
-            let _ = fs::remove_dir_all(extraction.root);
-        }
+        drop(extraction);
         self.refresh_desktop_db(&settings);
         Ok(entry)
     }
@@ -490,7 +488,7 @@ impl Manager {
             return Ok(UpdateOutcome::NoChanges { name: old.name });
         }
         let mut entry = old.clone();
-        let mut extraction_root = None;
+        let mut _extraction_guard = None;
         if options.remove_symlink {
             if let Some(link) = old.symlink.as_deref() {
                 symlink::remove(link)?;
@@ -507,9 +505,9 @@ impl Manager {
                     && extractor::is_appimage(&entry.target_bin).unwrap_or(false)
                     && let Ok(Some(extraction)) = extractor::inspect_and_extract(&entry.target_bin)
                 {
-                    extracted_icon = extraction.icon_path;
-                    extracted_comment = extraction.metadata.comment;
-                    extraction_root = Some(extraction.root);
+                    extracted_icon = extraction.icon_path.clone();
+                    extracted_comment = extraction.metadata.comment.clone();
+                    _extraction_guard = Some(extraction);
                 }
             }
             if let Some(name) = options.name {
@@ -591,9 +589,7 @@ impl Manager {
             .ok_or_else(|| anyhow::anyhow!("Application '{}' not found.", query))?
             .clone();
         config::save(&self.config_path, &registry)?;
-        if let Some(root) = extraction_root {
-            let _ = fs::remove_dir_all(root);
-        }
+        drop(_extraction_guard);
         self.refresh_desktop_db(&settings);
         Ok(UpdateOutcome::Updated { old, new: updated })
     }

@@ -54,3 +54,24 @@ fn test_extractor_ignores_non_image_files_with_matching_stem() {
     let found_svg = geico::extractor::find_icon(root, Some("org.shotcut.Shotcut"));
     assert_eq!(found_svg, Some(svg_file));
 }
+
+#[test]
+fn test_extractor_drop_cleans_up_temp_dir() {
+    let temp_parent = tempdir().unwrap();
+    let temp_root = temp_parent.path().join("geico-appimage-test-temp");
+    fs::create_dir_all(&temp_root).unwrap();
+    assert!(temp_root.exists());
+
+    {
+        let _extraction = geico::extractor::Extraction {
+            metadata: DesktopMetadata::default(),
+            icon_path: None,
+            root: temp_root.clone(),
+        };
+    }
+
+    assert!(
+        !temp_root.exists(),
+        "Extraction::drop must automatically clean up its temporary root directory"
+    );
+}

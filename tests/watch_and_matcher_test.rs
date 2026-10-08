@@ -345,3 +345,64 @@ fn test_auto_sync_skips_when_directories_unchanged() {
         "expected unchanged directory to skip auto-sync on fast path"
     );
 }
+
+#[test]
+fn test_watch_ignores_temporary_downloads_and_empty_files() {
+    let temp = tempdir().unwrap();
+    let app_dir = temp.path().join("apps");
+    fs::create_dir_all(&app_dir).unwrap();
+
+    // 1. Partial Firefox download
+    fs::write(app_dir.join("Browser-1.0.AppImage.part"), b"downloading...").unwrap();
+    // 2. Chromium download
+    fs::write(
+        app_dir.join("Editor.AppImage.crdownload"),
+        b"downloading...",
+    )
+    .unwrap();
+    // 3. Hidden AppImage
+    fs::write(app_dir.join(".hidden.AppImage"), b"hidden").unwrap();
+    // 4. Temporary swap file
+    fs::write(app_dir.join("Tool.AppImage.tmp"), b"temp").unwrap();
+    // 5. Zero-byte incomplete AppImage
+    let empty_app = app_dir.join("Empty-App.AppImage");
+    fs::write(&empty_app, b"").unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = fs::metadata(&empty_app).unwrap().permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&empty_app, perms).unwrap();
+    }
+
+    // 6. Valid AppImage
+    let valid_app = app_dir.join("ValidApp-1.0.AppImage");
+    fs::write(&valid_app, "#!/bin/sh\nexit 0\n").unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = fs::metadata(&valid_app).unwrap().permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&valid_app, perms).unwrap();
+    }
+
+    let manager = geico::manager::Manager::new(
+        temp.path().join("config/apps.toml"),
+        temp.path().join("data"),
+        temp.path().join("bin"),
+    );
+
+    let count =
+        geico::watcher::scan_directories(&manager, &[app_dir], None, false, false, false).unwrap();
+
+    assert_eq!(
+        count, 1,
+        "Only valid, non-empty, non-temporary AppImages should be registered"
+    );
+    let app = manager.get("validapp").unwrap();
+    assert_eq!(app.name, "validapp");
+    assert!(
+        manager.get("empty-app").is_err(),
+        "Empty app must not be registered"
+    );
+}

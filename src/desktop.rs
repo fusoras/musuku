@@ -48,23 +48,35 @@ pub fn install(
         None
     };
 
-    let desktop_file = applications.join(format!("{id}.desktop"));
+    let safe_id = id
+        .chars()
+        .filter(|c| c.is_alphanumeric() || *c == '-' || *c == '_' || *c == '.')
+        .collect::<String>();
+    let desktop_file = applications.join(format!("{safe_id}.desktop"));
+    let safe_name = sanitize_entry_value(name);
+    let safe_exec = sanitize_entry_value(exec);
     let mut contents = format!(
-        "[Desktop Entry]\nType=Application\nName={name}\nExec={}\n",
-        shell_escape(exec)
+        "[Desktop Entry]\nType=Application\nName={safe_name}\nExec={}\n",
+        shell_escape(&safe_exec)
     );
-    if let Some(comment) = comment
-        && !comment.is_empty()
-    {
-        contents.push_str(&format!("Comment={comment}\n"));
+    if let Some(comment) = comment {
+        let safe_comment = sanitize_entry_value(comment);
+        if !safe_comment.is_empty() {
+            contents.push_str(&format!("Comment={safe_comment}\n"));
+        }
     }
     if let Some(icon) = installed_icon.as_deref() {
         contents.push_str(&format!("Icon={}\n", icon.display()));
     }
-    if let Some(categories) = categories
-        && !categories.is_empty()
-    {
-        contents.push_str(&format!("Categories={};\n", categories.join(";")));
+    if let Some(categories) = categories {
+        let safe_categories: Vec<String> = categories
+            .iter()
+            .map(|category| sanitize_entry_value(category).replace(';', ""))
+            .filter(|category| !category.is_empty())
+            .collect();
+        if !safe_categories.is_empty() {
+            contents.push_str(&format!("Categories={};\n", safe_categories.join(";")));
+        }
     }
     contents.push_str("Terminal=false\n");
     fs::write(&desktop_file, contents)
@@ -72,6 +84,22 @@ pub fn install(
     sync_desktop_database(&applications);
     sync_icon_cache(&icons);
     Ok((desktop_file, installed_icon))
+}
+
+pub fn sanitize_entry_value(value: &str) -> String {
+    value
+        .chars()
+        .map(|c| {
+            if c == '\n' || c == '\r' || (c.is_control() && c != '\t') {
+                ' '
+            } else {
+                c
+            }
+        })
+        .collect::<String>()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 pub fn remove(desktop_file: Option<&Path>, icon: Option<&Path>) -> Result<()> {

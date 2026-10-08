@@ -22,6 +22,14 @@ pub struct Extraction {
     pub root: PathBuf,
 }
 
+impl Drop for Extraction {
+    fn drop(&mut self) {
+        if self.root.exists() {
+            let _ = fs::remove_dir_all(&self.root);
+        }
+    }
+}
+
 pub fn parse_desktop_entry(contents: &str) -> Option<DesktopMetadata> {
     let mut metadata = DesktopMetadata::default();
     for line in contents.lines() {
@@ -59,6 +67,13 @@ pub fn is_appimage(path: &Path) -> Result<bool> {
         .and_then(|extension| extension.to_str())
         .is_some_and(|extension| extension.eq_ignore_ascii_case("appimage"));
     if extension {
+        if let Ok(meta) = fs::metadata(path) {
+            if meta.len() == 0 {
+                return Ok(false);
+            }
+        } else {
+            return Ok(false);
+        }
         return Ok(true);
     }
     let bytes = fs::read(path)?;

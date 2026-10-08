@@ -394,6 +394,13 @@ pub fn run(args: Watch, manager: Manager) -> Result<()> {
     );
 
     if args.continuous {
+        if settings.watch.auto_chmod {
+            eprintln!(
+                "{}Warning: auto_chmod is enabled. Executable permissions will be automatically granted to detected AppImages.{}",
+                crate::colors::BOLD_YELLOW,
+                crate::colors::RESET
+            );
+        }
         println!(
             "\n{}Watching for AppImages (press Ctrl+C to stop):{}",
             crate::colors::BOLD_BLUE,
@@ -433,12 +440,26 @@ pub fn scan_directories(
             if manager.is_registered_target(&path)? {
                 continue;
             }
-            if auto_chmod {
-                let mut permissions = fs::metadata(&path)?.permissions();
-                permissions.set_mode(permissions.mode() | 0o111);
-                fs::set_permissions(&path, permissions)?;
+            if auto_chmod && let Ok(metadata) = fs::metadata(&path) {
+                let mut permissions = metadata.permissions();
+                if permissions.mode() & 0o111 == 0 {
+                    permissions.set_mode(permissions.mode() | 0o111);
+                    if let Err(err) = fs::set_permissions(&path, permissions) {
+                        eprintln!(
+                            "geico: warning: failed to set chmod +x on {}: {err}",
+                            path.display()
+                        );
+                    } else {
+                        println!(
+                            "{}Granted executable permissions to {}{}",
+                            crate::colors::BOLD_YELLOW,
+                            path.display(),
+                            crate::colors::RESET
+                        );
+                    }
+                }
             }
-            if !is_executable(&path)? {
+            if !is_executable(&path).unwrap_or(false) {
                 continue;
             }
             found += 1;
@@ -452,12 +473,23 @@ pub fn scan_directories(
                     .unwrap_or_default(),
             );
             if !dry_run {
-                let entry = manager.add(AddOptions {
+                let entry = match manager.add(AddOptions {
                     target: path.clone(),
                     name: Some(app_name.clone()),
                     icon,
                     ..AddOptions::default()
-                })?;
+                }) {
+                    Ok(entry) => entry,
+                    Err(err) => {
+                        eprintln!(
+                            "{}geico: warning: skipping {}: {err:#}{}",
+                            crate::colors::BOLD_YELLOW,
+                            path.display(),
+                            crate::colors::RESET
+                        );
+                        continue;
+                    }
+                };
                 println!(
                     "{}Registered {} ({}) from {}{}",
                     crate::colors::BOLD_GREEN,
@@ -502,13 +534,15 @@ fn watch_directories(
             .with_context(|| format!("failed to watch {}", directory.display()))?;
     }
     for result in receiver {
-        handle_events(
+        if let Err(err) = handle_events(
             result,
             &manager,
             icons_dir.as_deref(),
             auto_chmod,
             clean_on_delete,
-        )?;
+        ) {
+            eprintln!("geico: warning: watcher loop error: {err:#}");
+        }
     }
     Ok(())
 }
@@ -520,25 +554,41 @@ fn handle_events(
     auto_chmod: bool,
     clean_on_delete: bool,
 ) -> Result<()> {
-    let events = result.context("filesystem watcher error")?;
+    let events = match result {
+        Ok(events) => events,
+        Err(err) => {
+            eprintln!("geico: warning: filesystem watcher event error: {err:#}");
+            return Ok(());
+        }
+    };
     for event in events {
         let path = event.path;
+        if is_temp_or_download_path(&path) {
+            continue;
+        }
         if path.is_file() && is_appimage_path(&path) {
             let parent = path.parent().unwrap_or(Path::new(".")).to_path_buf();
-            let _ = scan_directories(
+            if let Err(err) = scan_directories(
                 manager,
                 std::slice::from_ref(&parent),
                 icons_dir,
                 false,
                 auto_chmod,
                 false,
-            )?;
+            ) {
+                eprintln!(
+                    "geico: warning: error scanning {}: {err:#}",
+                    parent.display()
+                );
+            }
         } else if clean_on_delete
             && !path.exists()
-            && let Some(query) = manager.registered_target_query(&path)?
+            && let Ok(Some(query)) = manager.registered_target_query(&path)
+            && let Ok(entry) = manager.get(&query)
         {
-            if let Ok(entry) = manager.get(&query) {
-                manager.remove(&query)?;
+            if let Err(err) = manager.remove(&query) {
+                eprintln!("geico: warning: failed to remove {}: {err:#}", entry.name);
+            } else {
                 println!(
                     "{}Removed {} ({}) - AppImage deleted from disk{}",
                     crate::colors::BOLD_YELLOW,
@@ -546,8 +596,6 @@ fn handle_events(
                     entry.id,
                     crate::colors::RESET
                 );
-            } else {
-                manager.remove(&query)?;
             }
         }
     }
@@ -565,20 +613,60 @@ fn collect_appimages(directory: &Path, recursive: bool, output: &mut Vec<PathBuf
         if path.is_file() && is_appimage_path(&path) {
             output.push(path);
         } else if recursive && path.is_dir() {
-            collect_appimages(&path, true, output)?;
+            let is_hidden_dir = path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .is_some_and(|n| n.starts_with('.'));
+            if !is_hidden_dir {
+                collect_appimages(&path, true, output)?;
+            }
         }
     }
     Ok(())
 }
 
-fn is_appimage_path(path: &Path) -> bool {
-    path.extension()
+pub fn is_temp_or_download_path(path: &Path) -> bool {
+    let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
+        return true;
+    };
+    if name.starts_with('.') || name.ends_with('~') {
+        return true;
+    }
+    let lower = name.to_ascii_lowercase();
+    lower.ends_with(".part")
+        || lower.ends_with(".crdownload")
+        || lower.ends_with(".tmp")
+        || lower.ends_with(".temp")
+        || lower.ends_with(".download")
+        || lower.ends_with(".aria2")
+        || lower.ends_with(".swp")
+}
+
+pub fn is_appimage_path(path: &Path) -> bool {
+    if is_temp_or_download_path(path) {
+        return false;
+    }
+    let has_appimage_ext = path
+        .extension()
         .and_then(|ext| ext.to_str())
-        .is_some_and(|ext| ext.eq_ignore_ascii_case("appimage"))
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("appimage"));
+    if !has_appimage_ext {
+        return false;
+    }
+    fs::metadata(path).is_ok_and(|meta| meta.len() > 0)
 }
 
 fn is_executable(path: &Path) -> Result<bool> {
-    Ok(fs::metadata(path)?.permissions().mode() & 0o111 != 0 || extractor::is_appimage(path)?)
+    if is_temp_or_download_path(path) {
+        return Ok(false);
+    }
+    let Ok(meta) = fs::metadata(path) else {
+        return Ok(false);
+    };
+    if meta.len() == 0 {
+        return Ok(false);
+    }
+    Ok(meta.permissions().mode() & 0o111 != 0 || extractor::is_appimage(path).unwrap_or(false))
 }
 
 fn resolve_directory(path: PathBuf) -> Result<PathBuf> {
