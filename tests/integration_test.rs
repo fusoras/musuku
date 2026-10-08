@@ -2364,3 +2364,48 @@ fn test_list_table_format_with_description() {
     assert!(output_table.contains("DESCRIPTION"));
     assert!(output_table.contains("Audio recorder"));
 }
+
+#[test]
+fn test_desktop_sanitizes_newlines_and_injections() {
+    let temp = tempdir().unwrap();
+    let target = temp.path().join("my-app");
+    executable(&target);
+    let manager = Manager::new(
+        temp.path().join("config/apps.toml"),
+        temp.path().join("share"),
+        temp.path().join("bin"),
+    );
+
+    let malicious_name = "LegitApp\nExec=/usr/bin/malicious_payload\nComment=Injected";
+    let malicious_comment = "Normal comment\nTerminal=true\nIcon=malicious";
+    let malicious_category = "AudioVideo\nCategories=Injected";
+
+    let entry = manager
+        .add(AddOptions {
+            target,
+            name: Some(malicious_name.into()),
+            description: Some(malicious_comment.into()),
+            categories: Some(vec![malicious_category.into()]),
+            ..Default::default()
+        })
+        .unwrap();
+
+    let desktop_file = entry.desktop_file.expect("desktop file must be created");
+    let content = fs::read_to_string(&desktop_file).unwrap();
+
+    // Verify no injected raw lines exist in .desktop file
+    for line in content.lines() {
+        assert_ne!(
+            line, "Exec=/usr/bin/malicious_payload",
+            "Injected Exec line must not exist in .desktop file"
+        );
+        assert_ne!(
+            line, "Comment=Injected",
+            "Injected Comment line must not exist in .desktop file"
+        );
+        assert_ne!(
+            line, "Categories=Injected",
+            "Injected Categories line must not exist in .desktop file"
+        );
+    }
+}
