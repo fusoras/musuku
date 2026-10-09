@@ -140,6 +140,17 @@ pub const COMMON_ICON_RELATIVE_PATHS: &[&str] = &[
     "game/gui/icon.png",
     "game/icon.png",
     "gui/window_icon.png",
+    // Zen Browser / Firefox / Gecko builds (prioritizing higher resolution)
+    "browser/chrome/icons/default/default128.png",
+    "browser/chrome/icons/default/default64.png",
+    "browser/chrome/icons/default/default48.png",
+    "browser/chrome/icons/default/default32.png",
+    "browser/chrome/icons/default/default16.png",
+    "chrome/icons/default/default128.png",
+    "chrome/icons/default/default64.png",
+    "chrome/icons/default/default48.png",
+    "chrome/icons/default/default32.png",
+    "chrome/icons/default/default16.png",
     // Godot / Love2D / Common Root
     "icon.png",
     "icon.svg",
