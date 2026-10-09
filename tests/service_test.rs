@@ -48,3 +48,21 @@ fn test_systemd_unit_path_is_in_user_config() {
     let path = systemd_unit_path();
     assert!(path.ends_with(".config/systemd/user/musu-watch.service"));
 }
+
+#[test]
+fn test_ensure_systemd_unit_exists_creates_file_silently() {
+    let temp = tempfile::tempdir().unwrap();
+    let service_file = temp.path().join("systemd/user/musu-watch.service");
+    let bin_path = Path::new("/custom/bin/musu");
+
+    assert!(!service_file.exists());
+    musu::service::ensure_systemd_unit_exists_at(&service_file, bin_path);
+    assert!(service_file.exists());
+
+    let content = std::fs::read_to_string(&service_file).unwrap();
+    assert!(content.contains("ExecStart=/custom/bin/musu watch --continuous"));
+
+    // Calling it again should not overwrite or error
+    musu::service::ensure_systemd_unit_exists_at(&service_file, bin_path);
+    assert!(service_file.exists());
+}
