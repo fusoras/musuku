@@ -5,12 +5,12 @@ use std::path::{Path, PathBuf};
 
 #[test]
 fn test_cli_parses_watch_service_subcommands() {
-    // musu watch service install
-    let cli =
-        Cli::try_parse_from(["musu", "watch", "service", "install"]).expect("must parse install");
+    // musu watch install-service
+    let cli = Cli::try_parse_from(["musu", "watch", "install-service"])
+        .expect("must parse install-service");
     match cli.command {
         Command::Watch(args) => match args.service {
-            Some(WatchServiceCmd::Install {
+            Some(WatchServiceCmd::InstallService {
                 now,
                 sysv,
                 directories,
@@ -19,25 +19,24 @@ fn test_cli_parses_watch_service_subcommands() {
                 assert!(!sysv, "default sysv must be false");
                 assert!(directories.is_empty());
             }
-            other => panic!("expected Install, got {other:?}"),
+            other => panic!("expected InstallService, got {other:?}"),
         },
         other => panic!("expected Command::Watch, got {other:?}"),
     }
 
-    // musu watch service install --now=false --sysv /path/to/apps
+    // musu watch install-service --now=false --sysv /path/to/apps
     let cli = Cli::try_parse_from([
         "musu",
         "watch",
-        "service",
-        "install",
+        "install-service",
         "--now=false",
         "--sysv",
         "/path/to/apps",
     ])
-    .expect("must parse install with flags");
+    .expect("must parse install-service with flags");
     match cli.command {
         Command::Watch(args) => match args.service {
-            Some(WatchServiceCmd::Install {
+            Some(WatchServiceCmd::InstallService {
                 now,
                 sysv,
                 directories,
@@ -46,14 +45,13 @@ fn test_cli_parses_watch_service_subcommands() {
                 assert!(sysv);
                 assert_eq!(directories, vec![PathBuf::from("/path/to/apps")]);
             }
-            other => panic!("expected Install, got {other:?}"),
+            other => panic!("expected InstallService, got {other:?}"),
         },
         other => panic!("expected Command::Watch, got {other:?}"),
     }
 
-    // musu watch service status
-    let cli =
-        Cli::try_parse_from(["musu", "watch", "service", "status"]).expect("must parse status");
+    // musu watch status
+    let cli = Cli::try_parse_from(["musu", "watch", "status"]).expect("must parse status");
     match cli.command {
         Command::Watch(args) => match args.service {
             Some(WatchServiceCmd::Status { sysv }) => assert!(!sysv),
@@ -62,13 +60,13 @@ fn test_cli_parses_watch_service_subcommands() {
         other => panic!("expected Command::Watch, got {other:?}"),
     }
 
-    // musu watch service uninstall
-    let cli = Cli::try_parse_from(["musu", "watch", "service", "uninstall"])
-        .expect("must parse uninstall");
+    // musu watch uninstall-service
+    let cli = Cli::try_parse_from(["musu", "watch", "uninstall-service"])
+        .expect("must parse uninstall-service");
     match cli.command {
         Command::Watch(args) => match args.service {
-            Some(WatchServiceCmd::Uninstall { sysv }) => assert!(!sysv),
-            other => panic!("expected Uninstall, got {other:?}"),
+            Some(WatchServiceCmd::UninstallService { sysv }) => assert!(!sysv),
+            other => panic!("expected UninstallService, got {other:?}"),
         },
         other => panic!("expected Command::Watch, got {other:?}"),
     }

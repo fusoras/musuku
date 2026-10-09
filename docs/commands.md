@@ -309,18 +309,18 @@ musu watch ~/Applications/ --dry-run
 musu watch --unwatch ~/Applications/
 ```
 
-### Background Service (`musu watch service`)
+### Background Service Commands
 
-Manage a persistent background watcher using systemd (user service) or SysVinit:
+Manage a persistent background watcher using systemd (user service) or SysVinit directly from `musu watch`:
 
 ```sh
-musu watch service <SUBCOMMAND> [OPTIONS]
+musu watch <COMMAND> [OPTIONS]
 ```
 
-| Subcommand | Description |
+| Command | Description |
 | --- | --- |
-| `install` | Install and start background service (`--now=false` to skip auto-start, `--sysv` for SysVinit). |
-| `uninstall` | Stop, disable, and remove the background service. |
+| `install-service` | Install and start background service (`--now=false` to skip auto-start, `--sysv` for SysVinit). |
+| `uninstall-service` | Stop, disable, and remove the background service. |
 | `status` | Show live service status. |
 | `start` | Start the background service. |
 | `stop` | Stop the background service. |
@@ -328,12 +328,15 @@ musu watch service <SUBCOMMAND> [OPTIONS]
 
 ```sh
 # Install and start immediately
-musu watch service install
+musu watch install-service
 
 # Check status
 systemctl --user status musu-watch.service
 # or
-musu watch service status
+musu watch status
+
+# Uninstall and stop cleanly
+musu watch uninstall-service
 ```
 
 ---

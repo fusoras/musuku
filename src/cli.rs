@@ -160,7 +160,8 @@ pub struct Watch {
 #[derive(Debug, Subcommand, Clone, PartialEq, Eq)]
 pub enum WatchServiceCmd {
     /// Install background watcher service (defaults to systemd user service)
-    Install {
+    #[command(name = "install-service", visible_alias = "service-install")]
+    InstallService {
         /// Start and enable service immediately after installation (default: true). Pass --now=false to skip starting.
         #[arg(long, default_value_t = true, action = clap::ArgAction::Set, num_args = 0..=1, default_missing_value = "true")]
         now: bool,
@@ -173,7 +174,8 @@ pub enum WatchServiceCmd {
         directories: Vec<PathBuf>,
     },
     /// Uninstall and stop background watcher service
-    Uninstall {
+    #[command(name = "uninstall-service", visible_alias = "service-uninstall")]
+    UninstallService {
         /// Uninstall SysVinit script instead of systemd user service
         #[arg(long)]
         sysv: bool,
