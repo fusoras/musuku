@@ -81,7 +81,6 @@ fn test_watch_unwatch_removes_directory_from_config() {
         scan_only: false,
         recursive: false,
         dry_run: false,
-        service: None,
         unwatch: Some(vec![app_dir1.clone()]),
     };
 
@@ -137,7 +136,6 @@ fn test_watch_without_directories_or_config_errors() {
         scan_only: true,
         recursive: false,
         dry_run: false,
-        service: None,
         unwatch: None,
     };
 

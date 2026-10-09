@@ -252,13 +252,7 @@ fn main() -> Result<()> {
             );
         }
         Command::Run(args) => manager.run(&args.id_or_name, &args.args)?,
-        Command::Watch(args) => {
-            if let Some(service_cmd) = args.service {
-                musu::service::dispatch(service_cmd, &manager)?;
-            } else {
-                musu::watcher::run(args, manager)?;
-            }
-        }
+        Command::Watch(args) => musu::watcher::run(args, manager)?,
         Command::Completions(args) => {
             let shell = args.shell.unwrap_or_else(|| {
                 musu::completions::detect_shell(std::env::var("SHELL").ok().as_deref())
