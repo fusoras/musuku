@@ -99,14 +99,14 @@ musu show obsidian --json
 
 In terminals that support image previews (such as Kitty, Ghostty, WezTerm, and Herdr),
 `musu show` displays the application icon inline above the card by default. Pass
-`--no-image` to keep the output as plain text, or `-i` to force it:
+`--no-icons` to keep the output as plain text, or `--icons` to force it:
 
 ```sh
 # Force the text card, skipping any terminal image preview
-musu show obsidian --no-image
+musu show obsidian --no-icons
 
 # Explicitly request icon preview
-musu show obsidian -i
+musu show obsidian --icons
 ```
 
 ---
@@ -124,11 +124,11 @@ Obsidian (obsidian) target=ok desktop=ok symlink=ok
 Blender (blender) target=ok desktop=ok symlink=ok
 ```
 
-You can also pass `-i` or `--image` to display icon previews for listed applications in compatible terminals:
+You can also pass `--icons` to display icon previews for listed applications in compatible terminals:
 
 ```sh
 # List applications with terminal icon previews
-musu list -i
+musu list --icons
 ```
 
 If you move or delete an AppImage, `musu list` flags it as `missing/broken` in red so you can easily update or fix it.

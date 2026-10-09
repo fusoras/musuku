@@ -96,8 +96,8 @@ musu list [OPTIONS]
 
 | Option | Description |
 | --- | --- |
-| `-i, --icons` | Display inline icon previews in compatible terminals using Kitty graphics protocol (alias: `--image`). |
-| `--no-icons` | Suppress icon previews even in compatible terminals (alias: `--no-image`). |
+| `--icons` | Display inline icon previews in compatible terminals using Kitty graphics protocol. |
+| `--no-icons` | Suppress icon previews even in compatible terminals. |
 | `-t, --table` | Format output as an aligned table with `ICON`, `NAME`, `ID`, `CATEGORIES`, and `STATUS` columns. |
 | `--category <CAT>` | Filter applications by desktop category (case-insensitive substring/prefix match). |
 | `--broken` | Show only applications whose target binary or artifacts are missing/broken. |
@@ -157,8 +157,8 @@ musu show <ID_OR_NAME> [OPTIONS]
 | `--symlink` | Print only the terminal symlink path. |
 | `--json` | Print the complete application entry as formatted JSON. |
 | `-a, --absolute` | Print full absolute paths instead of collapsing `$HOME` to `~` (alias: `--full-path`). |
-| `-i, --icons` | Display application icon preview in the terminal (alias: `--image`). |
-| `--no-icons` | Suppress terminal image preview (alias: `--no-image`). |
+| `--icons` | Display application icon preview in the terminal. |
+| `--no-icons` | Suppress terminal image preview. |
 
 ### Output Format
 
@@ -271,7 +271,11 @@ musu remove my-app --delete-target
 
 ## 6. `musu watch`
 
-Scans directories for AppImages and registers new applications. Without `--scan-only`, launches a live debounced filesystem monitor that automatically syncs additions, version upgrades, and removals.
+`musu watch` manages "live" AppImage directories. Rather than requiring a persistent, blocking terminal process, `musu` offers transparent, on-demand synchronization:
+- **Clean on delete**: When an AppImage is deleted, its registry entry, `.desktop` launcher, and terminal symlink are automatically removed.
+- **Autonomous version upgrades**: When an existing AppImage is replaced by or accompanied by a newer version (e.g. `sonora-v0.38.0-x86_64.AppImage` -> `sonora-v0.42.1-x86_64.AppImage`), `musu` autonomously updates the registration, retargets the `.desktop` launcher and terminal symlink, and re-extracts the application icon without duplicating entries.
+- **Automatic detection on `musu list`**: Any configured watch directory is automatically synchronized in milliseconds every time `musu list`, `musu show`, or `musu run` is executed.
+- **Fast one-shot sync**: Calling `musu watch [DIRECTORIES...]` synchronizes the folders immediately and exits. It automatically persists new directories to `config.toml` so future commands keep them synchronized.
 
 ```sh
 musu watch [DIRECTORIES...] [OPTIONS]
@@ -281,25 +285,37 @@ musu watch [DIRECTORIES...] [OPTIONS]
 
 | Option | Description | Default |
 | --- | --- | --- |
-| `[DIRECTORIES...]` | Directories to scan and monitor. If omitted, uses `[watch].directories` from config. | None |
+| `[DIRECTORIES...]` | Directories to scan and monitor (accepts `.`, relative, or absolute paths). If omitted, uses `[watch].directories` from `config.toml`. | None |
 | `--unwatch <DIR...>` | Remove one or more directories from configured watch directories (alias: `--remove-dir`). | None |
-| `--scan-only` | Run the scan once and exit without launching the continuous filesystem watcher (alias: `--once`). | `false` |
+| `--continuous` | Keep running a debounced filesystem watcher in foreground (alias: `--foreground`). Default is one-shot sync and exit. | `false` |
+| `--scan-only` | Run the scan once and exit without launching the continuous filesystem watcher (alias: `--once`). Default behavior. | `true` |
 | `-r, --recursive` | Search and monitor subdirectories recursively. | `false` |
-| `--icons-dir <DIR>` | Directory to search for matching icons (matched by stem/normalized application name). | None |
+| `--icons-dir <DIR>` | Directory to search for matching icons (matched by stem/normalized application name: `png`, `svg`, `webp`, `xpm`, or `ico`). | None |
 | `--dry-run` | Preview what would be added, updated, or removed without modifying the registry. | `false` |
 
-See [`docs/watch.md`](watch.md) for full configuration, debounce settings, and lifecycle details.
+### Configuration (`~/.config/musu/config.toml`)
+
+```toml
+[watch]
+directories = ["~/Applications"]
+icons_dir = "~/Applications/Icons"
+auto_chmod = false
+recursive = false
+clean_on_delete = true
+auto_sync = true
+debounce_ms = 1000
+```
 
 ### Examples
 
 ```sh
-# Watch the current directory
+# Define and synchronize a directory as a live watch folder
+musu watch ~/Applications
+
+# Synchronize current directory
 musu watch .
 
-# Watch a specific folder continuously
-musu watch ~/Applications/
-
-# Scan once without leaving a background watcher
+# Scan once without leaving a background watcher (default behavior)
 musu watch ~/Downloads/ --scan-only
 
 # Preview changes with dry-run
@@ -307,14 +323,17 @@ musu watch ~/Applications/ --dry-run
 
 # Stop watching / remove a directory from watch configuration
 musu watch --unwatch ~/Applications/
+
+# Run persistent foreground watcher loop (optional)
+musu watch ~/Applications --continuous
 ```
 
 ### Background Watch Service (systemd)
 
-`install.sh` automatically generates the systemd user service unit in `~/.config/systemd/user/musu-watch.service`. You can activate, inspect, or stop it whenever you choose using standard `systemctl` commands:
+`install.sh` automatically generates the systemd user service unit in `~/.config/systemd/user/musu-watch.service`. Instead of keeping a terminal process running with `--continuous`, you can manage the native user service directly:
 
 ```sh
-# Enable and start the background watcher service
+# Enable and start the background watcher service (no root needed)
 systemctl --user daemon-reload
 systemctl --user enable --now musu-watch.service
 

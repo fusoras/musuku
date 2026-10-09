@@ -48,8 +48,8 @@ complete -c musu -n "__fish_musu_using_subcommand add" -l sandbox -l isolate -d 
 complete -c musu -n "__fish_musu_using_subcommand add" -l no-sandbox -d 'Disable sandboxing explicitly'
 complete -c musu -n "__fish_musu_using_subcommand add" -s h -l help -d 'Print help'
 complete -c musu -n "__fish_musu_using_subcommand list" -l category -r
-complete -c musu -n "__fish_musu_using_subcommand list" -s i -l icons -l image -d 'Display application icon previews in compatible terminals'
-complete -c musu -n "__fish_musu_using_subcommand list" -l no-icons -l no-image -d 'Suppress application icon previews even if supported by the terminal'
+complete -c musu -n "__fish_musu_using_subcommand list" -l icons -d 'Display application icon previews in compatible terminals'
+complete -c musu -n "__fish_musu_using_subcommand list" -l no-icons -d 'Suppress application icon previews even if supported by the terminal'
 complete -c musu -n "__fish_musu_using_subcommand list" -s t -l table
 complete -c musu -n "__fish_musu_using_subcommand list" -l broken
 complete -c musu -n "__fish_musu_using_subcommand list" -l hide-disabled-symlinks -l hide-disabled -d 'Hide symlinks when they are disabled'
@@ -67,8 +67,8 @@ complete -c musu -n "__fish_musu_using_subcommand show" -l icon -d 'Print only t
 complete -c musu -n "__fish_musu_using_subcommand show" -l symlink -d 'Print only the terminal symlink path'
 complete -c musu -n "__fish_musu_using_subcommand show" -l json -d 'Print the application entry as JSON'
 complete -c musu -n "__fish_musu_using_subcommand show" -s a -l absolute -l full-path -d 'Print full absolute paths instead of collapsing home directory to ~/'
-complete -c musu -n "__fish_musu_using_subcommand show" -s i -l icons -l image -d 'Display application icon preview in the terminal (default in Kitty/Ghostty)'
-complete -c musu -n "__fish_musu_using_subcommand show" -l no-icons -l no-image -d 'Suppress terminal image preview even if supported by the terminal'
+complete -c musu -n "__fish_musu_using_subcommand show" -l icons -d 'Display application icon preview in the terminal (default in Kitty/Ghostty)'
+complete -c musu -n "__fish_musu_using_subcommand show" -l no-icons -d 'Suppress terminal image preview even if supported by the terminal'
 complete -c musu -n "__fish_musu_using_subcommand show" -s h -l help -d 'Print help'
 complete -c musu -n "__fish_musu_using_subcommand update" -l target -d 'New path to the executable file' -r -F
 complete -c musu -n "__fish_musu_using_subcommand update" -l icon -d 'New path to the icon file' -r -F

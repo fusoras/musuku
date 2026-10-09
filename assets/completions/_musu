@@ -48,11 +48,8 @@ _arguments "${_arguments_options[@]}" : \
 (list)
 _arguments "${_arguments_options[@]}" : \
 '--category=[]:CATEGORY:_default' \
-'-i[Display application icon previews in compatible terminals]' \
 '--icons[Display application icon previews in compatible terminals]' \
-'--image[Display application icon previews in compatible terminals]' \
 '--no-icons[Suppress application icon previews even if supported by the terminal]' \
-'--no-image[Suppress application icon previews even if supported by the terminal]' \
 '-t[]' \
 '--table[]' \
 '--broken[]' \
@@ -84,11 +81,8 @@ _arguments "${_arguments_options[@]}" : \
 '-a[Print full absolute paths instead of collapsing home directory to ~/]' \
 '--absolute[Print full absolute paths instead of collapsing home directory to ~/]' \
 '--full-path[Print full absolute paths instead of collapsing home directory to ~/]' \
-'-i[Display application icon preview in the terminal (default in Kitty/Ghostty)]' \
 '--icons[Display application icon preview in the terminal (default in Kitty/Ghostty)]' \
-'--image[Display application icon preview in the terminal (default in Kitty/Ghostty)]' \
 '--no-icons[Suppress terminal image preview even if supported by the terminal]' \
-'--no-image[Suppress terminal image preview even if supported by the terminal]' \
 '-h[Print help]' \
 '--help[Print help]' \
 ':id_or_name -- ID or name of the registered application to inspect:_default' \

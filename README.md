@@ -144,4 +144,4 @@ Every subcommand accepts `-h, --help` for instant usage text.
 - [`docs/guide.md`](docs/guide.md) — User guide: everyday workflows, desktop integration, and troubleshooting.
 - [`docs/commands.md`](docs/commands.md) — Complete command reference, flags, and options cheatsheet.
 - [`docs/config.md`](docs/config.md) — Configuration file guide (`~/.config/musu/config.toml`).
-- [`docs/watch.md`](docs/watch.md) — Directory watcher and live AppImage sync guide.
+- [`docs/commands.md#6-musu-watch`](docs/commands.md#6-musu-watch) — Directory watcher and live AppImage sync guide.

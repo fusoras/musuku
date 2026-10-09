@@ -355,7 +355,7 @@ _musu() {
             return 0
             ;;
         musu__subcmd__list)
-            opts="-i -t -h --image --icons --no-image --no-icons --table --category --broken --hide-disabled --hide-disabled-symlinks --hide-target-ok --hide-desktop-ok --hide-ok-status --hide-ok --descriptions --desc --description --no-descriptions --no-desc --no-description --ids --json --help"
+            opts="-t -h --icons --no-icons --table --category --broken --hide-disabled --hide-disabled-symlinks --hide-target-ok --hide-desktop-ok --hide-ok-status --hide-ok --descriptions --desc --description --no-descriptions --no-desc --no-description --ids --json --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -401,7 +401,7 @@ _musu() {
             return 0
             ;;
         musu__subcmd__show)
-            opts="-a -i -h --bin --desktop --icon --symlink --json --full-path --absolute --image --icons --no-image --no-icons --help"
+            opts="-a -h --bin --desktop --icon --symlink --json --full-path --absolute --icons --no-icons --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0

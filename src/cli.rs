@@ -76,10 +76,10 @@ pub struct Add {
 #[derive(Debug, Args, Default)]
 pub struct List {
     /// Display application icon previews in compatible terminals.
-    #[arg(short = 'i', long = "icons", visible_alias = "image")]
+    #[arg(long = "icons")]
     pub icons: bool,
     /// Suppress application icon previews even if supported by the terminal.
-    #[arg(long = "no-icons", visible_alias = "no-image")]
+    #[arg(long = "no-icons")]
     pub no_icons: bool,
     #[arg(short = 't', long)]
     pub table: bool,
@@ -208,10 +208,10 @@ pub struct Show {
     #[arg(long, short = 'a', visible_alias = "full-path")]
     pub absolute: bool,
     /// Display application icon preview in the terminal (default in Kitty/Ghostty).
-    #[arg(short = 'i', long = "icons", visible_alias = "image")]
+    #[arg(long = "icons")]
     pub icons: bool,
     /// Suppress terminal image preview even if supported by the terminal.
-    #[arg(long = "no-icons", visible_alias = "no-image")]
+    #[arg(long = "no-icons")]
     pub no_icons: bool,
 }
 

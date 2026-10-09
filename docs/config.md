@@ -26,7 +26,7 @@ description = false            # true, false (alias: show_description)
 
 | Key | Default | Effect |
 | --- | --- | --- |
-| `icons` | `"auto"` | Terminal icon previews in compatible terminals (`Kitty`, `Ghostty`, `WezTerm`): `auto` uses terminal detection, `always` forces previews, and `never` disables them. Legacy key `images` is supported as an alias. CLI `--icons` (alias `--image`) forces a preview unless `--no-icons` is present. |
+| `icons` | `"auto"` | Terminal icon previews in compatible terminals (`Kitty`, `Ghostty`, `WezTerm`): `auto` uses terminal detection, `always` forces previews, and `never` disables them. Legacy key `images` is supported as an alias. CLI `--icons` forces a preview unless `--no-icons` is present. |
 | `list_icon_size` | `"compact"` | Preview footprint for `list`: compact `2x1`, medium `4x2`, or large `8x4` cells. |
 | `show_icon_size` | `"standard"` | Preview footprint for `show`: standard `10x5` or compact `6x3`. |
 | `paths` | `"tilde"` | Collapses paths below `$HOME` to `~/`; `absolute` keeps full paths. CLI `show --absolute` always wins. |
