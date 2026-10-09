@@ -161,6 +161,8 @@ _arguments "${_arguments_options[@]}" : \
 (watch)
 _arguments "${_arguments_options[@]}" : \
 '--icons-dir=[Directory containing icons matched by AppImage name]:ICONS_DIR:_files' \
+'*--unwatch=[Remove one or more directories from the watch list in config.toml]:DIR:_files' \
+'*--remove-dir=[Remove one or more directories from the watch list in config.toml]:DIR:_files' \
 '--continuous[Keep running filesystem watcher in foreground (alias\: --foreground)]' \
 '--foreground[Keep running filesystem watcher in foreground (alias\: --foreground)]' \
 '--scan-only[Scan once and exit (alias\: --once)]' \

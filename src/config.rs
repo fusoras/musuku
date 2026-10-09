@@ -13,22 +13,11 @@ use std::path::{Path, PathBuf};
 
 /// Default base directory for musu state: `$XDG_CONFIG_HOME/musu`
 /// (i.e. `~/.config/musu` on a standard setup).
-/// Respects legacy `~/.config/geico` directory if it exists and `musu` does not yet.
 pub fn default_base_dir() -> PathBuf {
-    let config_dir =
-        dirs::config_dir().or_else(|| dirs::home_dir().map(|home| home.join(".config")));
-    match config_dir {
-        Some(dir) => {
-            let musu_dir = dir.join("musu");
-            let legacy_dir = dir.join("geico");
-            if !musu_dir.exists() && legacy_dir.exists() {
-                legacy_dir
-            } else {
-                musu_dir
-            }
-        }
-        None => PathBuf::from(".config/musu"),
-    }
+    dirs::config_dir()
+        .or_else(|| dirs::home_dir().map(|home| home.join(".config")))
+        .map(|dir| dir.join("musu"))
+        .unwrap_or_else(|| PathBuf::from(".config/musu"))
 }
 
 /// Resolve the `apps.toml` path inside an arbitrary base directory.

@@ -16,6 +16,9 @@ musu watch .
 # Preview what would be synchronized without writing changes
 musu watch ~/Applications --dry-run
 
+# Remove a directory from the watch list
+musu watch --unwatch ~/Applications
+
 # Run persistent foreground watcher loop (optional)
 musu watch ~/Applications --continuous
 ```
@@ -25,6 +28,7 @@ Supported options:
 | Option | Description |
 | --- | --- |
 | `DIRECTORIES...` | Directories to synchronize and add to watch list (accepts `.`, relative, or absolute paths). Defaults to `[watch].directories` in `config.toml`. |
+| `--unwatch <DIR...>`, `--remove-dir` | Remove specified directories from `[watch].directories` in `config.toml`. |
 | `--continuous`, `--foreground` | Keep running a debounced filesystem watcher in foreground. Default is one-shot sync and exit. |
 | `--scan-only`, `--once` | Scan once and exit (default behavior). |
 | `--icons-dir <DIR>` | Match icons by normalized AppImage name (`png`, `svg`, `webp`, `xpm`, or `ico`). |

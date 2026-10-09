@@ -147,10 +147,6 @@ fn resolve_musu_bin() -> Result<PathBuf> {
             if candidate.is_file() {
                 return Ok(candidate);
             }
-            let legacy = dir.join("geico");
-            if legacy.is_file() {
-                return Ok(legacy);
-            }
         }
     }
     if let Some(home) = dirs::home_dir() {

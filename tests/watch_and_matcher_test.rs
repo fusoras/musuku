@@ -52,6 +52,46 @@ fn test_watch_cli_parses_scan_only_and_directory_options() {
 }
 
 #[test]
+fn test_watch_unwatch_removes_directory_from_config() {
+    let temp = tempdir().unwrap();
+    let config_dir = temp.path().join("config");
+    fs::create_dir_all(&config_dir).unwrap();
+    let app_dir1 = temp.path().join("apps1");
+    let app_dir2 = temp.path().join("apps2");
+    fs::create_dir_all(&app_dir1).unwrap();
+    fs::create_dir_all(&app_dir2).unwrap();
+
+    let toml_content = format!(
+        "[watch]\ndirectories = [\"{}\", \"{}\"]\n",
+        app_dir1.display(),
+        app_dir2.display()
+    );
+    fs::write(config_dir.join("config.toml"), toml_content).unwrap();
+
+    let manager = musu::manager::Manager::new(
+        config_dir.join("apps.toml"),
+        temp.path().join("data"),
+        temp.path().join("bin"),
+    );
+
+    let args = musu::cli::Watch {
+        directories: vec![],
+        icons_dir: None,
+        continuous: false,
+        scan_only: false,
+        recursive: false,
+        dry_run: false,
+        service: None,
+        unwatch: Some(vec![app_dir1.clone()]),
+    };
+
+    musu::watcher::run(args, manager.clone()).unwrap();
+
+    let settings = manager.load_settings().unwrap();
+    assert_eq!(settings.watch.directories, vec![app_dir2]);
+}
+
+#[test]
 fn test_watch_scan_directories_finds_and_registers_appimage() {
     let temp = tempdir().unwrap();
     let app_dir = temp.path().join("apps");
@@ -98,6 +138,7 @@ fn test_watch_without_directories_or_config_errors() {
         recursive: false,
         dry_run: false,
         service: None,
+        unwatch: None,
     };
 
     let result = musu::watcher::run(args, manager);

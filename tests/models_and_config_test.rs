@@ -170,10 +170,10 @@ fn test_model_app_registry_remove_returns_entry_and_is_non_destructive() {
 #[test]
 fn test_config_default_path_targets_user_musu_directory() {
     let base = config::default_base_dir();
-    let dir_name = base.file_name().unwrap();
-    assert!(
-        dir_name == "musu" || dir_name == "geico",
-        "default base dir must be musu or legacy geico directory, got {dir_name:?}"
+    assert_eq!(
+        base.file_name().unwrap(),
+        "musu",
+        "default base dir must be the musu config directory"
     );
 
     let path = config::default_config_path();

@@ -149,6 +149,9 @@ pub struct Watch {
     /// Show registrations without changing the registry or filesystem.
     #[arg(long)]
     pub dry_run: bool,
+    /// Remove one or more directories from the watch list in config.toml
+    #[arg(long, value_name = "DIR", num_args = 1.., visible_alias = "remove-dir")]
+    pub unwatch: Option<Vec<PathBuf>>,
     /// Service management commands for background execution (systemd / SysV).
     #[command(subcommand)]
     pub service: Option<WatchServiceCmd>,

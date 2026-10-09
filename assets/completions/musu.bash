@@ -597,13 +597,21 @@ _musu() {
             return 0
             ;;
         musu__subcmd__watch)
-            opts="-h --icons-dir --foreground --continuous --scan-only --recursive --dry-run --help install uninstall status start stop restart help"
+            opts="-h --icons-dir --foreground --continuous --scan-only --recursive --dry-run --remove-dir --unwatch --help install uninstall status start stop restart help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
                 --icons-dir)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --unwatch)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --remove-dir)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;

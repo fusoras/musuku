@@ -282,6 +282,7 @@ musu watch [DIRECTORIES...] [OPTIONS]
 | Option | Description | Default |
 | --- | --- | --- |
 | `[DIRECTORIES...]` | Directories to scan and monitor. If omitted, uses `[watch].directories` from config. | None |
+| `--unwatch <DIR...>` | Remove one or more directories from configured watch directories (alias: `--remove-dir`). | None |
 | `--scan-only` | Run the scan once and exit without launching the continuous filesystem watcher (alias: `--once`). | `false` |
 | `-r, --recursive` | Search and monitor subdirectories recursively. | `false` |
 | `--icons-dir <DIR>` | Directory to search for matching icons (matched by stem/normalized application name). | None |
@@ -303,6 +304,9 @@ musu watch ~/Downloads/ --scan-only
 
 # Preview changes with dry-run
 musu watch ~/Applications/ --dry-run
+
+# Stop watching / remove a directory from watch configuration
+musu watch --unwatch ~/Applications/
 ```
 
 ### Background Service (`musu watch service`)

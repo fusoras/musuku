@@ -5,7 +5,7 @@ set -e
 # Installs musu into user-space (~/.local/bin) and configures completions.
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd || echo "")"
-BIN_DIR="${MUSU_INSTALL_DIR:-${GEICO_INSTALL_DIR:-$HOME/.local/bin}}"
+BIN_DIR="${MUSU_INSTALL_DIR:-$HOME/.local/bin}"
 TARGET_BIN="$BIN_DIR/musu"
 
 mkdir -p "$BIN_DIR"

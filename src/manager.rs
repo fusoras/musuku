@@ -664,6 +664,14 @@ impl Manager {
         self.config_path.parent().unwrap_or_else(|| Path::new("."))
     }
 
+    pub fn load_settings(&self) -> Result<config::Settings> {
+        config::load_settings(self.settings_base())
+    }
+
+    pub fn save_settings(&self, settings: &config::Settings) -> Result<()> {
+        config::save_settings(self.settings_base(), settings)
+    }
+
     fn refresh_desktop_db(&self, settings: &config::Settings) {
         if settings.defaults.update_desktop_db {
             let applications_dir = self.data_dir.join("applications");
