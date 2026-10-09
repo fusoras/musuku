@@ -113,7 +113,28 @@ else
     DISPLAY_DIR="$BIN_DIR"
 fi
 
-# 5. Output Bun-style installation notice
+# 5. Silently create background service unit if systemd is available
+if command -v systemctl >/dev/null 2>&1 && [ -n "$HOME" ]; then
+    SYSTEMD_USER_DIR="$HOME/.config/systemd/user"
+    mkdir -p "$SYSTEMD_USER_DIR"
+    cat << EOF > "$SYSTEMD_USER_DIR/musu-watch.service"
+[Unit]
+Description=Musu AppImage Folder Watcher & Desktop Integrator
+Documentation=https://github.com/uruka1/musu
+After=default.target
+
+[Service]
+Type=simple
+ExecStart=$TARGET_BIN watch --continuous
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=default.target
+EOF
+fi
+
+# 6. Output Bun-style installation notice
 echo "######################################################################## 100.0%"
 echo "musu was installed successfully to $DISPLAY_TARGET"
 echo ""
@@ -125,6 +146,13 @@ if [ "$IN_PATH" -eq 0 ]; then
     else
         echo "  export PATH=\"$DISPLAY_DIR:\$PATH\""
     fi
+    echo ""
+fi
+
+if [ -f "$HOME/.config/systemd/user/musu-watch.service" ]; then
+    echo "To enable background folder watching (optional):"
+    echo "  systemctl --user daemon-reload"
+    echo "  systemctl --user enable --now musu-watch.service"
     echo ""
 fi
 

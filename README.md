@@ -102,20 +102,17 @@ musu add /opt/tools/my-cli --no-desktop
 musu add /opt/blender/blender --no-symlink --icon /opt/blender/icon.png
 ```
 
-### Background Watch Service (systemd & SysV)
+### Background Watch Service (systemd)
 
-Run `musu watch` automatically in the background without keeping a terminal open:
+`install.sh` automatically creates the user service unit in `~/.config/systemd/user/musu-watch.service`. To run `musu watch` automatically in the background without keeping a terminal open:
 
 ```sh
-# 1. Install and start the background service (user-space, no root required)
-musu watch install-service
+# 1. Enable and start the background service (user-space, no root required)
+systemctl --user daemon-reload
+systemctl --user enable --now musu-watch.service
 
 # 2. Check service status
 systemctl --user status musu-watch.service
-
-# SysV alternative:
-sudo musu watch install-service --sysv
-sudo service musu-watch status
 ```
 
 View live logs:
@@ -124,11 +121,11 @@ View live logs:
 journalctl --user -u musu-watch.service -f
 ```
 
-To stop or remove the service:
+To stop or disable the service:
 
 ```sh
 systemctl --user stop musu-watch.service
-musu watch uninstall-service
+systemctl --user disable --now musu-watch.service
 ```
 
 ## Commands

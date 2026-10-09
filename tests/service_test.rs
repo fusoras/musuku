@@ -1,73 +1,17 @@
 use clap::Parser;
-use musu::cli::{Cli, Command, WatchServiceCmd};
+use musu::cli::{Cli, Command};
 use musu::service::{generate_systemd_unit, generate_sysv_script, systemd_unit_path};
 use std::path::{Path, PathBuf};
 
 #[test]
-fn test_cli_parses_watch_service_subcommands() {
-    // musu watch install-service
-    let cli = Cli::try_parse_from(["musu", "watch", "install-service"])
-        .expect("must parse install-service");
-    match cli.command {
-        Command::Watch(args) => match args.service {
-            Some(WatchServiceCmd::InstallService {
-                now,
-                sysv,
-                directories,
-            }) => {
-                assert!(now, "default now must be true");
-                assert!(!sysv, "default sysv must be false");
-                assert!(directories.is_empty());
-            }
-            other => panic!("expected InstallService, got {other:?}"),
-        },
-        other => panic!("expected Command::Watch, got {other:?}"),
-    }
-
-    // musu watch install-service --now=false --sysv /path/to/apps
-    let cli = Cli::try_parse_from([
-        "musu",
-        "watch",
-        "install-service",
-        "--now=false",
-        "--sysv",
-        "/path/to/apps",
-    ])
-    .expect("must parse install-service with flags");
-    match cli.command {
-        Command::Watch(args) => match args.service {
-            Some(WatchServiceCmd::InstallService {
-                now,
-                sysv,
-                directories,
-            }) => {
-                assert!(!now);
-                assert!(sysv);
-                assert_eq!(directories, vec![PathBuf::from("/path/to/apps")]);
-            }
-            other => panic!("expected InstallService, got {other:?}"),
-        },
-        other => panic!("expected Command::Watch, got {other:?}"),
-    }
-
-    // musu watch status is treated as directory argument, not a service command
-    let cli = Cli::try_parse_from(["musu", "watch", "status"]).expect("must parse status as dir");
+fn test_cli_watch_has_no_service_subcommand() {
+    let cli = Cli::try_parse_from(["musu", "watch", "--continuous", "/path/to/apps"])
+        .expect("must parse watch args");
     match cli.command {
         Command::Watch(args) => {
-            assert_eq!(args.directories, vec![PathBuf::from("status")]);
-            assert!(args.service.is_none());
+            assert!(args.continuous);
+            assert_eq!(args.directories, vec![PathBuf::from("/path/to/apps")]);
         }
-        other => panic!("expected Command::Watch, got {other:?}"),
-    }
-
-    // musu watch uninstall-service
-    let cli = Cli::try_parse_from(["musu", "watch", "uninstall-service"])
-        .expect("must parse uninstall-service");
-    match cli.command {
-        Command::Watch(args) => match args.service {
-            Some(WatchServiceCmd::UninstallService { sysv }) => assert!(!sysv),
-            other => panic!("expected UninstallService, got {other:?}"),
-        },
         other => panic!("expected Command::Watch, got {other:?}"),
     }
 }

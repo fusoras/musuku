@@ -35,13 +35,14 @@ Supported options:
 | `--recursive` | Include subdirectories. |
 | `--dry-run` | Report candidates without registering or updating them. |
 
-## Background Service (systemd & SysV)
+## Background Service (systemd)
 
-Instead of leaving a terminal process running with `--continuous`, you can manage a native background service:
+`install.sh` automatically creates the user service file `~/.config/systemd/user/musu-watch.service`. Instead of keeping a terminal process running with `--continuous`, you can manage the native systemd service directly:
 
 ```sh
-# Install and start user systemd service (default, no root needed)
-musu watch install-service
+# Enable and start user service (no root needed)
+systemctl --user daemon-reload
+systemctl --user enable --now musu-watch.service
 
 # Check status natively
 systemctl --user status musu-watch.service
@@ -49,15 +50,9 @@ systemctl --user status musu-watch.service
 # Follow logs in real time
 journalctl --user -u musu-watch.service -f
 
-# Uninstall cleanly
-musu watch uninstall-service
-```
-
-For SysVinit environments, pass `--sysv`:
-
-```sh
-sudo musu watch install-service --sysv
-sudo service musu-watch status
+# Stop and disable cleanly
+systemctl --user stop musu-watch.service
+systemctl --user disable --now musu-watch.service
 ```
 
 Configuration in `~/.config/musu/config.toml`:
