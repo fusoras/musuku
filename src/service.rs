@@ -99,20 +99,6 @@ pub fn sysv_script_path() -> PathBuf {
 
 /// Resolves the current musu binary path.
 pub fn resolve_musu_bin() -> PathBuf {
-    if let Ok(exe) = std::env::current_exe() {
-        if let Ok(canonical) = std::fs::canonicalize(&exe) {
-            return canonical;
-        }
-        return exe;
-    }
-    if let Some(path_var) = std::env::var_os("PATH") {
-        for dir in std::env::split_paths(&path_var) {
-            let candidate = dir.join("musu");
-            if candidate.is_file() {
-                return candidate;
-            }
-        }
-    }
     if let Some(home) = dirs::home_dir() {
         let cargo_bin = home.join(".cargo/bin/musu");
         if cargo_bin.is_file() {
@@ -121,6 +107,20 @@ pub fn resolve_musu_bin() -> PathBuf {
         let local_bin = home.join(".local/bin/musu");
         if local_bin.is_file() {
             return local_bin;
+        }
+    }
+    match std::env::current_exe() {
+        Ok(exe) if exe.file_name().and_then(|n| n.to_str()) == Some("musu") => {
+            return std::fs::canonicalize(&exe).unwrap_or(exe);
+        }
+        _ => {}
+    }
+    if let Some(path_var) = std::env::var_os("PATH") {
+        for dir in std::env::split_paths(&path_var) {
+            let candidate = dir.join("musu");
+            if candidate.is_file() {
+                return candidate;
+            }
         }
     }
     PathBuf::from("musu")
