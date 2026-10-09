@@ -94,6 +94,7 @@ complete -c musu -n "__fish_musu_using_subcommand doctor" -s y -l yes -d 'Confir
 complete -c musu -n "__fish_musu_using_subcommand doctor" -s h -l help -d 'Print help'
 complete -c musu -n "__fish_musu_using_subcommand run" -s h -l help -d 'Print help'
 complete -c musu -n "__fish_musu_using_subcommand watch; and not __fish_seen_subcommand_from install uninstall status start stop restart help" -l icons-dir -d 'Directory containing icons matched by AppImage name' -r -F
+complete -c musu -n "__fish_musu_using_subcommand watch; and not __fish_seen_subcommand_from install uninstall status start stop restart help" -l unwatch -l remove-dir -d 'Remove one or more directories from the watch list in config.toml' -r -F
 complete -c musu -n "__fish_musu_using_subcommand watch; and not __fish_seen_subcommand_from install uninstall status start stop restart help" -l continuous -l foreground -d 'Keep running filesystem watcher in foreground (alias: --foreground)'
 complete -c musu -n "__fish_musu_using_subcommand watch; and not __fish_seen_subcommand_from install uninstall status start stop restart help" -l scan-only -d 'Scan once and exit (alias: --once)'
 complete -c musu -n "__fish_musu_using_subcommand watch; and not __fish_seen_subcommand_from install uninstall status start stop restart help" -l recursive -d 'Monitor subdirectories recursively'

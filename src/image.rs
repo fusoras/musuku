@@ -37,9 +37,7 @@ pub fn encode_base64(data: &[u8]) -> String {
 }
 
 pub fn is_kitty_compatible_terminal() -> bool {
-    env::var_os("MUSU_IMAGE")
-        .or_else(|| env::var_os("GEICO_IMAGE"))
-        .is_some()
+    env::var_os("MUSU_IMAGE").is_some()
         || env::var_os("KITTY_WINDOW_ID").is_some()
         || env::var_os("KITTY_PID").is_some()
         || env::var_os("KITTY_INSTALLATION_DIR").is_some()

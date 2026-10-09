@@ -332,6 +332,31 @@ pub fn auto_sync_if_configured(manager: &Manager) -> Result<Option<SyncReport>> 
 pub fn run(args: Watch, manager: Manager) -> Result<()> {
     let base_dir = manager.settings_base().to_path_buf();
     let mut settings = config::load_settings(&base_dir)?;
+
+    if let Some(unwatch_dirs) = &args.unwatch {
+        let mut modified = false;
+        for dir in unwatch_dirs {
+            let resolved = resolve_directory(dir.clone()).unwrap_or_else(|_| dir.clone());
+            let prev_len = settings.watch.directories.len();
+            settings
+                .watch
+                .directories
+                .retain(|d| d != dir && d != &resolved);
+            if settings.watch.directories.len() < prev_len {
+                modified = true;
+                println!("Removed '{}' from watch directories.", dir.display());
+            } else {
+                println!("Directory '{}' was not in watch list.", dir.display());
+            }
+        }
+        if modified {
+            config::save_settings(&base_dir, &settings)?;
+        }
+        if args.directories.is_empty() && !args.continuous {
+            return Ok(());
+        }
+    }
+
     let raw_directories = if args.directories.is_empty() {
         settings.watch.directories.clone()
     } else {
