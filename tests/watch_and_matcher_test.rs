@@ -38,6 +38,22 @@ fn test_probe_app_icon_finds_renpy_and_common_icons() {
 
     let found = musu::matcher::probe_app_icon(&exe);
     assert_eq!(found, Some(icon_file));
+
+    // Test Zen / browser icon probing
+    let zen_dir = temp.path().join("zen");
+    let default_icons_dir = zen_dir
+        .join("browser")
+        .join("chrome")
+        .join("icons")
+        .join("default");
+    fs::create_dir_all(&default_icons_dir).unwrap();
+    let zen_exe = zen_dir.join("zen-bin");
+    fs::write(&zen_exe, "#!/bin/sh\n").unwrap();
+    let zen_icon = default_icons_dir.join("default128.png");
+    fs::write(&zen_icon, b"fake 128 icon").unwrap();
+
+    let zen_found = musu::matcher::probe_app_icon(&zen_exe);
+    assert_eq!(zen_found, Some(zen_icon));
 }
 
 #[test]
