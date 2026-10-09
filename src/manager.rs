@@ -127,7 +127,17 @@ impl Manager {
                 .as_ref()
                 .and_then(|result| result.metadata.comment.clone())
         });
-        entry.sandbox = options.sandbox;
+        let detected_categories = if options.categories.is_none()
+            && extraction
+                .as_ref()
+                .and_then(|r| r.metadata.categories.as_ref())
+                .is_none()
+            && crate::matcher::is_renpy_game(&entry.target_bin)
+        {
+            Some(vec!["Game".to_string()])
+        } else {
+            None
+        };
         entry.categories = options
             .categories
             .or_else(|| {
@@ -135,6 +145,7 @@ impl Manager {
                     .as_ref()
                     .and_then(|result| result.metadata.categories.clone())
             })
+            .or(detected_categories)
             .or_else(|| Some(settings.defaults.categories.clone()))
             .map(|cats| {
                 cats.into_iter()
@@ -142,6 +153,16 @@ impl Manager {
                     .filter(|c| !c.is_empty())
                     .collect()
             });
+        let probed_icon = if options.icon.is_none()
+            && extraction
+                .as_ref()
+                .and_then(|r| r.icon_path.as_ref())
+                .is_none()
+        {
+            crate::matcher::probe_app_icon(&entry.target_bin)
+        } else {
+            None
+        };
         let sandbox_cmd =
             sandbox::generate_sandbox_exec(&settings, entry.sandbox, &entry.target_bin);
         if !options.no_desktop {
@@ -150,11 +171,15 @@ impl Manager {
                 &entry.id,
                 &entry.name,
                 &sandbox_cmd,
-                options.icon.as_deref().or_else(|| {
-                    extraction
-                        .as_ref()
-                        .and_then(|result| result.icon_path.as_deref())
-                }),
+                options
+                    .icon
+                    .as_deref()
+                    .or_else(|| {
+                        extraction
+                            .as_ref()
+                            .and_then(|result| result.icon_path.as_deref())
+                    })
+                    .or(probed_icon.as_deref()),
                 entry.categories.as_deref(),
                 entry.description.as_deref(),
             )?;

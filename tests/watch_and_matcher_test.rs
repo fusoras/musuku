@@ -24,6 +24,42 @@ fn test_find_icon_matches_normalized_stem_case_insensitively() {
 }
 
 #[test]
+fn test_probe_app_icon_finds_renpy_and_common_icons() {
+    let temp = tempdir().unwrap();
+    let game_dir = temp.path().join("MyGame");
+    let gui_dir = game_dir.join("game").join("gui");
+    fs::create_dir_all(&gui_dir).unwrap();
+
+    let exe = game_dir.join("MyGame.sh");
+    fs::write(&exe, "#!/bin/sh\n").unwrap();
+
+    let icon_file = gui_dir.join("window_icon.png");
+    fs::write(&icon_file, b"fake png").unwrap();
+
+    let found = musu::matcher::probe_app_icon(&exe);
+    assert_eq!(found, Some(icon_file));
+}
+
+#[test]
+fn test_is_renpy_game_detects_structure() {
+    let temp = tempdir().unwrap();
+    let game_dir = temp.path().join("KatawaShoujo");
+    let renpy_dir = game_dir.join("renpy");
+    let inner_game_dir = game_dir.join("game");
+    fs::create_dir_all(&renpy_dir).unwrap();
+    fs::create_dir_all(&inner_game_dir).unwrap();
+
+    let exe = game_dir.join("KatawaShoujo.sh");
+    fs::write(&exe, "#!/bin/sh\n").unwrap();
+
+    assert!(musu::matcher::is_renpy_game(&exe));
+
+    let normal_bin = temp.path().join("normal_tool");
+    fs::write(&normal_bin, "#!/bin/sh\n").unwrap();
+    assert!(!musu::matcher::is_renpy_game(&normal_bin));
+}
+
+#[test]
 fn test_watch_config_uses_safe_defaults() {
     let settings: Settings = toml::from_str("[watch]\n").unwrap();
     assert_eq!(settings.watch, WatchConfig::default());

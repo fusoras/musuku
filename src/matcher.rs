@@ -132,6 +132,110 @@ pub fn find_icon(icons_dir: &Path, app_name: &str) -> Result<Option<PathBuf>> {
     Ok(None)
 }
 
+/// Known relative paths to probe for icons near an executable or game bundle.
+pub const COMMON_ICON_RELATIVE_PATHS: &[&str] = &[
+    // Ren'Py standard & common variations
+    "game/gui/window_icon.png",
+    "game/window_icon.png",
+    "game/gui/icon.png",
+    "game/icon.png",
+    "gui/window_icon.png",
+    // Godot / Love2D / Common Root
+    "icon.png",
+    "icon.svg",
+    "logo.png",
+    "logo.svg",
+    "app.png",
+    "app.svg",
+    // RPG Maker / Engines
+    "icon/icon.png",
+    "www/icon/icon.png",
+    // Common subdirectories
+    "assets/icon.png",
+    "assets/icon.svg",
+    "assets/icons/icon.png",
+    "resources/icon.png",
+    "resources/app.png",
+    "icons/icon.png",
+];
+
+/// Probes the parent directory of an executable for standard icon locations.
+///
+/// Looks for:
+/// 1. Known relative paths (Ren'Py `game/gui/window_icon.png`, Godot `icon.png`, etc.)
+/// 2. Executable name matches in the parent folder (e.g. `<stem>.png`, `<stem>.svg`)
+/// 3. Unity Player icons (e.g. `<stem>_Data/Resources/UnityPlayer.png`)
+pub fn probe_app_icon(target_bin: &Path) -> Option<PathBuf> {
+    let parent = target_bin.parent()?;
+
+    // 1. Probe specific known relative paths
+    for rel_path in COMMON_ICON_RELATIVE_PATHS {
+        let candidate = parent.join(rel_path);
+        if candidate.is_file() {
+            return Some(candidate);
+        }
+    }
+
+    // 2. Binary stem checks (e.g. `MyGame.png` or `MyGame_Data/Resources/UnityPlayer.png`)
+    if let Some(stem) = target_bin.file_stem().and_then(|s| s.to_str()) {
+        for ext in ICON_EXTENSIONS {
+            let candidate = parent.join(format!("{stem}.{ext}"));
+            if candidate.is_file() {
+                return Some(candidate);
+            }
+        }
+
+        // Unity Linux player icon convention
+        let unity_candidate = parent
+            .join(format!("{stem}_Data"))
+            .join("Resources")
+            .join("UnityPlayer.png");
+        if unity_candidate.is_file() {
+            return Some(unity_candidate);
+        }
+    }
+
+    None
+}
+
+/// Returns true if the target executable appears to belong to a Ren'Py game.
+///
+/// Ren'Py games typically contain:
+/// 1. A `renpy` directory alongside the executable, and a `game` directory.
+/// 2. Or a `game` directory containing `gui/window_icon.png`, `.rpyc` scripts, or `.rpa` archives.
+pub fn is_renpy_game(target_bin: &Path) -> bool {
+    let Some(parent) = target_bin.parent() else {
+        return false;
+    };
+
+    let renpy_dir = parent.join("renpy");
+    let game_dir = parent.join("game");
+
+    if renpy_dir.is_dir() && game_dir.is_dir() {
+        return true;
+    }
+
+    if game_dir.is_dir() {
+        if game_dir.join("gui/window_icon.png").is_file()
+            || game_dir.join("window_icon.png").is_file()
+        {
+            return true;
+        }
+
+        if let Ok(entries) = fs::read_dir(&game_dir) {
+            for entry in entries.flatten() {
+                if let Some(ext) = entry.path().extension().and_then(|e| e.to_str())
+                    && (ext.eq_ignore_ascii_case("rpyc") || ext.eq_ignore_ascii_case("rpa"))
+                {
+                    return true;
+                }
+            }
+        }
+    }
+
+    false
+}
+
 /// Compute Levenshtein distance between two strings
 #[allow(clippy::needless_range_loop)]
 fn levenshtein(a: &str, b: &str) -> usize {
