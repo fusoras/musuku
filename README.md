@@ -1,6 +1,6 @@
 # musu
 
-Seamless desktop & CLI integration for portable Linux apps (結ぶ - *musubu*)
+Seamless desktop & CLI integration for portable Linux apps (結ぶ - _musubu_)
 
 `musu` is a lightweight Linux CLI tool written in Rust that integrates portable
 applications — AppImages, standalone binaries (for example those extracted from
@@ -18,7 +18,7 @@ With a single command, `musu` can:
 
 ## Core Principles
 
-### User-space first (no root required)
+### User-space first
 
 All defaults live inside your home directory:
 
@@ -28,16 +28,6 @@ All defaults live inside your home directory:
 | Icon copies       | `~/.local/share/icons/`        |
 | Terminal symlinks | `~/.local/bin/`                |
 | State database    | `~/.config/musu/apps.toml`     |
-
-No `sudo` is needed for typical use.
-
-### Selective sudo escalation
-
-`musu` escalates **only** when you explicitly point the symlink destination
-outside your home directory with `--dest-bin`, _and_ that directory is not
-writable by your user. In that case it runs `sudo ln -sf …` (or `sudo rm -f …`
-during removal). Inside `$HOME`, `musu` never invokes `sudo` — a permission
-problem there is reported as an error instead.
 
 ### Auditable TOML state
 
@@ -104,7 +94,7 @@ musu add /opt/blender/blender --no-symlink --icon /opt/blender/icon.png
 
 ### Background Watch Service (systemd)
 
-`install.sh` automatically creates the user service unit in `~/.config/systemd/user/musu-watch.service`. To run `musu watch` automatically in the background without keeping a terminal open:
+`~/.config/systemd/user/musu-watch.service`. To run `musu watch` automatically in the background without keeping a terminal open:
 
 ```sh
 # 1. Enable and start the background service (user-space, no root required)
@@ -132,8 +122,8 @@ systemctl --user disable --now musu-watch.service
 
 `musu` has comprehensive subcommands. For detailed options, flags, and advanced examples, see the full [Commands Reference](docs/commands.md).
 
-| Command                                                     | Description                                                                        |
-| ----------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Command                                                    | Description                                                                        |
+| ---------------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | [`musu add`](docs/commands.md#1-musu-add)                  | Register an executable and integrate it into desktop and terminal `$PATH`.         |
 | [`musu list`](docs/commands.md#2-musu-list)                | List all managed applications with health checks and terminal icon previews.       |
 | [`musu show`](docs/commands.md#3-musu-show)                | Inspect full metadata, artifact paths, description, and status for an application. |
@@ -143,7 +133,7 @@ systemctl --user disable --now musu-watch.service
 | [`musu health`](docs/commands.md#7-musu-health)            | Check environment health, SVG converters, and desktop utilities.                   |
 | [`musu doctor`](docs/commands.md#8-musu-doctor)            | Diagnose system setup, permissions, directories, and auto-fix issues.              |
 | [`musu run`](docs/commands.md#9-musu-run)                  | Launch a registered application in the background.                                 |
-| [`musu completions`](docs/commands.md#11-musu-completions)| Generate or install shell completion scripts for Tab autocompletion.               |
+| [`musu completions`](docs/commands.md#11-musu-completions) | Generate or install shell completion scripts for Tab autocompletion.               |
 
 Every subcommand accepts `-h, --help` for instant usage text.
 
