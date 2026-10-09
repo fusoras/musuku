@@ -4,16 +4,6 @@
 
 ---
 
-## Why Use Musu?
-
-When you download a portable Linux application (like an AppImage or a tarball), Linux does not automatically:
-1. Add an icon to your application launcher or dock.
-2. Allow you to run it from any terminal by typing its name.
-
-`musu` solves this safely in user-space (`~/.local`), without requiring `sudo` privileges or touching your original application files.
-
----
-
 ## Common Scenarios
 
 ### 1. Integrating an AppImage
@@ -32,6 +22,7 @@ musu add ~/Downloads/Obsidian-1.5.8.AppImage \
 ```
 
 **What happens:**
+
 - An application launcher is created at `~/.local/share/applications/obsidian.desktop`.
 - The icon is copied to `~/.local/share/icons/obsidian.png`.
 - A terminal shortcut is created at `~/.local/bin/obsidian`, so you can just type `obsidian` in any terminal.
@@ -75,6 +66,7 @@ musu show obsidian
 ```
 
 Output:
+
 ```text
 Obsidian (obsidian)
   Executable:  ~/Downloads/Obsidian-1.5.8.AppImage [ok]
@@ -93,6 +85,7 @@ musu show obsidian --absolute
 ```
 
 You can also extract a single path for scripts or terminal shortcuts:
+
 ```sh
 # Print only the executable path
 musu show obsidian --bin
@@ -173,17 +166,23 @@ musu remove obsidian
 ## Troubleshooting
 
 ### App does not appear in the application menu immediately
+
 Most desktop environments (GNOME, KDE Plasma, XFCE) update automatically. If your menu hasn't updated yet:
+
 - Run `update-desktop-database ~/.local/share/applications/`
 - Or log out and log back in.
 
 ### Terminal says `command not found`
+
 Ensure `~/.local/bin` is in your shell's `$PATH`. Add this to your shell config file (`~/.zshrc`, `~/.bashrc`):
+
 ```sh
 export PATH="$HOME/.local/bin:$PATH"
 ```
 
 ### Autocompletion with Tab
+
 `musu` automatically installs shell autocompletion. If tab completion is not active in your current session:
+
 - In Zsh: restart your terminal or run `source ~/.zshrc`.
 - Or run `musu completions <your-shell>` to print or reinstall.
