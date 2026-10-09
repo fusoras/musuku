@@ -85,18 +85,6 @@ _musu() {
             musu__subcmd__help__subcmd__watch,install-service)
                 cmd="musu__subcmd__help__subcmd__watch__subcmd__install__subcmd__service"
                 ;;
-            musu__subcmd__help__subcmd__watch,restart)
-                cmd="musu__subcmd__help__subcmd__watch__subcmd__restart"
-                ;;
-            musu__subcmd__help__subcmd__watch,start)
-                cmd="musu__subcmd__help__subcmd__watch__subcmd__start"
-                ;;
-            musu__subcmd__help__subcmd__watch,status)
-                cmd="musu__subcmd__help__subcmd__watch__subcmd__status"
-                ;;
-            musu__subcmd__help__subcmd__watch,stop)
-                cmd="musu__subcmd__help__subcmd__watch__subcmd__stop"
-                ;;
             musu__subcmd__help__subcmd__watch,uninstall-service)
                 cmd="musu__subcmd__help__subcmd__watch__subcmd__uninstall__subcmd__service"
                 ;;
@@ -106,23 +94,11 @@ _musu() {
             musu__subcmd__watch,install-service)
                 cmd="musu__subcmd__watch__subcmd__install__subcmd__service"
                 ;;
-            musu__subcmd__watch,restart)
-                cmd="musu__subcmd__watch__subcmd__restart"
-                ;;
             musu__subcmd__watch,service-install)
                 cmd="musu__subcmd__watch__subcmd__install__subcmd__service"
                 ;;
             musu__subcmd__watch,service-uninstall)
                 cmd="musu__subcmd__watch__subcmd__uninstall__subcmd__service"
-                ;;
-            musu__subcmd__watch,start)
-                cmd="musu__subcmd__watch__subcmd__start"
-                ;;
-            musu__subcmd__watch,status)
-                cmd="musu__subcmd__watch__subcmd__status"
-                ;;
-            musu__subcmd__watch,stop)
-                cmd="musu__subcmd__watch__subcmd__stop"
                 ;;
             musu__subcmd__watch,uninstall-service)
                 cmd="musu__subcmd__watch__subcmd__uninstall__subcmd__service"
@@ -132,18 +108,6 @@ _musu() {
                 ;;
             musu__subcmd__watch__subcmd__help,install-service)
                 cmd="musu__subcmd__watch__subcmd__help__subcmd__install__subcmd__service"
-                ;;
-            musu__subcmd__watch__subcmd__help,restart)
-                cmd="musu__subcmd__watch__subcmd__help__subcmd__restart"
-                ;;
-            musu__subcmd__watch__subcmd__help,start)
-                cmd="musu__subcmd__watch__subcmd__help__subcmd__start"
-                ;;
-            musu__subcmd__watch__subcmd__help,status)
-                cmd="musu__subcmd__watch__subcmd__help__subcmd__status"
-                ;;
-            musu__subcmd__watch__subcmd__help,stop)
-                cmd="musu__subcmd__watch__subcmd__help__subcmd__stop"
                 ;;
             musu__subcmd__watch__subcmd__help,uninstall-service)
                 cmd="musu__subcmd__watch__subcmd__help__subcmd__uninstall__subcmd__service"
@@ -407,7 +371,7 @@ _musu() {
             return 0
             ;;
         musu__subcmd__help__subcmd__watch)
-            opts="install-service uninstall-service status start stop restart"
+            opts="install-service uninstall-service"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -421,62 +385,6 @@ _musu() {
             return 0
             ;;
         musu__subcmd__help__subcmd__watch__subcmd__install__subcmd__service)
-            opts=""
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
-        musu__subcmd__help__subcmd__watch__subcmd__restart)
-            opts=""
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
-        musu__subcmd__help__subcmd__watch__subcmd__start)
-            opts=""
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
-        musu__subcmd__help__subcmd__watch__subcmd__status)
-            opts=""
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
-        musu__subcmd__help__subcmd__watch__subcmd__stop)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -603,7 +511,7 @@ _musu() {
             return 0
             ;;
         musu__subcmd__watch)
-            opts="-h --icons-dir --foreground --continuous --scan-only --recursive --dry-run --remove-dir --unwatch --help install-service service-install uninstall-service service-uninstall status start stop restart help"
+            opts="-h --icons-dir --foreground --continuous --scan-only --recursive --dry-run --remove-dir --unwatch --help install-service service-install uninstall-service service-uninstall help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -629,7 +537,7 @@ _musu() {
             return 0
             ;;
         musu__subcmd__watch__subcmd__help)
-            opts="install-service uninstall-service status start stop restart help"
+            opts="install-service uninstall-service help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -670,62 +578,6 @@ _musu() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        musu__subcmd__watch__subcmd__help__subcmd__restart)
-            opts=""
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
-        musu__subcmd__watch__subcmd__help__subcmd__start)
-            opts=""
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
-        musu__subcmd__watch__subcmd__help__subcmd__status)
-            opts=""
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
-        musu__subcmd__watch__subcmd__help__subcmd__stop)
-            opts=""
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
         musu__subcmd__watch__subcmd__help__subcmd__uninstall__subcmd__service)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
@@ -751,62 +603,6 @@ _musu() {
                     COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
                     ;;
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
-        musu__subcmd__watch__subcmd__restart)
-            opts="-h --sysv --help"
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
-        musu__subcmd__watch__subcmd__start)
-            opts="-h --sysv --help"
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
-        musu__subcmd__watch__subcmd__status)
-            opts="-h --sysv --help"
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
-        musu__subcmd__watch__subcmd__stop)
-            opts="-h --sysv --help"
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
                 *)
                     COMPREPLY=()
                     ;;

@@ -45,8 +45,6 @@ musu watch install-service
 
 # Check status natively
 systemctl --user status musu-watch.service
-# or via musu:
-musu watch status
 
 # Follow logs in real time
 journalctl --user -u musu-watch.service -f

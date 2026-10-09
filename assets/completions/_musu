@@ -213,34 +213,6 @@ _arguments "${_arguments_options[@]}" : \
 '--help[Print help]' \
 && ret=0
 ;;
-(status)
-_arguments "${_arguments_options[@]}" : \
-'--sysv[Check SysVinit service instead of systemd user service]' \
-'-h[Print help]' \
-'--help[Print help]' \
-&& ret=0
-;;
-(start)
-_arguments "${_arguments_options[@]}" : \
-'--sysv[Target SysVinit service instead of systemd user service]' \
-'-h[Print help]' \
-'--help[Print help]' \
-&& ret=0
-;;
-(stop)
-_arguments "${_arguments_options[@]}" : \
-'--sysv[Target SysVinit service instead of systemd user service]' \
-'-h[Print help]' \
-'--help[Print help]' \
-&& ret=0
-;;
-(restart)
-_arguments "${_arguments_options[@]}" : \
-'--sysv[Target SysVinit service instead of systemd user service]' \
-'-h[Print help]' \
-'--help[Print help]' \
-&& ret=0
-;;
 (help)
 _arguments "${_arguments_options[@]}" : \
 ":: :_musu__subcmd__watch__subcmd__help_commands" \
@@ -258,22 +230,6 @@ _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
 (uninstall-service)
-_arguments "${_arguments_options[@]}" : \
-&& ret=0
-;;
-(status)
-_arguments "${_arguments_options[@]}" : \
-&& ret=0
-;;
-(start)
-_arguments "${_arguments_options[@]}" : \
-&& ret=0
-;;
-(stop)
-_arguments "${_arguments_options[@]}" : \
-&& ret=0
-;;
-(restart)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
@@ -354,22 +310,6 @@ _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
 (uninstall-service)
-_arguments "${_arguments_options[@]}" : \
-&& ret=0
-;;
-(status)
-_arguments "${_arguments_options[@]}" : \
-&& ret=0
-;;
-(start)
-_arguments "${_arguments_options[@]}" : \
-&& ret=0
-;;
-(stop)
-_arguments "${_arguments_options[@]}" : \
-&& ret=0
-;;
-(restart)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
@@ -499,10 +439,6 @@ _musu__subcmd__help__subcmd__watch_commands() {
     local commands; commands=(
 'install-service:Install background watcher service (defaults to systemd user service)' \
 'uninstall-service:Uninstall and stop background watcher service' \
-'status:Show status of background watcher service' \
-'start:Start background watcher service' \
-'stop:Stop background watcher service' \
-'restart:Restart background watcher service' \
     )
     _describe -t commands 'musu help watch commands' commands "$@"
 }
@@ -510,26 +446,6 @@ _musu__subcmd__help__subcmd__watch_commands() {
 _musu__subcmd__help__subcmd__watch__subcmd__install-service_commands() {
     local commands; commands=()
     _describe -t commands 'musu help watch install-service commands' commands "$@"
-}
-(( $+functions[_musu__subcmd__help__subcmd__watch__subcmd__restart_commands] )) ||
-_musu__subcmd__help__subcmd__watch__subcmd__restart_commands() {
-    local commands; commands=()
-    _describe -t commands 'musu help watch restart commands' commands "$@"
-}
-(( $+functions[_musu__subcmd__help__subcmd__watch__subcmd__start_commands] )) ||
-_musu__subcmd__help__subcmd__watch__subcmd__start_commands() {
-    local commands; commands=()
-    _describe -t commands 'musu help watch start commands' commands "$@"
-}
-(( $+functions[_musu__subcmd__help__subcmd__watch__subcmd__status_commands] )) ||
-_musu__subcmd__help__subcmd__watch__subcmd__status_commands() {
-    local commands; commands=()
-    _describe -t commands 'musu help watch status commands' commands "$@"
-}
-(( $+functions[_musu__subcmd__help__subcmd__watch__subcmd__stop_commands] )) ||
-_musu__subcmd__help__subcmd__watch__subcmd__stop_commands() {
-    local commands; commands=()
-    _describe -t commands 'musu help watch stop commands' commands "$@"
 }
 (( $+functions[_musu__subcmd__help__subcmd__watch__subcmd__uninstall-service_commands] )) ||
 _musu__subcmd__help__subcmd__watch__subcmd__uninstall-service_commands() {
@@ -568,10 +484,6 @@ _musu__subcmd__watch_commands() {
 'service-install:Install background watcher service (defaults to systemd user service)' \
 'uninstall-service:Uninstall and stop background watcher service' \
 'service-uninstall:Uninstall and stop background watcher service' \
-'status:Show status of background watcher service' \
-'start:Start background watcher service' \
-'stop:Stop background watcher service' \
-'restart:Restart background watcher service' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
     _describe -t commands 'musu watch commands' commands "$@"
@@ -581,10 +493,6 @@ _musu__subcmd__watch__subcmd__help_commands() {
     local commands; commands=(
 'install-service:Install background watcher service (defaults to systemd user service)' \
 'uninstall-service:Uninstall and stop background watcher service' \
-'status:Show status of background watcher service' \
-'start:Start background watcher service' \
-'stop:Stop background watcher service' \
-'restart:Restart background watcher service' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
     _describe -t commands 'musu watch help commands' commands "$@"
@@ -599,26 +507,6 @@ _musu__subcmd__watch__subcmd__help__subcmd__install-service_commands() {
     local commands; commands=()
     _describe -t commands 'musu watch help install-service commands' commands "$@"
 }
-(( $+functions[_musu__subcmd__watch__subcmd__help__subcmd__restart_commands] )) ||
-_musu__subcmd__watch__subcmd__help__subcmd__restart_commands() {
-    local commands; commands=()
-    _describe -t commands 'musu watch help restart commands' commands "$@"
-}
-(( $+functions[_musu__subcmd__watch__subcmd__help__subcmd__start_commands] )) ||
-_musu__subcmd__watch__subcmd__help__subcmd__start_commands() {
-    local commands; commands=()
-    _describe -t commands 'musu watch help start commands' commands "$@"
-}
-(( $+functions[_musu__subcmd__watch__subcmd__help__subcmd__status_commands] )) ||
-_musu__subcmd__watch__subcmd__help__subcmd__status_commands() {
-    local commands; commands=()
-    _describe -t commands 'musu watch help status commands' commands "$@"
-}
-(( $+functions[_musu__subcmd__watch__subcmd__help__subcmd__stop_commands] )) ||
-_musu__subcmd__watch__subcmd__help__subcmd__stop_commands() {
-    local commands; commands=()
-    _describe -t commands 'musu watch help stop commands' commands "$@"
-}
 (( $+functions[_musu__subcmd__watch__subcmd__help__subcmd__uninstall-service_commands] )) ||
 _musu__subcmd__watch__subcmd__help__subcmd__uninstall-service_commands() {
     local commands; commands=()
@@ -628,26 +516,6 @@ _musu__subcmd__watch__subcmd__help__subcmd__uninstall-service_commands() {
 _musu__subcmd__watch__subcmd__install-service_commands() {
     local commands; commands=()
     _describe -t commands 'musu watch install-service commands' commands "$@"
-}
-(( $+functions[_musu__subcmd__watch__subcmd__restart_commands] )) ||
-_musu__subcmd__watch__subcmd__restart_commands() {
-    local commands; commands=()
-    _describe -t commands 'musu watch restart commands' commands "$@"
-}
-(( $+functions[_musu__subcmd__watch__subcmd__start_commands] )) ||
-_musu__subcmd__watch__subcmd__start_commands() {
-    local commands; commands=()
-    _describe -t commands 'musu watch start commands' commands "$@"
-}
-(( $+functions[_musu__subcmd__watch__subcmd__status_commands] )) ||
-_musu__subcmd__watch__subcmd__status_commands() {
-    local commands; commands=()
-    _describe -t commands 'musu watch status commands' commands "$@"
-}
-(( $+functions[_musu__subcmd__watch__subcmd__stop_commands] )) ||
-_musu__subcmd__watch__subcmd__stop_commands() {
-    local commands; commands=()
-    _describe -t commands 'musu watch stop commands' commands "$@"
 }
 (( $+functions[_musu__subcmd__watch__subcmd__uninstall-service_commands] )) ||
 _musu__subcmd__watch__subcmd__uninstall-service_commands() {
