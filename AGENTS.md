@@ -20,6 +20,7 @@ Registers an executable file and integrates it into the system.
 - `--no-desktop`: Skip creating a `.desktop` launcher entry.
 - `--no-symlink`: Skip creating a terminal `$PATH` symlink.
 - `--dest-bin <PATH>`: Custom directory for the binary symlink (prompts for `sudo` if outside `$HOME`).
+- `--overwrite` / `--force` / `-f`: Replace an existing application with the same name/ID without the interactive menu.
 
 ### `musu list`
 Lists all managed applications with health checks:

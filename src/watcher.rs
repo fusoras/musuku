@@ -197,13 +197,21 @@ pub fn sync_directories(
             .map(|dir| matcher::find_icon(dir, cand.path.to_string_lossy().as_ref()))
             .transpose()?
             .flatten();
-        if !dry_run {
-            manager.add(AddOptions {
+        if !dry_run
+            && let Err(err) = manager.add(AddOptions {
                 target: cand.path.clone(),
                 name: Some(cand.norm_name.clone()),
                 icon,
                 ..AddOptions::default()
-            })?;
+            })
+        {
+            eprintln!(
+                "{}musu: warning: skipping {}: {err:#}{}",
+                crate::colors::BOLD_YELLOW,
+                cand.path.display(),
+                crate::colors::RESET
+            );
+            continue;
         }
         report.added += 1;
     }

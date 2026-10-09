@@ -41,6 +41,7 @@ complete -c musu -n "__fish_musu_using_subcommand add" -l icon -d 'Path to the i
 complete -c musu -n "__fish_musu_using_subcommand add" -l categories -d 'Desktop categories separated by commas (e.g. AudioVideo,Development). Omit the value to list the standard categories without registering anything' -r
 complete -c musu -n "__fish_musu_using_subcommand add" -l bin-name -d 'Custom command name for the terminal symlink' -r
 complete -c musu -n "__fish_musu_using_subcommand add" -l dest-bin -d 'Custom destination directory for the symlink (prompts sudo if outside $HOME)' -r -F
+complete -c musu -n "__fish_musu_using_subcommand add" -s f -l overwrite -l force -d 'Replace an existing application with the same name/ID without asking'
 complete -c musu -n "__fish_musu_using_subcommand add" -l description -l comment -d 'Application description or tooltip (written as Comment in .desktop)' -r
 complete -c musu -n "__fish_musu_using_subcommand add" -l no-desktop -d 'Skip creating a .desktop launcher entry'
 complete -c musu -n "__fish_musu_using_subcommand add" -l no-symlink -d 'Skip creating a terminal $PATH symlink'

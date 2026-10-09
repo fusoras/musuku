@@ -50,6 +50,7 @@ fn main() -> Result<()> {
                 } else {
                     None
                 },
+                overwrite: args.overwrite,
             })?;
         }
         Command::List(args) => print!(
