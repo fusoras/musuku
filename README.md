@@ -1,6 +1,6 @@
 # musu
 
-Seamless desktop & CLI integration for portable Linux apps (結ぶ - _musubu_)
+Seamless desktop & CLI integration for portable Linux apps
 
 `musu` is a lightweight Linux CLI tool written in Rust that integrates portable
 applications — AppImages, standalone binaries (for example those extracted from
@@ -92,9 +92,11 @@ musu add /opt/tools/my-cli --no-desktop
 musu add /opt/blender/blender --no-symlink --icon /opt/blender/icon.png
 ```
 
+More information: [docs/guide.md](docs/guide.md)
+
 ### Background Watch Service (systemd)
 
-`~/.config/systemd/user/musu-watch.service`. To run `musu watch` automatically in the background without keeping a terminal open:
+`install.sh` automatically creates the user service unit in `~/.config/systemd/user/musu-watch.service`. To run `musu watch` automatically in the background without keeping a terminal open:
 
 ```sh
 # 1. Enable and start the background service (user-space, no root required)
