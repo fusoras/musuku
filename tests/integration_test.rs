@@ -84,6 +84,44 @@ fn test_add_fallback_name_creates_desktop_and_symlink() {
 }
 
 #[test]
+fn test_add_auto_detects_renpy_icon_when_no_icon_specified() {
+    let temp = tempdir().unwrap();
+    let game_dir = temp.path().join("Kanon");
+    let gui_dir = game_dir.join("game").join("gui");
+    fs::create_dir_all(&gui_dir).unwrap();
+
+    let target = game_dir.join("Kanon.sh");
+    executable(&target);
+
+    let renpy_icon = gui_dir.join("window_icon.png");
+    fs::write(&renpy_icon, b"fake icon data").unwrap();
+
+    let manager = Manager::new(
+        temp.path().join("config/apps.toml"),
+        temp.path().join("share"),
+        temp.path().join("bin"),
+    );
+
+    let entry = manager
+        .add(AddOptions {
+            target: target.clone(),
+            ..AddOptions::default()
+        })
+        .unwrap();
+
+    assert!(entry.icon_path.is_some(), "icon_path should be detected");
+    let installed_icon = entry.icon_path.unwrap();
+    assert!(installed_icon.exists());
+    assert_eq!(installed_icon.file_name().unwrap(), "window_icon.png");
+
+    let desktop = fs::read_to_string(entry.desktop_file.unwrap()).unwrap();
+    assert!(desktop.contains("Icon="));
+    assert!(desktop.contains("window_icon.png"));
+    assert!(desktop.contains("Categories=Game;\n"));
+    assert_eq!(entry.categories, Some(vec!["Game".to_string()]));
+}
+
+#[test]
 fn test_config_disables_symlinks_for_appimages_but_keeps_desktop_and_icon() {
     let temp = tempdir().unwrap();
     let target = temp.path().join("video.AppImage");
