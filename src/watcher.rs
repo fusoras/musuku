@@ -11,6 +11,7 @@ use notify::RecursiveMode;
 use notify_debouncer_mini::{DebounceEventResult, new_debouncer};
 use std::{
     fs,
+    io::IsTerminal,
     os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
     sync::mpsc,
@@ -330,6 +331,8 @@ pub fn auto_sync_if_configured(manager: &Manager) -> Result<Option<SyncReport>> 
 }
 
 pub fn run(args: Watch, manager: Manager) -> Result<()> {
+    crate::service::ensure_systemd_unit_exists();
+
     let base_dir = manager.settings_base().to_path_buf();
     let mut settings = config::load_settings(&base_dir)?;
 
@@ -401,7 +404,11 @@ pub fn run(args: Watch, manager: Manager) -> Result<()> {
 
     let recursive = args.recursive || settings.watch.recursive;
 
-    println!("Synchronizing watch directories...");
+    let spinner = crate::spinner::Spinner::start_with_delay(
+        "Scanning and syncing watch directories...",
+        std::time::Duration::ZERO,
+        std::io::stderr().is_terminal(),
+    );
     let report = sync_directories(
         &manager,
         &directories,
@@ -411,6 +418,10 @@ pub fn run(args: Watch, manager: Manager) -> Result<()> {
         settings.watch.clean_on_delete,
         args.dry_run,
     )?;
+    if std::io::stderr().is_terminal() && !spinner.has_rendered() {
+        std::thread::sleep(std::time::Duration::from_millis(150));
+    }
+    spinner.stop();
     write_last_sync(&base_dir, std::time::SystemTime::now());
 
     println!(

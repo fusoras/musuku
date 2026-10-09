@@ -96,3 +96,51 @@ pub fn systemd_unit_path() -> PathBuf {
 pub fn sysv_script_path() -> PathBuf {
     PathBuf::from("/etc/init.d/musu-watch")
 }
+
+/// Resolves the current musu binary path.
+pub fn resolve_musu_bin() -> PathBuf {
+    if let Ok(exe) = std::env::current_exe() {
+        if let Ok(canonical) = std::fs::canonicalize(&exe) {
+            return canonical;
+        }
+        return exe;
+    }
+    if let Some(path_var) = std::env::var_os("PATH") {
+        for dir in std::env::split_paths(&path_var) {
+            let candidate = dir.join("musu");
+            if candidate.is_file() {
+                return candidate;
+            }
+        }
+    }
+    if let Some(home) = dirs::home_dir() {
+        let cargo_bin = home.join(".cargo/bin/musu");
+        if cargo_bin.is_file() {
+            return cargo_bin;
+        }
+        let local_bin = home.join(".local/bin/musu");
+        if local_bin.is_file() {
+            return local_bin;
+        }
+    }
+    PathBuf::from("musu")
+}
+
+/// Silently ensures the user systemd service file exists on disk at the specified path.
+/// If it does not exist, generates it and writes it without printing to stdout or stderr.
+pub fn ensure_systemd_unit_exists_at(target_path: &Path, bin_path: &Path) {
+    if !target_path.exists() {
+        if let Some(parent) = target_path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        let content = generate_systemd_unit(bin_path);
+        let _ = std::fs::write(target_path, content);
+    }
+}
+
+/// Silently ensures the user systemd service file exists in ~/.config/systemd/user/.
+pub fn ensure_systemd_unit_exists() {
+    let target = systemd_unit_path();
+    let bin = resolve_musu_bin();
+    ensure_systemd_unit_exists_at(&target, &bin);
+}
