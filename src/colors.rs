@@ -17,6 +17,9 @@ pub const BOLD_RED: &str = "\x1b[1;31m";
 /// Bold cyan — highlights / prompts.
 pub const BOLD_CYAN: &str = "\x1b[1;36m";
 
+/// Teal highlight (truecolor rgb(58, 169, 159)) — new-target labels.
+pub const TEAL: &str = "\x1b[38;2;58;169;159m";
+
 /// Dim gray — secondary / de-emphasized text.
 pub const DIM_GRAY: &str = "\x1b[90m";
 

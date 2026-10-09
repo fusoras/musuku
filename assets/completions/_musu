@@ -33,6 +33,9 @@ _arguments "${_arguments_options[@]}" : \
 '*--categories=[Desktop categories separated by commas (e.g. AudioVideo,Development). Omit the value to list the standard categories without registering anything]::CATEGORIES:_default' \
 '--bin-name=[Custom command name for the terminal symlink]:BIN_NAME:_default' \
 '--dest-bin=[Custom destination directory for the symlink (prompts sudo if outside \$HOME)]:DEST_BIN:_files' \
+'--overwrite=[Replace an existing application with the same name/ID without asking]' \
+'--force=[Replace an existing application with the same name/ID without asking]' \
+'-f=[Replace an existing application with the same name/ID without asking]' \
 '--description=[Application description or tooltip (written as Comment in .desktop)]:DESCRIPTION:_default' \
 '--comment=[Application description or tooltip (written as Comment in .desktop)]:DESCRIPTION:_default' \
 '--no-desktop[Skip creating a .desktop launcher entry]' \

@@ -8,6 +8,7 @@ use crate::{
 use anyhow::{Context, Result, bail};
 use std::fmt::Write;
 use std::fs;
+use std::io::IsTerminal;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 
@@ -23,6 +24,10 @@ pub struct AddOptions {
     pub no_symlink: bool,
     pub dest_bin: Option<PathBuf>,
     pub sandbox: Option<bool>,
+    /// Replace an existing registration with the same name/ID without
+    /// prompting (equivalent to answering "overwrite" in the interactive
+    /// collision menu).
+    pub overwrite: bool,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -81,6 +86,72 @@ pub struct ShowOptions {
 pub enum UpdateOutcome {
     NoChanges { name: String },
     Updated { old: AppEntry, new: AppEntry },
+}
+
+/// How to resolve a name/ID collision during [`Manager::add`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CollisionAction {
+    /// Register the new application under a different name.
+    Rename,
+    /// Remove the existing registration and replace it.
+    Overwrite,
+    /// Abort without touching anything (the safe default).
+    Cancel,
+}
+
+/// An existing registration (or orphaned launcher) that collides
+/// with a new `musu add`.
+#[derive(Debug, Clone)]
+pub struct AddCollision {
+    /// Existing registry entry, when the ID is already managed.
+    pub existing: Option<AppEntry>,
+    /// Existing `.desktop` file on disk (possibly orphaned from
+    /// the registry).
+    pub desktop_file: Option<PathBuf>,
+}
+
+impl AddCollision {
+    /// Identifier of the colliding application, for messages.
+    pub fn label(&self) -> String {
+        self.existing
+            .as_ref()
+            .map(|app| app.id.clone())
+            .or_else(|| {
+                self.desktop_file
+                    .as_ref()
+                    .and_then(|path| path.file_stem())
+                    .and_then(|stem| stem.to_str())
+                    .map(str::to_string)
+            })
+            .unwrap_or_else(|| "unknown".to_string())
+    }
+}
+
+/// Detect whether registering `entry` would collide with an already
+/// registered application (same ID) or with an orphaned `.desktop`
+/// file left on disk.
+pub fn detect_add_collision(
+    registry: &crate::models::AppRegistry,
+    data_dir: &Path,
+    entry: &AppEntry,
+) -> Option<AddCollision> {
+    let existing = registry.find(&entry.id).cloned();
+    let desktop_file = data_dir.join("applications").join(format!("{}.desktop", entry.id));
+    let desktop_file = desktop_file.is_file().then_some(desktop_file);
+    (existing.is_some() || desktop_file.is_some()).then_some(AddCollision {
+        existing,
+        desktop_file,
+    })
+}
+
+/// Parse a collision-menu selection. Empty or unrecognized input
+/// selects the safe default: [`CollisionAction::Cancel`].
+pub fn parse_collision_choice(input: &str) -> CollisionAction {
+    match input.trim().to_ascii_lowercase().as_str() {
+        "r" | "rename" => CollisionAction::Rename,
+        "o" | "overwrite" | "replace" => CollisionAction::Overwrite,
+        _ => CollisionAction::Cancel,
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -153,6 +224,44 @@ impl Manager {
                     .filter(|c| !c.is_empty())
                     .collect()
             });
+        // Resolve name/ID collisions before touching the filesystem:
+        // rename, overwrite, or cancel.
+        let mut registry = config::load(&self.config_path)?;
+        while let Some(collision) = detect_add_collision(&registry, &self.data_dir, &entry) {
+            if options.overwrite {
+                self.remove_collision(&collision)?;
+                registry = config::load(&self.config_path)?;
+                continue;
+            }
+            if !std::io::stdin().is_terminal() {
+                bail!(
+                    "application '{}' already exists; pass --overwrite to replace it or --name to register it under a different name",
+                    collision.label()
+                );
+            }
+            match prompt_collision_action(&collision, &entry, self.home_dir.as_deref())? {
+                CollisionAction::Rename => {
+                    let Some(new_name) = prompt_new_name(&entry.name)? else {
+                        bail!(
+                            "aborted: '{}' already exists and was left unchanged",
+                            collision.label()
+                        );
+                    };
+                    entry.name = new_name;
+                    entry.id = slugify(&entry.name);
+                }
+                CollisionAction::Overwrite => {
+                    self.remove_collision(&collision)?;
+                    registry = config::load(&self.config_path)?;
+                }
+                CollisionAction::Cancel => {
+                    bail!(
+                        "aborted: '{}' already exists and was left unchanged",
+                        collision.label()
+                    );
+                }
+            }
+        }
         let probed_icon = if options.icon.is_none()
             && extraction
                 .as_ref()
@@ -215,7 +324,6 @@ impl Manager {
             )?);
             check_and_warn_path(destination);
         }
-        let mut registry = config::load(&self.config_path)?;
         registry.add(entry.clone());
         config::save(&self.config_path, &registry)?;
         drop(extraction);
@@ -645,6 +753,18 @@ impl Manager {
         Ok(())
     }
 
+    /// Remove the artifacts of a colliding registration (registry
+    /// entry, desktop launcher, symlink, icon) while preserving
+    /// the original target executable.
+    fn remove_collision(&self, collision: &AddCollision) -> Result<()> {
+        if let Some(existing) = &collision.existing {
+            self.remove_with_options(&existing.id, RemoveOptions::default())?;
+        } else if let Some(desktop_file) = &collision.desktop_file {
+            desktop::remove(Some(desktop_file), None)?;
+        }
+        Ok(())
+    }
+
     pub fn health(&self, json: bool, verbose: bool) -> Result<String> {
         let registry = config::load(&self.config_path)?;
         let report = health::HealthReport::collect(&registry, self.data_dir.clone());
@@ -784,6 +904,86 @@ fn status_with_color(path: &Path, colored: bool) -> String {
 fn optional_status_with_color(path: Option<&Path>, colored: bool) -> String {
     path.map(|path| status_with_color(path, colored))
         .unwrap_or_else(|| crate::colors::yellow(colored, "disabled"))
+}
+
+/// Print the collision warning and read the user's decision from
+/// the terminal. EOF cancels.
+fn prompt_collision_action(
+    collision: &AddCollision,
+    new_entry: &AppEntry,
+    home_dir: Option<&Path>,
+) -> Result<CollisionAction> {
+    use crate::colors::{BOLD_YELLOW, DIM_GRAY, RESET, TEAL};
+    use std::io::Write;
+    let label = collision.label();
+    eprintln!(
+        "{}Warning:{} an application with ID '{}' already exists.",
+        BOLD_YELLOW, RESET, label
+    );
+    eprintln!();
+    if let Some(desktop_file) = &collision.desktop_file {
+        eprintln!(
+            "  Existing desktop: {DIM_GRAY}{}{RESET}",
+            collapse_path(desktop_file, home_dir, false),
+            DIM_GRAY = DIM_GRAY,
+            RESET = RESET
+        );
+    }
+    if let Some(existing) = &collision.existing {
+        eprintln!(
+            "  Existing target:  {DIM_GRAY}{}{RESET}",
+            collapse_path(&existing.target_bin, home_dir, false),
+            DIM_GRAY = DIM_GRAY,
+            RESET = RESET
+        );
+    }
+    eprintln!(
+        "  {TEAL}New target:{RESET}       {DIM_GRAY}{}{RESET}",
+        collapse_path(&new_entry.target_bin, home_dir, false),
+        TEAL = TEAL,
+        RESET = RESET,
+        DIM_GRAY = DIM_GRAY
+    );
+    eprintln!();
+    eprintln!("What would you like to do?");
+    eprintln!(
+        "  [{}r{}] Rename new application",
+        DIM_GRAY, RESET
+    );
+    eprintln!(
+        "  [{}o{}] Overwrite / replace existing application",
+        DIM_GRAY, RESET
+    );
+    eprintln!("  [{}c{}] Cancel (default)", DIM_GRAY, RESET);
+    eprintln!();
+    eprint!(
+        "Selection [{}r{}/{}o{}/{}C{}]: ",
+        DIM_GRAY, RESET, DIM_GRAY, RESET, DIM_GRAY, RESET
+    );
+    std::io::stderr().flush()?;
+    let mut answer = String::new();
+    if std::io::stdin().read_line(&mut answer)? == 0 {
+        return Ok(CollisionAction::Cancel);
+    }
+    Ok(parse_collision_choice(&answer))
+}
+
+/// Prompt for a new display name after the user chose to rename.
+/// Returns `None` on EOF (treated as cancel); empty input re-asks.
+fn prompt_new_name(current: &str) -> Result<Option<String>> {
+    use std::io::Write;
+    loop {
+        eprint!("Enter a new name for this application [{current}]: ");
+        std::io::stderr().flush()?;
+        let mut answer = String::new();
+        if std::io::stdin().read_line(&mut answer)? == 0 {
+            return Ok(None);
+        }
+        let trimmed = answer.trim();
+        if !trimmed.is_empty() {
+            return Ok(Some(trimmed.to_string()));
+        }
+    }
 }
 
 fn collapse_path(path: &Path, home_dir: Option<&Path>, absolute: bool) -> String {

@@ -42,6 +42,7 @@ musu add [OPTIONS] <EXECUTABLE>
 | `--no-desktop` | Skip creating the `.desktop` launcher entry. | `false` |
 | `--no-symlink` | Skip creating the terminal `$PATH` symlink. | `false` |
 | `--dest-bin <PATH>` | Custom directory for the binary symlink (prompts for `sudo` if outside `$HOME`). | `~/.local/bin` |
+| `--overwrite` | Replace an existing application with the same name/ID without asking (aliases: `--force`, `-f`). | `false` |
 
 ### Fallback Name & ID Behavior
 
@@ -61,6 +62,15 @@ symlink_appimages = true
 ```
 
 The alias `appimage_symlinks = true` is also accepted. Explicit `--no-symlink` always overrides configuration.
+
+### Name Collisions
+
+When the derived ID (or an orphaned `.desktop` file) already exists, `musu add` does not silently overwrite anything:
+
+- **Interactive terminal**: shows a menu — `[r]` rename the new application, `[o]` overwrite the existing one, `[c]` cancel (default, also used for empty input).
+- **Non-interactive** (piped stdin): aborts with an error unless `--overwrite`/`--force`/`-f` is passed.
+- Renaming registers the application under the new name (e.g. `zen` → `zen-beta`), so multiple versions of the same app can coexist.
+- Overwriting removes the previous `.desktop` launcher, symlink, and icon, but never deletes the original target executable.
 
 ### Examples
 

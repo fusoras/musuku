@@ -135,6 +135,7 @@ commands:
       --categories=: Desktop categories separated by commas
       --bin-name=: Custom command name for the terminal symlink
       --dest-bin=: Custom destination directory for the symlink
+      --overwrite: Replace an existing application with the same name/ID without asking
       --no-desktop: Skip creating a .desktop launcher entry
       --no-symlink: Skip creating a terminal $PATH symlink
     completion:

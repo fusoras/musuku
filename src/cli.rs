@@ -62,6 +62,9 @@ pub struct Add {
     /// Custom destination directory for the symlink (prompts sudo if outside $HOME).
     #[arg(long)]
     pub dest_bin: Option<PathBuf>,
+    /// Replace an existing application with the same name/ID without asking.
+    #[arg(short = 'f', long, visible_alias = "force")]
+    pub overwrite: bool,
     /// Application description or tooltip (written as Comment in .desktop).
     #[arg(long, visible_alias = "comment")]
     pub description: Option<String>,
