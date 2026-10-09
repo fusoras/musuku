@@ -112,8 +112,6 @@ musu watch install-service
 
 # 2. Check service status
 systemctl --user status musu-watch.service
-# or
-musu watch status
 
 # SysV alternative:
 sudo musu watch install-service --sysv

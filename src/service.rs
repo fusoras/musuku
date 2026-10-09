@@ -117,18 +117,6 @@ pub fn dispatch(cmd: WatchServiceCmd, manager: &Manager) -> Result<()> {
         WatchServiceCmd::UninstallService { sysv } => {
             uninstall(sysv)?;
         }
-        WatchServiceCmd::Status { sysv } => {
-            status(sysv)?;
-        }
-        WatchServiceCmd::Start { sysv } => {
-            start(sysv)?;
-        }
-        WatchServiceCmd::Stop { sysv } => {
-            stop(sysv)?;
-        }
-        WatchServiceCmd::Restart { sysv } => {
-            restart(sysv)?;
-        }
     }
     Ok(())
 }
@@ -354,85 +342,6 @@ pub fn uninstall(sysv: bool) -> Result<()> {
             .status();
         println!(
             "{}✔ Systemd user service uninstalled.{}",
-            colors::BOLD_GREEN,
-            colors::RESET
-        );
-    }
-    Ok(())
-}
-
-/// Checks the status of the background watch service.
-pub fn status(sysv: bool) -> Result<()> {
-    if sysv {
-        Command::new("service")
-            .args(["musu-watch", "status"])
-            .status()
-            .context("failed to check SysV service status")?;
-    } else {
-        Command::new("systemctl")
-            .args(["--user", "status", "musu-watch.service"])
-            .status()
-            .context("failed to check systemd user service status")?;
-    }
-    Ok(())
-}
-
-/// Starts the background watch service.
-pub fn start(sysv: bool) -> Result<()> {
-    if sysv {
-        Command::new("sudo")
-            .args(["service", "musu-watch", "start"])
-            .status()
-            .context("failed to start SysV service")?;
-    } else {
-        Command::new("systemctl")
-            .args(["--user", "start", "musu-watch.service"])
-            .status()
-            .context("failed to start systemd user service")?;
-        println!(
-            "{}Started musu-watch.service{}",
-            colors::BOLD_GREEN,
-            colors::RESET
-        );
-    }
-    Ok(())
-}
-
-/// Stops the background watch service.
-pub fn stop(sysv: bool) -> Result<()> {
-    if sysv {
-        Command::new("sudo")
-            .args(["service", "musu-watch", "stop"])
-            .status()
-            .context("failed to stop SysV service")?;
-    } else {
-        Command::new("systemctl")
-            .args(["--user", "stop", "musu-watch.service"])
-            .status()
-            .context("failed to stop systemd user service")?;
-        println!(
-            "{}Stopped musu-watch.service{}",
-            colors::BOLD_YELLOW,
-            colors::RESET
-        );
-    }
-    Ok(())
-}
-
-/// Restarts the background watch service.
-pub fn restart(sysv: bool) -> Result<()> {
-    if sysv {
-        Command::new("sudo")
-            .args(["service", "musu-watch", "restart"])
-            .status()
-            .context("failed to restart SysV service")?;
-    } else {
-        Command::new("systemctl")
-            .args(["--user", "restart", "musu-watch.service"])
-            .status()
-            .context("failed to restart systemd user service")?;
-        println!(
-            "{}Restarted musu-watch.service{}",
             colors::BOLD_GREEN,
             colors::RESET
         );

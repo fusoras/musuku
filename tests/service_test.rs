@@ -50,13 +50,13 @@ fn test_cli_parses_watch_service_subcommands() {
         other => panic!("expected Command::Watch, got {other:?}"),
     }
 
-    // musu watch status
-    let cli = Cli::try_parse_from(["musu", "watch", "status"]).expect("must parse status");
+    // musu watch status is treated as directory argument, not a service command
+    let cli = Cli::try_parse_from(["musu", "watch", "status"]).expect("must parse status as dir");
     match cli.command {
-        Command::Watch(args) => match args.service {
-            Some(WatchServiceCmd::Status { sysv }) => assert!(!sysv),
-            other => panic!("expected Status, got {other:?}"),
-        },
+        Command::Watch(args) => {
+            assert_eq!(args.directories, vec![PathBuf::from("status")]);
+            assert!(args.service.is_none());
+        }
         other => panic!("expected Command::Watch, got {other:?}"),
     }
 

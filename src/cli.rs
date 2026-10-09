@@ -180,30 +180,6 @@ pub enum WatchServiceCmd {
         #[arg(long)]
         sysv: bool,
     },
-    /// Show status of background watcher service
-    Status {
-        /// Check SysVinit service instead of systemd user service
-        #[arg(long)]
-        sysv: bool,
-    },
-    /// Start background watcher service
-    Start {
-        /// Target SysVinit service instead of systemd user service
-        #[arg(long)]
-        sysv: bool,
-    },
-    /// Stop background watcher service
-    Stop {
-        /// Target SysVinit service instead of systemd user service
-        #[arg(long)]
-        sysv: bool,
-    },
-    /// Restart background watcher service
-    Restart {
-        /// Target SysVinit service instead of systemd user service
-        #[arg(long)]
-        sysv: bool,
-    },
 }
 
 #[derive(Debug, Args)]
