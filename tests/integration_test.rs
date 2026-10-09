@@ -1093,24 +1093,10 @@ fn test_show_no_image_flag_outputs_text_card() {
 }
 
 #[test]
-fn test_list_cli_accepts_image_and_no_image_flags() {
+fn test_list_cli_accepts_icons_flags_and_rejects_legacy_image_flags() {
     let cli_icons = Cli::try_parse_from(["musu", "list", "--icons"])
         .expect("musu list must accept --icons flag");
     match cli_icons.command {
-        Command::List(args) => assert!(args.icons),
-        other => panic!("expected List command, got {other:?}"),
-    }
-
-    let cli_img = Cli::try_parse_from(["musu", "list", "--image"])
-        .expect("musu list must accept --image alias flag");
-    match cli_img.command {
-        Command::List(args) => assert!(args.icons),
-        other => panic!("expected List command, got {other:?}"),
-    }
-
-    let cli_short =
-        Cli::try_parse_from(["musu", "list", "-i"]).expect("musu list must accept -i flag");
-    match cli_short.command {
         Command::List(args) => assert!(args.icons),
         other => panic!("expected List command, got {other:?}"),
     }
@@ -1122,19 +1108,20 @@ fn test_list_cli_accepts_image_and_no_image_flags() {
         other => panic!("expected List command, got {other:?}"),
     }
 
-    let cli_no_img = Cli::try_parse_from(["musu", "list", "--no-image"])
-        .expect("musu list must accept --no-image flag");
-    match cli_no_img.command {
-        Command::List(args) => assert!(args.no_icons),
-        other => panic!("expected List command, got {other:?}"),
-    }
-
     let cli_hide = Cli::try_parse_from(["musu", "list", "--hide-disabled-symlinks"])
         .expect("musu list must accept --hide-disabled-symlinks");
     match cli_hide.command {
         Command::List(args) => assert!(args.hide_disabled_symlinks),
         other => panic!("expected List command, got {other:?}"),
     }
+
+    // Verify -i, --image, and --no-image are rejected
+    assert!(Cli::try_parse_from(["musu", "list", "-i"]).is_err());
+    assert!(Cli::try_parse_from(["musu", "list", "--image"]).is_err());
+    assert!(Cli::try_parse_from(["musu", "list", "--no-image"]).is_err());
+    assert!(Cli::try_parse_from(["musu", "show", "app", "-i"]).is_err());
+    assert!(Cli::try_parse_from(["musu", "show", "app", "--image"]).is_err());
+    assert!(Cli::try_parse_from(["musu", "show", "app", "--no-image"]).is_err());
 }
 
 #[test]
