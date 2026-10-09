@@ -108,13 +108,15 @@ Run `musu watch` automatically in the background without keeping a terminal open
 
 ```sh
 # 1. Install and start the background service (user-space, no root required)
-musu watch service install
+musu watch install-service
 
 # 2. Check service status
 systemctl --user status musu-watch.service
+# or
+musu watch status
 
 # SysV alternative:
-sudo musu watch service install --sysv
+sudo musu watch install-service --sysv
 sudo service musu-watch status
 ```
 
@@ -128,7 +130,7 @@ To stop or remove the service:
 
 ```sh
 systemctl --user stop musu-watch.service
-musu watch service uninstall
+musu watch uninstall-service
 ```
 
 ## Commands

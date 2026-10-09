@@ -82,8 +82,8 @@ _musu() {
             musu__subcmd__help,watch)
                 cmd="musu__subcmd__help__subcmd__watch"
                 ;;
-            musu__subcmd__help__subcmd__watch,install)
-                cmd="musu__subcmd__help__subcmd__watch__subcmd__install"
+            musu__subcmd__help__subcmd__watch,install-service)
+                cmd="musu__subcmd__help__subcmd__watch__subcmd__install__subcmd__service"
                 ;;
             musu__subcmd__help__subcmd__watch,restart)
                 cmd="musu__subcmd__help__subcmd__watch__subcmd__restart"
@@ -97,17 +97,23 @@ _musu() {
             musu__subcmd__help__subcmd__watch,stop)
                 cmd="musu__subcmd__help__subcmd__watch__subcmd__stop"
                 ;;
-            musu__subcmd__help__subcmd__watch,uninstall)
-                cmd="musu__subcmd__help__subcmd__watch__subcmd__uninstall"
+            musu__subcmd__help__subcmd__watch,uninstall-service)
+                cmd="musu__subcmd__help__subcmd__watch__subcmd__uninstall__subcmd__service"
                 ;;
             musu__subcmd__watch,help)
                 cmd="musu__subcmd__watch__subcmd__help"
                 ;;
-            musu__subcmd__watch,install)
-                cmd="musu__subcmd__watch__subcmd__install"
+            musu__subcmd__watch,install-service)
+                cmd="musu__subcmd__watch__subcmd__install__subcmd__service"
                 ;;
             musu__subcmd__watch,restart)
                 cmd="musu__subcmd__watch__subcmd__restart"
+                ;;
+            musu__subcmd__watch,service-install)
+                cmd="musu__subcmd__watch__subcmd__install__subcmd__service"
+                ;;
+            musu__subcmd__watch,service-uninstall)
+                cmd="musu__subcmd__watch__subcmd__uninstall__subcmd__service"
                 ;;
             musu__subcmd__watch,start)
                 cmd="musu__subcmd__watch__subcmd__start"
@@ -118,14 +124,14 @@ _musu() {
             musu__subcmd__watch,stop)
                 cmd="musu__subcmd__watch__subcmd__stop"
                 ;;
-            musu__subcmd__watch,uninstall)
-                cmd="musu__subcmd__watch__subcmd__uninstall"
+            musu__subcmd__watch,uninstall-service)
+                cmd="musu__subcmd__watch__subcmd__uninstall__subcmd__service"
                 ;;
             musu__subcmd__watch__subcmd__help,help)
                 cmd="musu__subcmd__watch__subcmd__help__subcmd__help"
                 ;;
-            musu__subcmd__watch__subcmd__help,install)
-                cmd="musu__subcmd__watch__subcmd__help__subcmd__install"
+            musu__subcmd__watch__subcmd__help,install-service)
+                cmd="musu__subcmd__watch__subcmd__help__subcmd__install__subcmd__service"
                 ;;
             musu__subcmd__watch__subcmd__help,restart)
                 cmd="musu__subcmd__watch__subcmd__help__subcmd__restart"
@@ -139,8 +145,8 @@ _musu() {
             musu__subcmd__watch__subcmd__help,stop)
                 cmd="musu__subcmd__watch__subcmd__help__subcmd__stop"
                 ;;
-            musu__subcmd__watch__subcmd__help,uninstall)
-                cmd="musu__subcmd__watch__subcmd__help__subcmd__uninstall"
+            musu__subcmd__watch__subcmd__help,uninstall-service)
+                cmd="musu__subcmd__watch__subcmd__help__subcmd__uninstall__subcmd__service"
                 ;;
             *)
                 ;;
@@ -401,7 +407,7 @@ _musu() {
             return 0
             ;;
         musu__subcmd__help__subcmd__watch)
-            opts="install uninstall status start stop restart"
+            opts="install-service uninstall-service status start stop restart"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -414,7 +420,7 @@ _musu() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        musu__subcmd__help__subcmd__watch__subcmd__install)
+        musu__subcmd__help__subcmd__watch__subcmd__install__subcmd__service)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -484,7 +490,7 @@ _musu() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        musu__subcmd__help__subcmd__watch__subcmd__uninstall)
+        musu__subcmd__help__subcmd__watch__subcmd__uninstall__subcmd__service)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -597,7 +603,7 @@ _musu() {
             return 0
             ;;
         musu__subcmd__watch)
-            opts="-h --icons-dir --foreground --continuous --scan-only --recursive --dry-run --remove-dir --unwatch --help install uninstall status start stop restart help"
+            opts="-h --icons-dir --foreground --continuous --scan-only --recursive --dry-run --remove-dir --unwatch --help install-service service-install uninstall-service service-uninstall status start stop restart help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -623,7 +629,7 @@ _musu() {
             return 0
             ;;
         musu__subcmd__watch__subcmd__help)
-            opts="install uninstall status start stop restart help"
+            opts="install-service uninstall-service status start stop restart help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -650,7 +656,7 @@ _musu() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        musu__subcmd__watch__subcmd__help__subcmd__install)
+        musu__subcmd__watch__subcmd__help__subcmd__install__subcmd__service)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -720,7 +726,7 @@ _musu() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        musu__subcmd__watch__subcmd__help__subcmd__uninstall)
+        musu__subcmd__watch__subcmd__help__subcmd__uninstall__subcmd__service)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -734,7 +740,7 @@ _musu() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        musu__subcmd__watch__subcmd__install)
+        musu__subcmd__watch__subcmd__install__subcmd__service)
             opts="-h --now --sysv --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -808,7 +814,7 @@ _musu() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        musu__subcmd__watch__subcmd__uninstall)
+        musu__subcmd__watch__subcmd__uninstall__subcmd__service)
             opts="-h --sysv --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )

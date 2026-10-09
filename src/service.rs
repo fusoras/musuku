@@ -107,14 +107,14 @@ pub fn sysv_script_path() -> PathBuf {
 /// Dispatches the service CLI subcommand.
 pub fn dispatch(cmd: WatchServiceCmd, manager: &Manager) -> Result<()> {
     match cmd {
-        WatchServiceCmd::Install {
+        WatchServiceCmd::InstallService {
             now,
             sysv,
             directories,
         } => {
             install(now, sysv, &directories, manager)?;
         }
-        WatchServiceCmd::Uninstall { sysv } => {
+        WatchServiceCmd::UninstallService { sysv } => {
             uninstall(sysv)?;
         }
         WatchServiceCmd::Status { sysv } => {

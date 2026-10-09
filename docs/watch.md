@@ -41,24 +41,24 @@ Instead of leaving a terminal process running with `--continuous`, you can manag
 
 ```sh
 # Install and start user systemd service (default, no root needed)
-musu watch service install
+musu watch install-service
 
 # Check status natively
 systemctl --user status musu-watch.service
 # or via musu:
-musu watch service status
+musu watch status
 
 # Follow logs in real time
 journalctl --user -u musu-watch.service -f
 
 # Uninstall cleanly
-musu watch service uninstall
+musu watch uninstall-service
 ```
 
 For SysVinit environments, pass `--sysv`:
 
 ```sh
-sudo musu watch service install --sysv
+sudo musu watch install-service --sysv
 sudo service musu-watch status
 ```
 
