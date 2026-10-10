@@ -88,6 +88,9 @@ pub struct Add {
 
 #[derive(Debug, Args, Default)]
 pub struct List {
+    /// Sort order: name (a-z, default), name-desc, id, id-desc, created, category.
+    #[arg(long, value_enum, default_value = "name")]
+    pub sort: crate::manager::SortField,
     /// Display application icon previews in compatible terminals.
     #[arg(long = "icons")]
     pub icons: bool,
