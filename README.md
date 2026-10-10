@@ -40,7 +40,7 @@ manages, edit it, back it up, or version-control it.
 
 ## Installation
 
-### Quick Install (Recommended)
+### Quick Install
 
 Run the automated installer script:
 
