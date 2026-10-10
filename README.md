@@ -6,9 +6,8 @@ Seamless desktop & CLI integration for portable Linux apps
   <img alt="musu demo" src="https://github.com/user-attachments/assets/48a2578f-cc07-4fe7-a250-f923db963718" width="800" />
 </p>
 
-`musu` is a lightweight Linux CLI tool written in Rust that integrates portable
-applications — AppImages, standalone binaries (for example those extracted from
-`tar.xz` archives), and shell scripts — into your desktop environment and your
+`musu` is a lightweight CLI tool written in Rust that integrates portable
+applications — AppImages, standalone binaries (`bin.sh`), and shell scripts — into your desktop environment and your
 terminal `$PATH`.
 
 With a single command, `musu` can:
