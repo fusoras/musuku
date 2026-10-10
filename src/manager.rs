@@ -83,8 +83,27 @@ pub struct RemoveOptions {
     pub delete_target: bool,
 }
 
+/// Sort order for [`Manager::list_with_options`].
+#[derive(clap::ValueEnum, Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum SortField {
+    /// Sort by display name, A to Z (default).
+    #[default]
+    Name,
+    /// Sort by display name, Z to A.
+    NameDesc,
+    /// Sort by id, A to Z.
+    Id,
+    /// Sort by id, Z to A.
+    IdDesc,
+    /// Sort by creation time, newest first.
+    Created,
+    /// Sort by first category, A to Z.
+    Category,
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct ListOptions {
+    pub sort: SortField,
     pub icons: bool,
     pub no_icons: bool,
     pub image: bool,
@@ -464,7 +483,7 @@ impl Manager {
         let _ = crate::watcher::auto_sync_if_configured(self);
         let registry = config::load(&self.config_path)?;
         let mut output = String::new();
-        let apps: Vec<_> = registry
+        let mut apps: Vec<_> = registry
             .apps
             .iter()
             .filter(|app| {
@@ -478,6 +497,7 @@ impl Manager {
             })
             .filter(|app| !options.broken || !app.target_bin.exists())
             .collect();
+        sort_apps(&mut apps, options.sort);
         if options.json {
             return serde_json::to_string_pretty(&apps)
                 .context("failed to serialize applications to JSON");
@@ -1544,5 +1564,24 @@ fn check_and_warn_path(destination: &Path) {
             "  export PATH=\"{}:$PATH\"",
             display_tilde.replace("~", "$HOME")
         );
+    }
+}
+
+/// Sort the filtered application list in place according to `field`.
+fn sort_apps(apps: &mut [&AppEntry], field: SortField) {
+    match field {
+        SortField::Name => apps.sort_by_key(|app| app.name.to_lowercase()),
+        SortField::NameDesc => apps.sort_by_key(|app| std::cmp::Reverse(app.name.to_lowercase())),
+        SortField::Id => apps.sort_by_key(|app| app.id.clone()),
+        SortField::IdDesc => apps.sort_by_key(|app| std::cmp::Reverse(app.id.clone())),
+        // Newest first.
+        SortField::Created => apps.sort_by_key(|app| std::cmp::Reverse(app.created_at)),
+        SortField::Category => apps.sort_by_key(|app| {
+            app.categories
+                .as_ref()
+                .and_then(|c| c.first())
+                .map(|s| s.to_lowercase())
+                .unwrap_or_default()
+        }),
     }
 }

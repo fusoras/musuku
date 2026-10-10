@@ -60,6 +60,7 @@ fn main() -> Result<()> {
         Command::List(args) => print!(
             "{}",
             manager.list_with_options(musu::manager::ListOptions {
+                sort: args.sort,
                 icons: args.icons,
                 no_icons: args.no_icons,
                 image: args.icons,
