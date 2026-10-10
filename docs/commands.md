@@ -37,12 +37,13 @@ musu add [OPTIONS] <EXECUTABLE>
 | `--name <NAME>` | Display name shown in desktop application menus. | Derived from executable filename |
 | `--icon <PATH>` | Path to the icon image (copied to `~/.local/share/icons/`). | Extracted from AppImage or None |
 | `--categories <LIST>` | Desktop categories separated by commas (e.g. `Development,Utility`). Use without a value to list standard categories (read-only query). | Extracted or configured defaults |
-| `--description <TEXT>` | Application description or tooltip written to `Comment=` in the `.desktop` file (visible alias: `--comment`). | Extracted from AppImage or None |
+| `--description <TEXT>` | Application description or tooltip written to `Comment=` in the `.desktop` file (short: `-d`; visible aliases: `--comment`, `--desc`). Repeat the flag to add per-language descriptions using `LANG=TEXT` (e.g. `--description "Default" --description es="Texto en español"`); each language is written as `Comment[es]=...` so desktop environments show the matching locale. | Extracted from AppImage or None |
 | `--bin-name <NAME>` | Custom command name for the terminal symlink. | Application ID (slug) |
 | `--no-desktop` | Skip creating the `.desktop` launcher entry. | `false` |
 | `--no-symlink` | Skip creating the terminal `$PATH` symlink. | `false` |
 | `--dest-bin <PATH>` | Custom directory for the binary symlink (prompts for `sudo` if outside `$HOME`). | `~/.local/bin` |
 | `--overwrite` | Replace an existing application with the same name/ID without asking (aliases: `--force`, `-f`). | `false` |
+| `--portable` | Save metadata to a portable `.musu.toml` bundle file in the application's directory. | `false` |
 
 ### Fallback Name & ID Behavior
 
@@ -84,6 +85,12 @@ musu add ~/Downloads/myapp.AppImage \
   --icon ~/Pictures/myapp.png \
   --categories AudioVideo,Utility \
   --description "Lightweight audio recorder"
+
+# Multilingual descriptions: default plus per-language comments
+musu add ~/Downloads/myapp.AppImage \
+  --description "Lightweight audio recorder" \
+  -d es="Grabadora de audio ligera" \
+  -d fr="Enregistreur audio léger"
 
 # Standalone CLI binary: symlink only, no desktop entry
 musu add /opt/tools/my-cli --no-desktop --bin-name mycli
@@ -180,8 +187,12 @@ My App (my-app)
   Symlink:     ~/.local/bin/my-app [ok]
   Categories:  AudioVideo, Utility
   Description: Lightweight audio recorder
+    [es]: Grabadora de audio ligera
+    [fr]: Enregistreur audio léger
   Registered:  2026-10-06 14:00:00 UTC
 ```
+
+Per-language descriptions (registered via `-d LANG=TEXT`) are listed indented under `Description`.
 
 ### Path Extraction for Scripts
 
@@ -212,8 +223,9 @@ musu update <ID_OR_NAME> [OPTIONS]
 | `--icon <PATH>` | New icon file (removes previously copied icon first). | icon unchanged |
 | `--name <NAME>` | New display name (re-derives slug ID and updates desktop entry). | name unchanged |
 | `--categories <LIST>` | New desktop categories (e.g. `Graphics,3DGraphics`). Use without a value to show current categories (read-only query). | categories unchanged |
-| `--description <TEXT>` | New description or tooltip for the application (visible alias: `--comment`). | description unchanged |
+| `--description <TEXT>` | New description or tooltip for the application (short: `-d`; visible aliases: `--comment`, `--desc`). Repeat with `LANG=TEXT` to set per-language descriptions; each `LANG=text` replaces only that language (others are kept), and an empty value (`LANG=`) removes it. | description unchanged |
 | `--remove-symlink` | Delete the terminal symlink and clear `symlink` in registry. | symlink kept |
+| `--portable` | Save or update `.musu.toml` bundle file in the application's directory. | `false` |
 
 > [!NOTE]
 > Modifying `--target`, `--name`, `--icon`, `--categories`, or `--description` regenerates the `.desktop` file and re-points the terminal symlink automatically when those artifacts exist.
@@ -230,6 +242,12 @@ musu update my-app --name "My App Pro"
 
 # Update application description
 musu update my-app --description "New updated audio suite"
+
+# Update only the Spanish description, keeping other languages
+musu update my-app -d es="Nueva suite de audio"
+
+# Remove the French description
+musu update my-app -d fr=
 
 # Update categories
 musu update my-app --categories AudioVideo,Development

@@ -21,6 +21,7 @@ Registers an executable file and integrates it into the system.
 - `--no-symlink`: Skip creating a terminal `$PATH` symlink.
 - `--dest-bin <PATH>`: Custom directory for the binary symlink (prompts for `sudo` if outside `$HOME`).
 - `--overwrite` / `--force` / `-f`: Replace an existing application with the same name/ID without the interactive menu.
+- `--portable`: Generate a `.musu.toml` bundle file in the application's folder with relative paths.
 
 ### `musu list`
 Lists all managed applications with health checks:

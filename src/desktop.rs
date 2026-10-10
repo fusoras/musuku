@@ -5,6 +5,16 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
+use crate::models::Descriptions;
+
+/// Comments for a `.desktop` entry: the default `Comment=` line plus any
+/// localized `Comment[lang]=` lines.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct Comments<'a> {
+    pub default: Option<&'a str>,
+    pub languages: Option<&'a Descriptions>,
+}
+
 pub fn default_base_dir() -> PathBuf {
     dirs::data_dir()
         .or_else(|| dirs::home_dir().map(|home| home.join(".local/share")))
@@ -18,7 +28,7 @@ pub fn install(
     exec: &str,
     icon: Option<&Path>,
     categories: Option<&[String]>,
-    comment: Option<&str>,
+    comments: Comments<'_>,
 ) -> Result<(PathBuf, Option<PathBuf>)> {
     let applications = base_dir.join("applications");
     let icons = base_dir.join("icons");
@@ -59,10 +69,22 @@ pub fn install(
         "[Desktop Entry]\nType=Application\nName={safe_name}\nExec={}\n",
         shell_escape(&safe_exec)
     );
-    if let Some(comment) = comment {
+    if let Some(comment) = comments.default {
         let safe_comment = sanitize_entry_value(comment);
         if !safe_comment.is_empty() {
             contents.push_str(&format!("Comment={safe_comment}\n"));
+        }
+    }
+    if let Some(comments) = comments.languages {
+        for (lang, text) in comments {
+            let safe_lang: String = lang
+                .chars()
+                .filter(|c| c.is_ascii_alphanumeric() || *c == '_')
+                .collect();
+            let safe_text = sanitize_entry_value(text);
+            if !safe_lang.is_empty() && !safe_text.is_empty() {
+                contents.push_str(&format!("Comment[{safe_lang}]={safe_text}\n"));
+            }
         }
     }
     if let Some(icon) = installed_icon.as_deref() {
@@ -142,6 +164,18 @@ fn find_in_path(program: &str) -> Option<PathBuf> {
     std::env::split_paths(&std::env::var_os("PATH").unwrap_or_default())
         .map(|dir| dir.join(program))
         .find(|candidate| candidate.is_file())
+}
+
+/// Whether `lang` is a plausible locale key for `Comment[lang]`
+/// entries: starts with an ASCII letter, followed by letters,
+/// digits, or underscores, 2-10 characters total (e.g. `es`,
+/// `en`, `pt_BR`).
+pub(crate) fn is_valid_language_code(lang: &str) -> bool {
+    lang.chars()
+        .next()
+        .is_some_and(|first| first.is_ascii_alphabetic())
+        && (2..=10).contains(&lang.len())
+        && lang.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
 }
 
 fn shell_escape(path: &str) -> String {

@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 
 use anyhow::{Result, bail};
-use clap::{CommandFactory, Parser};
+use clap::Parser;
 use musu::{
     categories,
     cli::{Cli, Command},
@@ -33,12 +33,15 @@ fn main() -> Result<()> {
                 return Ok(());
             }
             warn_unknown_categories(args.categories.as_deref().unwrap_or_default());
+            let (description, descriptions) =
+                musu::manager::parse_description_values(args.description)?;
             manager.add(AddOptions {
                 target: args.executable,
                 name: args.name,
                 icon: args.icon,
                 categories: args.categories,
-                description: args.description,
+                description,
+                descriptions,
                 bin_name: args.bin_name,
                 no_desktop: args.no_desktop,
                 no_symlink: args.no_symlink,
@@ -51,6 +54,7 @@ fn main() -> Result<()> {
                     None
                 },
                 overwrite: args.overwrite,
+                portable: args.portable,
             })?;
         }
         Command::List(args) => print!(
@@ -112,6 +116,8 @@ fn main() -> Result<()> {
                 return Ok(());
             }
             warn_unknown_categories(args.categories.as_deref().unwrap_or_default());
+            let (description, descriptions) =
+                musu::manager::parse_description_values(args.description)?;
             let outcome = manager.update(
                 &args.id_or_name,
                 UpdateOptions {
@@ -119,7 +125,8 @@ fn main() -> Result<()> {
                     icon: args.icon,
                     name: args.name,
                     categories: args.categories,
-                    description: args.description,
+                    description,
+                    descriptions,
                     remove_symlink: args.remove_symlink,
                     sandbox: if args.sandbox {
                         Some(true)
@@ -128,6 +135,7 @@ fn main() -> Result<()> {
                     } else {
                         None
                     },
+                    portable: args.portable,
                 },
             )?;
             match outcome {
@@ -259,7 +267,7 @@ fn main() -> Result<()> {
                 musu::completions::detect_shell(std::env::var("SHELL").ok().as_deref())
             });
             if args.stdout {
-                clap_complete::generate(shell, &mut Cli::command(), "musu", &mut std::io::stdout());
+                musu::completions::generate_completions(shell, &mut std::io::stdout());
             } else {
                 let home = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
                 let path = musu::completions::install_completions_to(shell, &home)?;

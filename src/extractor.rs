@@ -2,6 +2,7 @@
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -11,6 +12,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 pub struct DesktopMetadata {
     pub name: Option<String>,
     pub comment: Option<String>,
+    #[serde(default)]
+    pub comment_langs: BTreeMap<String, String>,
     pub categories: Option<Vec<String>>,
     pub icon: Option<String>,
 }
@@ -51,11 +54,24 @@ pub fn parse_desktop_entry(contents: &str) -> Option<DesktopMetadata> {
                     metadata.categories = Some(categories);
                 }
             }
+            key if key.starts_with("Comment[")
+                && key.ends_with(']')
+                && crate::desktop::is_valid_language_code(
+                    &key["Comment[".len()..key.len() - 1],
+                )
+                && !value.is_empty() =>
+            {
+                metadata.comment_langs.insert(
+                    key["Comment[".len()..key.len() - 1].to_string(),
+                    value.to_string(),
+                );
+            }
             _ => {}
         }
     }
     (metadata.name.is_some()
         || metadata.comment.is_some()
+        || !metadata.comment_langs.is_empty()
         || metadata.categories.is_some()
         || metadata.icon.is_some())
     .then_some(metadata)

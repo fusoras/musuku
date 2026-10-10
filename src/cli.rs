@@ -66,14 +66,24 @@ pub struct Add {
     #[arg(short = 'f', long, visible_alias = "force")]
     pub overwrite: bool,
     /// Application description or tooltip (written as Comment in .desktop).
-    #[arg(long, visible_alias = "comment")]
-    pub description: Option<String>,
+    /// Repeat for per-language comments:
+    /// `--description "Default" --description es="En español"`.
+    #[arg(
+        short = 'd',
+        long,
+        visible_aliases = ["comment", "desc"],
+        value_name = "TEXT | LANG=TEXT"
+    )]
+    pub description: Vec<String>,
     /// Run the application in an isolated sandbox (bwrap or firejail).
     #[arg(long, visible_alias = "isolate")]
     pub sandbox: bool,
     /// Disable sandboxing explicitly.
     #[arg(long)]
     pub no_sandbox: bool,
+    /// Save metadata to a portable .musu.toml bundle file alongside the application.
+    #[arg(long)]
+    pub portable: bool,
 }
 
 #[derive(Debug, Args, Default)]
@@ -178,14 +188,24 @@ pub struct Update {
     #[arg(long)]
     pub remove_symlink: bool,
     /// New application description or tooltip.
-    #[arg(long, visible_alias = "comment")]
-    pub description: Option<String>,
+    /// Repeat for per-language comments:
+    /// `--description "Default" --description es="En español"`.
+    #[arg(
+        short = 'd',
+        long,
+        visible_aliases = ["comment", "desc"],
+        value_name = "TEXT | LANG=TEXT"
+    )]
+    pub description: Vec<String>,
     /// Run the application in an isolated sandbox (bwrap or firejail).
     #[arg(long, visible_alias = "isolate")]
     pub sandbox: bool,
     /// Disable sandboxing explicitly.
     #[arg(long)]
     pub no_sandbox: bool,
+    /// Save metadata to a portable .musu.toml bundle file alongside the application.
+    #[arg(long)]
+    pub portable: bool,
 }
 
 #[derive(Debug, Args)]

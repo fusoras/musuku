@@ -122,6 +122,8 @@ pub struct Defaults {
     pub update_desktop_db: bool,
     #[serde(default = "default_dest_bin")]
     pub dest_bin: PathBuf,
+    #[serde(default)]
+    pub portable: bool,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
@@ -221,6 +223,7 @@ impl Default for Defaults {
             auto_extract: default_auto_extract(),
             update_desktop_db: default_update_desktop_db(),
             dest_bin: default_dest_bin(),
+            portable: false,
         }
     }
 }

@@ -2,7 +2,7 @@
 
 use crate::{
     config, desktop, extractor, health,
-    models::{AppEntry, slugify},
+    models::{AppEntry, Descriptions, slugify},
     sandbox, symlink,
 };
 use anyhow::{Context, Result, bail};
@@ -19,6 +19,8 @@ pub struct AddOptions {
     pub icon: Option<PathBuf>,
     pub categories: Option<Vec<String>>,
     pub description: Option<String>,
+    /// Per-language descriptions keyed by locale code (e.g. `es`, `fr`).
+    pub descriptions: Option<Descriptions>,
     pub bin_name: Option<String>,
     pub no_desktop: bool,
     pub no_symlink: bool,
@@ -28,6 +30,7 @@ pub struct AddOptions {
     /// prompting (equivalent to answering "overwrite" in the interactive
     /// collision menu).
     pub overwrite: bool,
+    pub portable: bool,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -37,8 +40,40 @@ pub struct UpdateOptions {
     pub name: Option<String>,
     pub categories: Option<Vec<String>>,
     pub description: Option<String>,
+    /// Per-language descriptions keyed by locale code (e.g. `es`, `fr`).
+    pub descriptions: Option<Descriptions>,
     pub remove_symlink: bool,
     pub sandbox: Option<bool>,
+    pub portable: bool,
+}
+
+/// Split repeated `--description` values into the default description and
+/// per-language descriptions (`LANG=text` entries, e.g. `es="Texto"`).
+///
+/// Returns `(default, languages)`. A value is treated as per-language only
+/// when its `LANG` prefix is a valid locale code (2-10 chars, ASCII letter
+/// first, then letters/digits/underscore); anything else is a plain
+/// description (the last plain value wins).
+pub fn parse_description_values(
+    values: Vec<String>,
+) -> Result<(Option<String>, Option<Descriptions>)> {
+    let mut default = None;
+    let mut languages = Descriptions::new();
+    for value in values {
+        match value.split_once('=') {
+            Some((lang, text)) if crate::desktop::is_valid_language_code(lang) => {
+                if !text.trim().is_empty() {
+                    languages.insert(lang.to_string(), text.to_string());
+                }
+            }
+            _ => {
+                if !value.trim().is_empty() {
+                    default = Some(value);
+                }
+            }
+        }
+    }
+    Ok((default, (!languages.is_empty()).then_some(languages)))
 }
 
 /// Options for [`Manager::remove_with_options`].
@@ -105,6 +140,10 @@ pub enum CollisionAction {
 pub struct AddCollision {
     /// Existing registry entry, when the ID is already managed.
     pub existing: Option<AppEntry>,
+    /// Registry entries pointing at the same target binary under a
+    /// *different* ID (duplicates created by moving or re-registering
+    /// an app without removing the old entry).
+    pub duplicates: Vec<AppEntry>,
     /// Existing `.desktop` file on disk (possibly orphaned from
     /// the registry).
     pub desktop_file: Option<PathBuf>,
@@ -116,6 +155,7 @@ impl AddCollision {
         self.existing
             .as_ref()
             .map(|app| app.id.clone())
+            .or_else(|| self.duplicates.first().map(|app| app.id.clone()))
             .or_else(|| {
                 self.desktop_file
                     .as_ref()
@@ -128,20 +168,40 @@ impl AddCollision {
 }
 
 /// Detect whether registering `entry` would collide with an already
-/// registered application (same ID) or with an orphaned `.desktop`
-/// file left on disk.
+/// registered application (same ID), with an orphaned `.desktop`
+/// file left on disk, or with another registration pointing at the
+/// same target binary.
 pub fn detect_add_collision(
     registry: &crate::models::AppRegistry,
     data_dir: &Path,
     entry: &AppEntry,
 ) -> Option<AddCollision> {
     let existing = registry.find(&entry.id).cloned();
-    let desktop_file = data_dir.join("applications").join(format!("{}.desktop", entry.id));
+    let duplicates: Vec<AppEntry> = registry
+        .apps
+        .iter()
+        .filter(|app| app.id != entry.id && same_target(&app.target_bin, &entry.target_bin))
+        .cloned()
+        .collect();
+    let desktop_file = data_dir
+        .join("applications")
+        .join(format!("{}.desktop", entry.id));
     let desktop_file = desktop_file.is_file().then_some(desktop_file);
-    (existing.is_some() || desktop_file.is_some()).then_some(AddCollision {
-        existing,
-        desktop_file,
-    })
+    (existing.is_some() || !duplicates.is_empty() || desktop_file.is_some()).then_some(
+        AddCollision {
+            existing,
+            duplicates,
+            desktop_file,
+        },
+    )
+}
+
+/// Whether two paths point at the same file, comparing canonicalized
+/// paths when available and falling back to plain path equality for
+/// missing targets.
+fn same_target(a: &Path, b: &Path) -> bool {
+    let canonical = |path: &Path| fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    canonical(a) == canonical(b)
 }
 
 /// Parse a collision-menu selection. Empty or unrecognized input
@@ -180,10 +240,22 @@ impl Manager {
     pub fn add(&self, options: AddOptions) -> Result<AppEntry> {
         let settings = config::load_settings(self.settings_base())?;
         let canonical_target = canonicalize_target(&options.target)?;
+        let bundle_meta = crate::bundle::find_bundle_file(&canonical_target)
+            .and_then(|file| crate::bundle::load_bundle(&file).ok());
+        let bundle_dir = canonical_target.parent().unwrap_or(&canonical_target);
+        let bundle_app = bundle_meta.as_ref().map(|b| &b.app);
+
+        let resolved_bundle_icon = bundle_app.and_then(|app| {
+            app.icon.as_ref().map(|icon_str| {
+                crate::bundle::resolve_bundle_path(icon_str, bundle_dir, self.home_dir.as_deref())
+            })
+        });
+
         let extraction = if settings.defaults.auto_extract
             && (options.icon.is_none()
                 || options.categories.is_none()
-                || options.description.is_none())
+                || options.description.is_none()
+                || options.descriptions.is_none())
         {
             extractor::inspect_and_extract(&canonical_target)?
         } else {
@@ -192,13 +264,33 @@ impl Manager {
         let extracted_name = extraction
             .as_ref()
             .and_then(|result| result.metadata.name.as_deref());
-        let mut entry = AppEntry::new(options.name.as_deref().or(extracted_name), canonical_target);
+        let bundle_name = bundle_app.map(|app| app.name.as_str());
+        let mut entry = AppEntry::new(
+            options.name.as_deref().or(bundle_name).or(extracted_name),
+            canonical_target,
+        );
         entry.description = options.description.or_else(|| {
-            extraction
-                .as_ref()
-                .and_then(|result| result.metadata.comment.clone())
+            bundle_app
+                .and_then(|app| app.description.clone())
+                .or_else(|| {
+                    extraction
+                        .as_ref()
+                        .and_then(|result| result.metadata.comment.clone())
+                })
+        });
+        entry.descriptions = options.descriptions.or_else(|| {
+            bundle_app
+                .and_then(|app| app.descriptions.clone())
+                .or_else(|| {
+                    extraction
+                        .as_ref()
+                        .map(|result| &result.metadata.comment_langs)
+                        .filter(|langs| !langs.is_empty())
+                        .cloned()
+                })
         });
         let detected_categories = if options.categories.is_none()
+            && bundle_app.and_then(|app| app.categories.as_ref()).is_none()
             && extraction
                 .as_ref()
                 .and_then(|r| r.metadata.categories.as_ref())
@@ -211,6 +303,7 @@ impl Manager {
         };
         entry.categories = options
             .categories
+            .or_else(|| bundle_app.and_then(|app| app.categories.clone()))
             .or_else(|| {
                 extraction
                     .as_ref()
@@ -283,6 +376,7 @@ impl Manager {
                 options
                     .icon
                     .as_deref()
+                    .or(resolved_bundle_icon.as_deref())
                     .or_else(|| {
                         extraction
                             .as_ref()
@@ -290,7 +384,10 @@ impl Manager {
                     })
                     .or(probed_icon.as_deref()),
                 entry.categories.as_deref(),
-                entry.description.as_deref(),
+                desktop::Comments {
+                    default: entry.description.as_deref(),
+                    languages: entry.descriptions.as_ref(),
+                },
             )?;
             entry.desktop_file = Some(desktop_file);
             entry.icon_path = icon_path;
@@ -323,6 +420,33 @@ impl Manager {
                 },
             )?);
             check_and_warn_path(destination);
+        }
+        if (options.portable || settings.defaults.portable)
+            && let Some(parent) = entry.target_bin.parent()
+        {
+            let bin_rel = crate::bundle::serialize_bundle_path(
+                &entry.target_bin,
+                parent,
+                self.home_dir.as_deref(),
+            );
+            let icon_str = options
+                .icon
+                .as_deref()
+                .or(resolved_bundle_icon.as_deref())
+                .map(|ic| {
+                    crate::bundle::serialize_bundle_path(ic, parent, self.home_dir.as_deref())
+                });
+            let bundle_meta = crate::bundle::BundleMetadata {
+                app: crate::bundle::BundleApp {
+                    name: entry.name.clone(),
+                    bin: bin_rel,
+                    icon: icon_str,
+                    description: entry.description.clone(),
+                    descriptions: entry.descriptions.clone(),
+                    categories: entry.categories.clone(),
+                },
+            };
+            crate::bundle::save_bundle(parent, &bundle_meta)?;
         }
         registry.add(entry.clone());
         config::save(&self.config_path, &registry)?;
@@ -570,6 +694,11 @@ impl Manager {
         if let Some(desc) = &app.description {
             writeln!(output, "  Description: {desc}").unwrap();
         }
+        if let Some(descriptions) = &app.descriptions {
+            for (lang, text) in descriptions {
+                writeln!(output, "    [{lang}]: {text}").unwrap();
+            }
+        }
         writeln!(
             output,
             "  Registered:  {}",
@@ -616,7 +745,9 @@ impl Manager {
             || options.name.is_some()
             || options.icon.is_some()
             || options.categories.is_some()
-            || options.description.is_some();
+            || options.description.is_some()
+            || options.descriptions.is_some()
+            || options.portable;
         if !metadata_change && !options.remove_symlink {
             return Ok(UpdateOutcome::NoChanges { name: old.name });
         }
@@ -631,15 +762,19 @@ impl Manager {
         if metadata_change {
             let mut extracted_icon = None;
             let mut extracted_comment = None;
+            let mut extracted_comment_langs = None;
             if let Some(target) = options.target {
                 let canonical = canonicalize_target(&target)?;
                 entry.target_bin = canonical;
-                if (options.icon.is_none() || options.description.is_none())
+                if (options.icon.is_none()
+                    || options.description.is_none()
+                    || options.descriptions.is_none())
                     && extractor::is_appimage(&entry.target_bin).unwrap_or(false)
                     && let Ok(Some(extraction)) = extractor::inspect_and_extract(&entry.target_bin)
                 {
                     extracted_icon = extraction.icon_path.clone();
                     extracted_comment = extraction.metadata.comment.clone();
+                    extracted_comment_langs = Some(extraction.metadata.comment_langs.clone());
                     _extraction_guard = Some(extraction);
                 }
             }
@@ -664,6 +799,26 @@ impl Manager {
             } else if extracted_comment.is_some() {
                 entry.description = extracted_comment;
             }
+            // Merge the provided per-language descriptions into the existing
+            // set: each `LANG=text` replaces just that language, leaving the
+            // others untouched.
+            if let Some(descriptions) = options.descriptions {
+                let mut merged = entry.descriptions.clone().unwrap_or_default();
+                for (lang, text) in descriptions {
+                    if text.trim().is_empty() {
+                        merged.remove(&lang);
+                    } else {
+                        merged.insert(lang, text);
+                    }
+                }
+                entry.descriptions = (!merged.is_empty()).then_some(merged);
+            } else if let Some(langs) = extracted_comment_langs.filter(|l| !l.is_empty()) {
+                let mut merged = entry.descriptions.clone().unwrap_or_default();
+                for (lang, text) in langs {
+                    merged.entry(lang).or_insert(text);
+                }
+                entry.descriptions = Some(merged);
+            }
             if options.icon.is_some() || extracted_icon.is_some() {
                 desktop::remove(None, entry.icon_path.as_deref())?;
                 entry.icon_path = None;
@@ -683,7 +838,10 @@ impl Manager {
                         .or(extracted_icon.as_deref())
                         .or(entry.icon_path.as_deref()),
                     entry.categories.as_deref(),
-                    entry.description.as_deref(),
+                    desktop::Comments {
+                        default: entry.description.as_deref(),
+                        languages: entry.descriptions.as_ref(),
+                    },
                 )?;
                 entry.desktop_file = Some(new_file);
                 entry.icon_path = icon;
@@ -721,6 +879,33 @@ impl Manager {
             .update(query, |stored| *stored = entry.clone())
             .ok_or_else(|| anyhow::anyhow!("Application '{}' not found.", query))?
             .clone();
+        if (options.portable || settings.defaults.portable)
+            && let Some(parent) = updated.target_bin.parent()
+        {
+            let bin_rel = crate::bundle::serialize_bundle_path(
+                &updated.target_bin,
+                parent,
+                self.home_dir.as_deref(),
+            );
+            let icon_str = options
+                .icon
+                .as_deref()
+                .or(updated.icon_path.as_deref())
+                .map(|ic| {
+                    crate::bundle::serialize_bundle_path(ic, parent, self.home_dir.as_deref())
+                });
+            let bundle_meta = crate::bundle::BundleMetadata {
+                app: crate::bundle::BundleApp {
+                    name: updated.name.clone(),
+                    bin: bin_rel,
+                    icon: icon_str,
+                    description: updated.description.clone(),
+                    descriptions: updated.descriptions.clone(),
+                    categories: updated.categories.clone(),
+                },
+            };
+            crate::bundle::save_bundle(parent, &bundle_meta)?;
+        }
         config::save(&self.config_path, &registry)?;
         drop(_extraction_guard);
         self.refresh_desktop_db(&settings);
@@ -755,11 +940,17 @@ impl Manager {
 
     /// Remove the artifacts of a colliding registration (registry
     /// entry, desktop launcher, symlink, icon) while preserving
-    /// the original target executable.
+    /// the original target executable. Duplicate registrations that
+    /// point at the same target binary are removed as well, so
+    /// overwriting cannot leave a stale second launcher behind.
     fn remove_collision(&self, collision: &AddCollision) -> Result<()> {
         if let Some(existing) = &collision.existing {
             self.remove_with_options(&existing.id, RemoveOptions::default())?;
-        } else if let Some(desktop_file) = &collision.desktop_file {
+        }
+        for duplicate in &collision.duplicates {
+            self.remove_with_options(&duplicate.id, RemoveOptions::default())?;
+        }
+        if let Some(desktop_file) = &collision.desktop_file {
             desktop::remove(Some(desktop_file), None)?;
         }
         Ok(())
@@ -921,6 +1112,19 @@ fn prompt_collision_action(
         BOLD_YELLOW, RESET, label
     );
     eprintln!();
+    if !collision.duplicates.is_empty() {
+        for duplicate in &collision.duplicates {
+            eprintln!(
+                "  Also registered as: {} ({}) -> {DIM_GRAY}{}{RESET}",
+                duplicate.name,
+                duplicate.id,
+                collapse_path(&duplicate.target_bin, home_dir, false),
+                DIM_GRAY = DIM_GRAY,
+                RESET = RESET
+            );
+        }
+        eprintln!();
+    }
     if let Some(desktop_file) = &collision.desktop_file {
         eprintln!(
             "  Existing desktop: {DIM_GRAY}{}{RESET}",
@@ -946,14 +1150,25 @@ fn prompt_collision_action(
     );
     eprintln!();
     eprintln!("What would you like to do?");
-    eprintln!(
-        "  [{}r{}] Rename new application",
-        DIM_GRAY, RESET
-    );
-    eprintln!(
-        "  [{}o{}] Overwrite / replace existing application",
-        DIM_GRAY, RESET
-    );
+    eprintln!("  [{}r{}] Rename new application", DIM_GRAY, RESET);
+    if collision.duplicates.is_empty() {
+        eprintln!(
+            "  [{}o{}] Overwrite / replace existing application",
+            DIM_GRAY, RESET
+        );
+    } else {
+        eprintln!(
+            "  [{}o{}] Overwrite / replace existing application (also removes the {} duplicate{})",
+            DIM_GRAY,
+            RESET,
+            collision.duplicates.len(),
+            if collision.duplicates.len() == 1 {
+                ""
+            } else {
+                "s"
+            }
+        );
+    }
     eprintln!("  [{}c{}] Cancel (default)", DIM_GRAY, RESET);
     eprintln!();
     eprint!(
@@ -1259,6 +1474,25 @@ pub fn format_visual_diff(old: &AppEntry, new: &AppEntry) -> String {
         out.push_str(&format!(
             "  Description: {} {} {}\n",
             old_desc, arrow, new_desc
+        ));
+    }
+    if old.descriptions != new.descriptions {
+        let format_langs = |langs: &Option<Descriptions>| {
+            langs
+                .as_ref()
+                .map(|m| {
+                    m.iter()
+                        .map(|(lang, text)| format!("{lang}={text}"))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                })
+                .unwrap_or_else(|| "none".to_string())
+        };
+        out.push_str(&format!(
+            "  Descriptions: {} {} {}\n",
+            format_langs(&old.descriptions),
+            arrow,
+            format_langs(&new.descriptions)
         ));
     }
     if old.sandbox != new.sandbox {

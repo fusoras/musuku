@@ -4,7 +4,12 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+
+/// Per-language descriptions keyed by locale code (e.g. `es`, `pt_BR`),
+/// shared by [`AppEntry`], bundles, and extracted desktop metadata.
+pub type Descriptions = BTreeMap<String, String>;
 
 /// A single application registered with `musu`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -26,6 +31,10 @@ pub struct AppEntry {
     /// Application description or tooltip, if any.
     #[serde(default)]
     pub description: Option<String>,
+    /// Per-language descriptions keyed by language code (e.g. `es`,
+    /// `pt_BR`), written as `Comment[es]=...` in the `.desktop` file.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub descriptions: Option<Descriptions>,
     /// Whether this app runs sandboxed.
     #[serde(default)]
     pub sandbox: Option<bool>,
@@ -54,6 +63,7 @@ impl AppEntry {
             icon_path: None,
             categories: None,
             description: None,
+            descriptions: None,
             sandbox: None,
             created_at: Utc::now(),
         }

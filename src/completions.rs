@@ -2,10 +2,50 @@
 
 use anyhow::{Context, Result};
 use clap::CommandFactory;
+use clap::builder::PossibleValue;
 use clap_complete::Shell;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
+
+/// Builds the clap command used to *generate* shell completions, with the
+/// standard FreeDesktop categories attached as candidate values for the
+/// `--categories` / `--category` flags.
+///
+/// This is deliberately separate from the command used to parse real CLI
+/// input: the runtime parser must keep accepting arbitrary custom categories
+/// (they are normalized/warned later by `warn_unknown_categories`), while the
+/// generated completion scripts should suggest the well-known names.
+fn completion_command() -> clap::Command {
+    let candidates: Vec<PossibleValue> = crate::categories::STANDARD_CATEGORIES
+        .iter()
+        .map(|category| PossibleValue::new(category.name).help(category.description))
+        .collect();
+    let mut cmd = crate::cli::Cli::command();
+    for subcommand in cmd.get_subcommands_mut() {
+        let target_ids: Vec<String> = subcommand
+            .get_arguments()
+            .map(|arg| arg.get_id().as_str().to_string())
+            .filter(|id| id == "categories" || id == "category")
+            .collect();
+        for id in target_ids {
+            let updated = subcommand.clone().mut_arg(id, |arg| {
+                arg.value_parser(clap::builder::PossibleValuesParser::new(candidates.clone()))
+            });
+            *subcommand = updated;
+        }
+    }
+    cmd
+}
+
+/// Generates a shell completion script for `shell` into `buf`.
+///
+/// Exposed so `musu completions --stdout` and the auto-installer share the
+/// exact same script (both get the standard-category candidates).
+pub fn generate_completions(shell: Shell, buf: &mut dyn Write) {
+    let mut cmd = completion_command();
+    clap_complete::generate(shell, &mut cmd, "musu", buf);
+}
 
 /// Detects the user's active shell from the SHELL environment variable.
 pub fn detect_shell(env_shell: Option<&str>) -> Shell {
@@ -45,9 +85,8 @@ pub fn install_completions_to(shell: Shell, home: &Path) -> Result<PathBuf> {
         fs::create_dir_all(parent)
             .with_context(|| format!("failed to create directory: {}", parent.display()))?;
     }
-    let mut cmd = crate::cli::Cli::command();
     let mut buf = Vec::new();
-    clap_complete::generate(shell, &mut cmd, "musu", &mut buf);
+    generate_completions(shell, &mut buf);
     fs::write(&target, buf)
         .with_context(|| format!("failed to write completion script to: {}", target.display()))?;
     Ok(target)
@@ -136,8 +175,10 @@ commands:
       --bin-name=: Custom command name for the terminal symlink
       --dest-bin=: Custom destination directory for the symlink
       --overwrite: Replace an existing application with the same name/ID without asking
+      --description=: Application description or tooltip; repeat with LANG=TEXT for per-language comments (e.g. es=Texto)
       --no-desktop: Skip creating a .desktop launcher entry
       --no-symlink: Skip creating a terminal $PATH symlink
+      --portable: Save metadata to a portable .musu.toml bundle file
     completion:
       positional:
         - ["$files"]
@@ -179,6 +220,8 @@ commands:
       --icon=: New path to the icon file
       --name=: New display name
       --categories=: New desktop categories separated by commas
+      --description=: New application description or tooltip; repeat with LANG=TEXT for per-language comments (e.g. es=Texto)
+      --portable: Save metadata to a portable .musu.toml bundle file
     completion:
       positional:
         - ["$(musu list | awk '{print $2}' | tr -d '()')"]

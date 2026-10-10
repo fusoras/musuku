@@ -1,4 +1,5 @@
 use musu::extractor::{DesktopMetadata, inspect_and_extract, parse_desktop_entry};
+use std::collections::BTreeMap;
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use tempfile::tempdir;
@@ -14,6 +15,7 @@ fn test_extractor_infers_desktop_metadata() {
         DesktopMetadata {
             name: Some("Video Tool".into()),
             comment: Some("Play videos".into()),
+            comment_langs: BTreeMap::new(),
             categories: Some(vec!["AudioVideo".into(), "Utility".into()]),
             icon: Some("video-tool".into()),
         }

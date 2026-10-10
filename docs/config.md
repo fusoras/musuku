@@ -51,6 +51,7 @@ auto_extract = true
 update_desktop_db = true
 dest_bin = "~/.local/bin"
 symlink_appimages = false
+portable = false
 ```
 
 | Key | Default | Effect |
@@ -60,6 +61,7 @@ symlink_appimages = false
 | `update_desktop_db` | `true` | Silently invokes `update-desktop-database` after add, update, or remove when the utility is installed. |
 | `dest_bin` | `"~/.local/bin"` | Default destination for terminal symlinks. `add --dest-bin` takes precedence; `~` expands to the configured home directory. |
 | `symlink_appimages` | `false` | Controls PATH symlinks for AppImages only. The default skips them; set `true` to create them. The alias `appimage_symlinks` is also accepted. `--no-symlink` always wins. |
+| `portable` | `false` | Automatically creates or updates `.musu.toml` portable bundle metadata file in the application's directory during `add` or `update`. |
 
 ## Watch
 

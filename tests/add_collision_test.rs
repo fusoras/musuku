@@ -1,6 +1,5 @@
 use musu::manager::{
-    detect_add_collision, parse_collision_choice, AddOptions, CollisionAction,
-    Manager,
+    AddOptions, CollisionAction, Manager, detect_add_collision, parse_collision_choice,
 };
 use musu::models::AppEntry;
 use std::fs;
@@ -40,8 +39,14 @@ fn test_parse_collision_choice_defaults_to_cancel() {
     assert_eq!(parse_collision_choice("rename"), CollisionAction::Rename);
     assert_eq!(parse_collision_choice("o"), CollisionAction::Overwrite);
     assert_eq!(parse_collision_choice("O"), CollisionAction::Overwrite);
-    assert_eq!(parse_collision_choice("overwrite"), CollisionAction::Overwrite);
-    assert_eq!(parse_collision_choice("replace"), CollisionAction::Overwrite);
+    assert_eq!(
+        parse_collision_choice("overwrite"),
+        CollisionAction::Overwrite
+    );
+    assert_eq!(
+        parse_collision_choice("replace"),
+        CollisionAction::Overwrite
+    );
 }
 
 #[test]
@@ -83,8 +88,7 @@ fn test_detect_add_collision_orphaned_desktop_only() {
     fs::write(&desktop, "[Desktop Entry]\n").unwrap();
 
     let registry = registry_of(&temp);
-    let collision =
-        detect_add_collision(&registry, &data_dir, &entry).unwrap();
+    let collision = detect_add_collision(&registry, &data_dir, &entry).unwrap();
     assert!(collision.existing.is_none());
     assert_eq!(collision.desktop_file, Some(desktop));
     assert_eq!(collision.label(), "zen");

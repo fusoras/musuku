@@ -42,6 +42,95 @@ fn test_install_completions_writes_valid_script() {
 }
 
 #[test]
+fn test_zsh_completions_offer_standard_categories_for_categories_flag() {
+    let temp = tempdir().unwrap();
+    let home = temp.path();
+
+    let path = install_completions_to(Shell::Zsh, home).unwrap();
+    let content = std::fs::read_to_string(&path).unwrap();
+
+    let lines: Vec<&str> = content.lines().collect();
+    let start = lines
+        .iter()
+        .position(|line| line.contains("--categories=["))
+        .expect("expected a --categories completion line");
+
+    // clap_complete emits one candidate per line; the block ends when the
+    // zsh spec closes with `))'`.
+    let block: String = lines[start..]
+        .iter()
+        .take_while(|line| !line.trim_end().ends_with("))'"))
+        .copied()
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    assert!(
+        !block.ends_with("_default"),
+        "categories completion must offer candidates, not fall back to files; got: {block}"
+    );
+    for candidate in ["AudioVideo", "Development", "Game", "Graphics", "Utility"] {
+        assert!(
+            block.contains(candidate),
+            "expected {candidate} as a completion candidate; got: {block}"
+        );
+    }
+}
+
+#[test]
+fn test_fish_completions_offer_standard_categories_for_categories_flag() {
+    let temp = tempdir().unwrap();
+    let home = temp.path();
+
+    let path = install_completions_to(Shell::Fish, home).unwrap();
+    let content = std::fs::read_to_string(&path).unwrap();
+
+    let lines: Vec<&str> = content.lines().collect();
+    let start = lines
+        .iter()
+        .position(|line| line.contains("-l categories"))
+        .expect("expected a --categories completion line");
+
+    // clap_complete emits one candidate per line; the block ends when the
+    // quoted candidate list closes with `"`.
+    let end = lines[start..]
+        .iter()
+        .position(|line| line.trim_end().ends_with('"'))
+        .map(|offset| start + offset + 1)
+        .unwrap_or(lines.len());
+    let block = lines[start..end].join("\n");
+
+    assert!(
+        block.contains("-a \""),
+        "fish categories completion must list candidates; got: {block}"
+    );
+    for candidate in ["AudioVideo", "Game", "Utility"] {
+        assert!(
+            block.contains(candidate),
+            "expected {candidate} as a completion candidate; got: {block}"
+        );
+    }
+}
+
+#[test]
+fn test_completion_command_keeps_custom_categories_accepted_by_real_cli() {
+    use clap::Parser;
+    // The completion-only command gains candidate values, but the real CLI
+    // parser must keep accepting custom/free-form categories.
+    let result = musu::cli::Cli::try_parse_from([
+        "musu",
+        "add",
+        "./app",
+        "--categories",
+        "MyCustomCategory,Game",
+    ]);
+    assert!(
+        result.is_ok(),
+        "real CLI must not reject custom categories: {:?}",
+        result.err()
+    );
+}
+
+#[test]
 fn test_generate_carapace_spec_creates_valid_yaml() {
     let temp = tempdir().unwrap();
     let home = temp.path();

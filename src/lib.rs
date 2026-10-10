@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+pub mod bundle;
 pub mod categories;
 pub mod cli;
 pub mod colors;
