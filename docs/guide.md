@@ -75,6 +75,7 @@ Obsidian (obsidian)
   Symlink:     ~/.local/bin/obsidian [ok]
   Categories:  Office, Utility
   Registered:  2026-10-06 14:00:00 UTC
+Sandbox: inactive
 ```
 
 By default, paths located within your home directory are shortened with `~/` for clean, readable output. To display the full absolute path including your username, pass `-a` or `--absolute`:
@@ -160,6 +161,102 @@ musu remove obsidian
 
 **Safety guarantee:**
 `musu remove` cleans up the `.desktop` launcher, copied icon, and terminal symlink. **Your original executable or AppImage is never deleted.**
+
+---
+
+## Isolating Applications with Sandbox
+
+`musu` can wrap a launcher in a Bubblewrap (`bwrap`) or Firejail sandbox so the application runs with reduced privileges: optional network denial, a read-only home, and hidden folders.
+
+The backend is auto-detected — `bwrap` first, then `firejail`; if neither is installed, apps keep running unsandboxed. Force one with `backend = "bwrap" | "firejail" | "none"` in `~/.config/musu/config.toml`.
+
+---
+
+### Set a global policy
+
+```toml
+# ~/.config/musu/config.toml
+[sandbox]
+enabled = true
+backend = "auto"
+
+[sandbox.policy]
+network = false        # every sandboxed app loses network access
+home_writable = false  # $HOME is mounted read-only
+hide_paths = ["~/Private"]
+```
+
+Every **AppImage** registered from now on is wrapped automatically. The global flag never wraps scripts or plain binaries — pass `--sandbox` explicitly to sandbox those. See [config.md](config.md#sandbox) for all keys and defaults.
+
+---
+
+### Exempt (or restrict) a single app
+
+Policies merge per field: what you specify for an app replaces the global value, everything else is inherited. With the restrictive policy above, a music player that needs the network gets it back — while everything else stays offline:
+
+```sh
+musu add ~/Apps/Music.AppImage --sandbox --network true
+```
+
+The reverse works too: with the default permissive policy, tighten one app without touching the rest:
+
+```sh
+musu add ~/Apps/Scraper.AppImage --sandbox --network false --hide-path ~/Projects
+```
+
+`--hide-path`, `--extra-rw`, and `--extra-ro` (repeatable) replace the global lists for that app. Existing apps can be re-configured the same way with `musu update`, which also regenerates their launcher.
+
+Two rules always hold:
+
+- `~/.ssh` and `~/.gnupg` are hidden in every sandbox — no policy or flag can expose them.
+- Firejail cannot reliably enforce `home_writable = false` or `extra_rw`; `musu` warns on stderr and ignores them. Prefer `bwrap` for the full policy.
+
+Check what an app actually gets:
+
+```sh
+musu show music
+```
+
+```text
+Music (music)
+  ...
+Sandbox: active (bwrap)
+  ✗ ~/.ssh     → hidden
+  ✗ ~/.gnupg   → hidden
+```
+
+---
+
+### Verify it with a probe
+
+Don't take the policy's word for it. Write a small probe script that prints whether it can reach the network, list `~/.ssh`, read a hidden folder, and write into `$HOME`, then run it inside and outside the sandbox and compare:
+
+```sh
+# 1. Write ~/scripts/probe.sh: test network, ~/.ssh, a hidden folder, $HOME writes
+chmod +x ~/scripts/probe.sh
+
+# 2. Register it with an explicit restrictive policy
+musu add ~/scripts/probe.sh --name Probe --sandbox --network false --hide-path ~/Secretos
+
+# 3. Run INSIDE the sandbox: extract the command from the generated launcher
+CMD=$(grep ^Exec "$(musu show probe --desktop)" | sed "s/^Exec=//;s/^'//;s/'$//")
+eval "$CMD"
+
+# 4. Run OUTSIDE as the control group and diff the outputs
+~/scripts/probe.sh
+```
+
+One detail to know before comparing: inside the sandbox `~/.ssh` (and any `hide_paths` entry) appears as an **empty directory** — a `tmpfs` is mounted over it — not as a permission error. Read-only `extra_ro` paths only fail on writes.
+
+---
+
+### Limitations
+
+- **The global sandbox flag only covers AppImages.** With `[sandbox] enabled = true`, newly registered AppImages are wrapped automatically; scripts and plain binaries stay unsandboxed unless you pass `--sandbox` explicitly on `musu add`/`musu update` (the explicit flag always wins, in both directions).
+- **Launchers are baked at creation time.** The sandbox wrapper lives in the launcher's `Exec=` line and the generated `$PATH` wrapper script, so changing the policy (globally in `config.toml` or per app) does **not** rewrite existing launchers automatically. After editing the global `[sandbox.policy]`, run `musu doctor --fix` to detect every **AppImage** whose `Exec` no longer matches the current policy and regenerate its launcher and `$PATH` wrapper in one go. Other apps (scripts, extracted binaries) are not covered by the automatic regeneration; apply the new policy manually with `musu update <app>` (e.g. `musu update music --network false`, which regenerates the launcher) or re-register with `musu add --overwrite`.
+- **Only wrapped entry points run sandboxed.** Launching via the `.desktop` entry or the generated `$PATH` wrapper script runs inside the sandbox; executing the original binary directly (e.g. `~/Apps/Firefox.AppImage`) runs **without** any sandbox.
+- **Firejail is best-effort.** `home_writable = false` and `extra_rw` are ignored with a warning, and `extra_ro` maps to `--blacklist`.
+- **Paths with spaces are not fully escaped** in the generated launcher/wrapper line and can break it — keep registered executables on paths without spaces.
 
 ---
 

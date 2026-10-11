@@ -123,6 +123,18 @@ systemctl --user stop musu-watch.service
 systemctl --user disable --now musu-watch.service
 ```
 
+### Sandbox isolation
+
+Optionally wrap desktop launchers in a Bubblewrap or Firejail sandbox with a configurable policy — global defaults plus per-app overrides for network access, a read-only home, and hidden folders:
+
+```sh
+musu add ~/Apps/Firefox.AppImage --sandbox --network false --hide-path ~/Secretos
+```
+
+The global `[sandbox] enabled = true` flag only wraps AppImages; scripts and plain binaries need the explicit `--sandbox` flag.
+
+See the [sandbox walkthrough](docs/guide.md#isolating-applications-with-sandbox) and the [configuration reference](docs/config.md#sandbox).
+
 ## Commands
 
 `musu` has comprehensive subcommands. For detailed options, flags, and advanced examples, see the full [Commands Reference](docs/commands.md).

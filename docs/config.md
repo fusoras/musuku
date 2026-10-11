@@ -101,5 +101,69 @@ backend = "auto"
 
 | Key | Default | Effect |
 | --- | --- | --- |
-| `enabled` | `false` | When `true`, all newly added or updated applications without an explicit sandbox override will use a sandbox wrapper in their `.desktop` file and symlink. |
-| `backend` | `"auto"` | Selects the sandbox backend to use: `"auto"` detects installed ones, `"bwrap"` forces Bubblewrap, `"firejail"` forces Firejail. |
+| `enabled` | `false` | When `true`, newly added or updated **AppImages** without an explicit sandbox override get a sandbox wrapper in their `.desktop` file and symlink. Scripts and plain binaries are never wrapped by the global flag — pass `--sandbox` explicitly to sandbox them. |
+| `backend` | `"auto"` | Selects the sandbox backend to use: `"auto"` probes for an installed `bwrap` (Bubblewrap) first, falls back to `firejail`, and resolves to `"none"` (apps keep running unsandboxed) when neither is available. `"bwrap"`, `"firejail"`, and `"none"` force a specific backend. |
+
+### Policy
+
+Global restrictions applied to every sandboxed application:
+
+```toml
+[sandbox.policy]
+network = true
+home_writable = true
+hide_paths = []
+extra_rw = []
+extra_ro = []
+```
+
+| Key | Default | Effect |
+| --- | --- | --- |
+| `network` | `true` | When `false`, the sandbox gets no network access (`bwrap`: `--unshare-all` without `--share-net`; `firejail`: `--net=none`). |
+| `home_writable` | `true` | When `false`, `$HOME` is mounted read-only inside the sandbox (`bwrap`: `--ro-bind`). Firejail cannot enforce this and ignores it with a warning. |
+| `hide_paths` | `[]` | Paths hidden entirely inside the sandbox (`bwrap`: empty `tmpfs` mounted on top; `firejail`: `--blacklist`). Accepts `~`. |
+| `extra_rw` | `[]` | Additional paths exposed read-write (`bwrap`: `--bind`). Firejail cannot enforce this and ignores it with a warning. Accepts `~`. |
+| `extra_ro` | `[]` | Additional paths exposed read-only (`bwrap`: `--ro-bind`; `firejail`: best-effort `--blacklist`). Accepts `~`. |
+
+`~/.ssh` and `~/.gnupg` are **always hidden** inside the sandbox. No policy can expose them: they are masked with an empty `tmpfs` (`bwrap`) or blacklisted (`firejail`) even when a `hide_paths`, `extra_rw`, or `extra_ro` entry points at them.
+
+### Per-app overrides (`apps.toml`)
+
+Each entry in `~/.config/musu/apps.toml` may carry its own `sandbox` on/off flag and a `sandbox_policy` table stored next to it:
+
+```toml
+[[apps]]
+id = "firefox"
+name = "Firefox"
+target_bin = "/home/you/Apps/Firefox.AppImage"
+sandbox = true
+
+[apps.sandbox_policy]
+network = true
+hide_paths = ["~/Secretos"]
+```
+
+The per-app policy is merged over the global one **field by field**:
+
+- A field present in the app replaces the global value; an absent field inherits it.
+- List fields (`hide_paths`, `extra_rw`, `extra_ro`) **replace** the global list entirely — they are never concatenated.
+- Fields unset everywhere fall back to the effective defaults: `network = true`, `home_writable = true`, and empty path lists.
+
+### Example
+
+```toml
+[sandbox]
+enabled = true
+backend = "auto"
+
+[sandbox.policy]
+network = false        # no sandboxed app gets network access by default
+home_writable = false  # $HOME is mounted read-only
+hide_paths = ["~/Private", "~/Work/clients"]
+extra_ro = ["/srv/shared-assets"]
+extra_rw = ["~/Work/active"]
+```
+
+Individual apps can opt back in (or out) per field with CLI flags on `musu add`/`musu update` — see [commands.md](commands.md#sandbox-policy-flags).
+
+Editing the global policy does not rewrite existing launchers on its own. Run `musu doctor --fix` to regenerate every registered AppImage whose baked-in `Exec` no longer matches the current policy (per-app overrides keep winning over the global values). Non-AppImage apps must be updated manually with `musu update <app>`.
