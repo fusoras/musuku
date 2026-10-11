@@ -67,7 +67,7 @@ pub fn install(
     let safe_exec = sanitize_entry_value(exec);
     let mut contents = format!(
         "[Desktop Entry]\nType=Application\nName={safe_name}\nExec={}\n",
-        shell_escape(&safe_exec)
+        escape_exec_value(&safe_exec)
     );
     if let Some(comment) = comments.default {
         let safe_comment = sanitize_entry_value(comment);
@@ -136,7 +136,7 @@ pub fn exec_out_of_date(desktop_file: &Path, exec: &str) -> bool {
     let Some(current) = contents.lines().find_map(|line| line.strip_prefix("Exec=")) else {
         return false;
     };
-    current != shell_escape(&sanitize_entry_value(exec))
+    current != escape_exec_value(&sanitize_entry_value(exec))
 }
 
 pub fn remove(desktop_file: Option<&Path>, icon: Option<&Path>) -> Result<()> {
@@ -193,11 +193,28 @@ pub(crate) fn is_valid_language_code(lang: &str) -> bool {
         && lang.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
 }
 
-fn shell_escape(path: &str) -> String {
-    let value = path;
-    if value.bytes().any(|byte| b" \t\n'\"".contains(&byte)) {
-        format!("'{}'", value.replace('\'', "'\\''"))
-    } else {
-        value.to_string()
-    }
+/// Format an `Exec=` value per the Desktop Entry specification: the command
+/// and each of its arguments are separated by spaces; arguments containing
+/// reserved characters (` `, tab, `"`, `'`, `\`, `` ` ``) are quoted with
+/// **double quotes**, with `\`, `"`, `` ` `` and `$` backslash-escaped inside.
+/// Quoting the whole line (e.g. with single quotes) is invalid — single
+/// quotes are reserved characters — and makes launchers fail validation and
+/// disappear from desktop menus.
+fn escape_exec_value(exec: &str) -> String {
+    exec.split_whitespace()
+        .map(|arg| {
+            let needs_quotes = arg.bytes().any(|byte| b" \t\"'\\`$".contains(&byte));
+            if needs_quotes {
+                let escaped = arg
+                    .replace('\\', "\\\\")
+                    .replace('"', "\\\"")
+                    .replace('`', "\\`")
+                    .replace('$', "\\$");
+                format!("\"{escaped}\"")
+            } else {
+                arg.to_string()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
 }
