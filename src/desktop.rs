@@ -124,6 +124,21 @@ pub fn sanitize_entry_value(value: &str) -> String {
         .join(" ")
 }
 
+/// Whether the launcher at `desktop_file` embeds an `Exec=` line that
+/// differs from the one [`install`] would write for `exec` today. The
+/// comparison happens on the escaped/sanitized form, exactly as stored.
+/// Missing or unreadable files are never reported as out of date — other
+/// doctor checks cover those cases.
+pub fn exec_out_of_date(desktop_file: &Path, exec: &str) -> bool {
+    let Ok(contents) = fs::read_to_string(desktop_file) else {
+        return false;
+    };
+    let Some(current) = contents.lines().find_map(|line| line.strip_prefix("Exec=")) else {
+        return false;
+    };
+    current != shell_escape(&sanitize_entry_value(exec))
+}
+
 pub fn remove(desktop_file: Option<&Path>, icon: Option<&Path>) -> Result<()> {
     for path in [desktop_file, icon].into_iter().flatten() {
         if path.exists() {

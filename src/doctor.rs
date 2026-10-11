@@ -1,5 +1,8 @@
 use crate::config;
+use crate::desktop;
+use crate::extractor;
 use crate::manager::Manager;
+use crate::sandbox;
 use anyhow::Result;
 
 pub struct DoctorReport {
@@ -16,7 +19,7 @@ pub fn run_doctor(manager: &Manager, fix: bool, yes: bool) -> Result<DoctorRepor
     };
 
     let base_dir = manager.settings_base();
-    let _settings = config::load_settings(base_dir)?;
+    let settings = config::load_settings(base_dir)?;
     let registry = config::load(manager.config_path())?;
 
     // DirectoryCheck
@@ -49,6 +52,7 @@ pub fn run_doctor(manager: &Manager, fix: bool, yes: bool) -> Result<DoctorRepor
 
     let mut to_remove = Vec::new();
     let mut to_update = Vec::new(); // (id, remove_symlink)
+    let mut stale_launchers = Vec::new(); // (id) sandbox Exec differs from policy
 
     for app in &registry.apps {
         // TargetCheck
@@ -101,6 +105,37 @@ pub fn run_doctor(manager: &Manager, fix: bool, yes: bool) -> Result<DoctorRepor
                 report.passed += 1;
             }
         }
+
+        // SandboxLauncherCheck: the sandbox wrapper is baked into the
+        // `Exec=` line at registration time, so editing the global
+        // `[sandbox.policy]` leaves existing launchers running the old
+        // command. Only AppImages are covered — their wrapper also lives in
+        // the `$PATH` link, and `--fix` regenerates both entry points; other
+        // executables (scripts, extracted binaries) keep whatever wrapper
+        // they have and need a manual `musu update <app>`. Apps without a
+        // launcher (covered above) or with the sandbox off are never flagged.
+        if let Some(desktop_file) = &app.desktop_file
+            && desktop_file.exists()
+            && sandbox::sandbox_effective_enabled(&settings, app.sandbox, &app.target_bin)
+            && extractor::is_appimage(&app.target_bin).unwrap_or(false)
+        {
+            let expected = sandbox::generate_sandbox_exec(
+                &settings,
+                app.sandbox,
+                app.sandbox_policy.as_ref(),
+                &app.target_bin,
+            );
+            if desktop::exec_out_of_date(desktop_file, &expected) {
+                report.issues += 1;
+                report.details.push(format!(
+                    "✖ sandbox launcher out of date: {} ({}) (run `musu doctor --fix` to regenerate)",
+                    app.id, app.name
+                ));
+                stale_launchers.push(app.id.clone());
+            } else {
+                report.passed += 1;
+            }
+        }
     }
 
     if fix {
@@ -117,6 +152,15 @@ pub fn run_doctor(manager: &Manager, fix: bool, yes: bool) -> Result<DoctorRepor
                         ..Default::default()
                     },
                 )?;
+                modified = true;
+            }
+        }
+        // regenerate outdated sandbox launchers
+        for id in &stale_launchers {
+            if !to_remove.contains(id)
+                && (yes || confirm(&format!("Regenerate sandbox launcher for '{}'?", id)))
+            {
+                manager.regenerate_launcher(id)?;
                 modified = true;
             }
         }
