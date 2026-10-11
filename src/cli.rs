@@ -81,6 +81,21 @@ pub struct Add {
     /// Disable sandboxing explicitly.
     #[arg(long)]
     pub no_sandbox: bool,
+    /// Enable or disable network access in the sandbox (overrides global policy).
+    #[arg(long, value_name = "true|false", num_args = 1)]
+    pub network: Option<bool>,
+    /// Mount $HOME writable (true) or read-only (false) in the sandbox (overrides global policy).
+    #[arg(long, value_name = "true|false", num_args = 1)]
+    pub home_writable: Option<bool>,
+    /// Additional path to hide inside the sandbox (repeatable; replaces global hide_paths).
+    #[arg(long = "hide-path", value_name = "PATH")]
+    pub hide_path: Vec<PathBuf>,
+    /// Additional writable bind path inside the sandbox (repeatable).
+    #[arg(long = "extra-rw", value_name = "PATH")]
+    pub extra_rw: Vec<PathBuf>,
+    /// Additional read-only bind path inside the sandbox (repeatable).
+    #[arg(long = "extra-ro", value_name = "PATH")]
+    pub extra_ro: Vec<PathBuf>,
     /// Save metadata to a portable .musu.toml bundle file alongside the application.
     #[arg(long)]
     pub portable: bool,
@@ -206,6 +221,21 @@ pub struct Update {
     /// Disable sandboxing explicitly.
     #[arg(long)]
     pub no_sandbox: bool,
+    /// Enable or disable network access in the sandbox (overrides global policy).
+    #[arg(long, value_name = "true|false", num_args = 1)]
+    pub network: Option<bool>,
+    /// Mount $HOME writable (true) or read-only (false) in the sandbox (overrides global policy).
+    #[arg(long, value_name = "true|false", num_args = 1)]
+    pub home_writable: Option<bool>,
+    /// Additional path to hide inside the sandbox (repeatable; replaces global hide_paths).
+    #[arg(long = "hide-path", value_name = "PATH")]
+    pub hide_path: Vec<PathBuf>,
+    /// Additional writable bind path inside the sandbox (repeatable).
+    #[arg(long = "extra-rw", value_name = "PATH")]
+    pub extra_rw: Vec<PathBuf>,
+    /// Additional read-only bind path inside the sandbox (repeatable).
+    #[arg(long = "extra-ro", value_name = "PATH")]
+    pub extra_ro: Vec<PathBuf>,
     /// Save metadata to a portable .musu.toml bundle file alongside the application.
     #[arg(long)]
     pub portable: bool,
@@ -271,7 +301,7 @@ pub struct Completions {
 
 #[derive(Debug, Args)]
 pub struct Doctor {
-    /// Automatically repair detected issues (clean up dead entries, prune broken symlinks).
+    /// Automatically repair detected issues (clean up dead entries, prune broken symlinks, regenerate outdated sandbox launchers).
     #[arg(long)]
     pub fix: bool,
     /// Confirm without interactive prompt.

@@ -51,6 +51,11 @@ pub struct SandboxConfig {
     pub enabled: bool,
     #[serde(default = "default_sandbox_backend")]
     pub backend: String,
+    /// Global sandbox policy: every field is optional so "unset" can be
+    /// distinguished from an explicit `false`/empty value. See
+    /// [`SandboxPolicy`] and [`effective_policy`].
+    #[serde(default)]
+    pub policy: SandboxPolicy,
 }
 
 impl Default for SandboxConfig {
@@ -58,12 +63,78 @@ impl Default for SandboxConfig {
         Self {
             enabled: false,
             backend: default_sandbox_backend(),
+            policy: SandboxPolicy::default(),
         }
+    }
+}
+
+impl SandboxConfig {
+    /// The global policy with all defaults filled in: network on, home
+    /// writable, empty path lists. This is the base that per-app policies
+    /// merge onto via [`effective_policy`].
+    pub fn global_effective(&self) -> SandboxPolicy {
+        effective_policy(&self.policy, None)
     }
 }
 
 fn default_sandbox_backend() -> String {
     "auto".to_string()
+}
+
+/// Sandbox restrictions, configurable globally (`config.toml`) and per app
+/// (`apps.toml`).
+///
+/// Every field is optional so "not defined" can be distinguished from an
+/// explicit `false`/empty value. Merging happens field by field via
+/// [`effective_policy`]: a `Some` field of the per-app policy replaces the
+/// global value wholesale (list fields are replaced, never concatenated),
+/// a `None` field inherits it.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
+#[serde(default)]
+pub struct SandboxPolicy {
+    /// `None` inherits; `Some(false)` denies network access.
+    pub network: Option<bool>,
+    /// `None` inherits; `Some(false)` mounts `$HOME` read-only.
+    pub home_writable: Option<bool>,
+    /// Paths to hide entirely (tmpfs over them in bwrap, blacklisted in
+    /// firejail). Replaces the global list.
+    pub hide_paths: Option<Vec<String>>,
+    /// Extra paths to expose read-write. Replaces the global list.
+    pub extra_rw: Option<Vec<String>>,
+    /// Extra paths to expose read-only. Replaces the global list.
+    pub extra_ro: Option<Vec<String>>,
+}
+
+/// Merge the global policy with an optional per-app policy, field by field:
+/// every `Some` field of `app` replaces the global value, `None` inherits it.
+/// Fields unset in both fall back to the effective defaults (network on, home
+/// writable, empty path lists), so the returned policy always has every
+/// field `Some`.
+pub fn effective_policy(global: &SandboxPolicy, app: Option<&SandboxPolicy>) -> SandboxPolicy {
+    let mut merged = global.clone();
+    if let Some(app) = app {
+        if app.network.is_some() {
+            merged.network = app.network;
+        }
+        if app.home_writable.is_some() {
+            merged.home_writable = app.home_writable;
+        }
+        if app.hide_paths.is_some() {
+            merged.hide_paths = app.hide_paths.clone();
+        }
+        if app.extra_rw.is_some() {
+            merged.extra_rw = app.extra_rw.clone();
+        }
+        if app.extra_ro.is_some() {
+            merged.extra_ro = app.extra_ro.clone();
+        }
+    }
+    merged.network.get_or_insert(true);
+    merged.home_writable.get_or_insert(true);
+    merged.hide_paths.get_or_insert_with(Vec::new);
+    merged.extra_rw.get_or_insert_with(Vec::new);
+    merged.extra_ro.get_or_insert_with(Vec::new);
+    merged
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]

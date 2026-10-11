@@ -26,6 +26,9 @@ pub struct AddOptions {
     pub no_symlink: bool,
     pub dest_bin: Option<PathBuf>,
     pub sandbox: Option<bool>,
+    /// Per-app sandbox policy restrictions (merged over the global
+    /// `[sandbox.policy]`). `None` when no policy flag was given.
+    pub sandbox_policy: Option<config::SandboxPolicy>,
     /// Replace an existing registration with the same name/ID without
     /// prompting (equivalent to answering "overwrite" in the interactive
     /// collision menu).
@@ -44,6 +47,9 @@ pub struct UpdateOptions {
     pub descriptions: Option<Descriptions>,
     pub remove_symlink: bool,
     pub sandbox: Option<bool>,
+    /// Per-app sandbox policy restrictions (merged over the global
+    /// `[sandbox.policy]`). Replaces the stored policy wholesale when `Some`.
+    pub sandbox_policy: Option<config::SandboxPolicy>,
     pub portable: bool,
 }
 
@@ -288,6 +294,8 @@ impl Manager {
             options.name.as_deref().or(bundle_name).or(extracted_name),
             canonical_target,
         );
+        entry.sandbox = options.sandbox;
+        entry.sandbox_policy = options.sandbox_policy;
         entry.description = options.description.or_else(|| {
             bundle_app
                 .and_then(|app| app.description.clone())
@@ -384,8 +392,16 @@ impl Manager {
         } else {
             None
         };
-        let sandbox_cmd =
-            sandbox::generate_sandbox_exec(&settings, entry.sandbox, &entry.target_bin);
+        let sandbox_cmd = sandbox::generate_sandbox_exec(
+            &settings,
+            Some(sandbox::sandbox_effective_enabled(
+                &settings,
+                entry.sandbox,
+                &entry.target_bin,
+            )),
+            entry.sandbox_policy.as_ref(),
+            &entry.target_bin,
+        );
         if !options.no_desktop {
             let (desktop_file, icon_path) = desktop::install(
                 &self.data_dir,
@@ -432,7 +448,7 @@ impl Manager {
                 destination,
                 &entry.target_bin,
                 options.bin_name.as_deref().unwrap_or(&entry.id),
-                if entry.sandbox.unwrap_or(settings.sandbox.enabled) {
+                if sandbox::sandbox_effective_enabled(&settings, entry.sandbox, &entry.target_bin) {
                     Some(sandbox_cmd.as_str())
                 } else {
                     None
@@ -604,7 +620,21 @@ impl Manager {
             .ok_or_else(|| not_found_error(query, &registry))?;
 
         if options.json {
-            return serde_json::to_string_pretty(app)
+            let view = sandbox_view(&settings, app);
+            let mut value =
+                serde_json::to_value(app).context("failed to serialize application as JSON")?;
+            value["sandbox"] = serde_json::json!({
+                "enabled": view.enabled,
+                "backend": view.backend,
+                "policy": serde_json::to_value(&view.policy)
+                    .context("failed to serialize effective sandbox policy")?,
+                "denied": view
+                    .denied
+                    .iter()
+                    .map(|(label, description)| format!("{label} {description}"))
+                    .collect::<Vec<_>>(),
+            });
+            return serde_json::to_string_pretty(&value)
                 .context("failed to serialize application as JSON");
         }
 
@@ -725,6 +755,27 @@ impl Manager {
             app.created_at.format("%Y-%m-%d %H:%M:%S UTC")
         )
         .unwrap();
+        let view = sandbox_view(&settings, app);
+        let color = crate::colors::should_color_policy(settings.display.color);
+        let header = if view.enabled {
+            format!("Sandbox: active ({})", view.backend)
+        } else {
+            "Sandbox: inactive".to_string()
+        };
+        writeln!(
+            output,
+            "{}",
+            paint(&header, crate::colors::BOLD_BLUE, color)
+        )
+        .unwrap();
+        for (label, description) in &view.denied {
+            let glyph = if description.starts_with("ignored") {
+                paint("!", crate::colors::BOLD_YELLOW, color)
+            } else {
+                paint("✗", crate::colors::BOLD_RED, color)
+            };
+            writeln!(output, "  {glyph} {label:<10} → {description}").unwrap();
+        }
         Ok(output)
     }
 
@@ -767,6 +818,7 @@ impl Manager {
             || options.categories.is_some()
             || options.description.is_some()
             || options.descriptions.is_some()
+            || options.sandbox_policy.is_some()
             || options.portable;
         if !metadata_change && !options.remove_symlink {
             return Ok(UpdateOutcome::NoChanges { name: old.name });
@@ -814,6 +866,11 @@ impl Manager {
             if options.sandbox.is_some() {
                 entry.sandbox = options.sandbox;
             }
+            if options.sandbox_policy.is_some() {
+                // Total replacement: the new policy swaps in wholesale
+                // rather than merging with the stored one.
+                entry.sandbox_policy = options.sandbox_policy;
+            }
             if let Some(description) = options.description {
                 entry.description = Some(description);
             } else if extracted_comment.is_some() {
@@ -843,8 +900,16 @@ impl Manager {
                 desktop::remove(None, entry.icon_path.as_deref())?;
                 entry.icon_path = None;
             }
-            let sandbox_cmd =
-                sandbox::generate_sandbox_exec(&settings, entry.sandbox, &entry.target_bin);
+            let sandbox_cmd = sandbox::generate_sandbox_exec(
+                &settings,
+                Some(sandbox::sandbox_effective_enabled(
+                    &settings,
+                    entry.sandbox,
+                    &entry.target_bin,
+                )),
+                entry.sandbox_policy.as_ref(),
+                &entry.target_bin,
+            );
             if let Some(desktop_file) = old.desktop_file.as_deref() {
                 desktop::remove(Some(desktop_file), None)?;
                 let (new_file, icon) = desktop::install(
@@ -883,7 +948,11 @@ impl Manager {
                     &destination,
                     &entry.target_bin,
                     link_name,
-                    if entry.sandbox.unwrap_or(settings.sandbox.enabled) {
+                    if sandbox::sandbox_effective_enabled(
+                        &settings,
+                        entry.sandbox,
+                        &entry.target_bin,
+                    ) {
                         Some(sandbox_cmd.as_str())
                     } else {
                         None
@@ -930,6 +999,94 @@ impl Manager {
         drop(_extraction_guard);
         self.refresh_desktop_db(&settings);
         Ok(UpdateOutcome::Updated { old, new: updated })
+    }
+
+    /// Rewrite an app's `.desktop` launcher with the sandbox command
+    /// derived from the current settings (global `[sandbox.policy]` merged
+    /// with the per-app policy), without requiring any metadata options.
+    ///
+    /// Used by `musu doctor --fix` to re-apply an edited global policy to
+    /// existing apps. Name, categories, description, and icon are reused
+    /// as stored; the target binary is never touched. Only AppImages are
+    /// regenerated (both the `.desktop` launcher and the `$PATH` wrapper);
+    /// other executables keep their current wrapper and must be updated
+    /// manually with `musu update`.
+    pub fn regenerate_launcher(&self, query: &str) -> Result<AppEntry> {
+        let settings = config::load_settings(self.settings_base())?;
+        let mut registry = config::load(&self.config_path)?;
+        let entry = registry
+            .find(query)
+            .cloned()
+            .ok_or_else(|| not_found_error(query, &registry))?;
+        if !extractor::is_appimage(&entry.target_bin)? {
+            bail!(
+                "application '{}' is not an AppImage; apply the policy manually with `musu update {}`",
+                entry.name,
+                entry.id
+            );
+        }
+        let Some(desktop_file) = entry.desktop_file.clone() else {
+            bail!(
+                "application '{}' has no desktop launcher to regenerate",
+                entry.name
+            );
+        };
+        let sandbox_cmd = sandbox::generate_sandbox_exec(
+            &settings,
+            Some(sandbox::sandbox_effective_enabled(
+                &settings,
+                entry.sandbox,
+                &entry.target_bin,
+            )),
+            entry.sandbox_policy.as_ref(),
+            &entry.target_bin,
+        );
+        // Drop only the launcher; the registered icon stays on disk and is
+        // reused below (desktop::install skips the copy when source and
+        // destination are the same file).
+        desktop::remove(Some(&desktop_file), None)?;
+        let (new_file, icon) = desktop::install(
+            &self.data_dir,
+            &entry.id,
+            &entry.name,
+            &sandbox_cmd,
+            entry.icon_path.as_deref(),
+            entry.categories.as_deref(),
+            desktop::Comments {
+                default: entry.description.as_deref(),
+                languages: entry.descriptions.as_ref(),
+            },
+        )?;
+        // The sandbox wrapper also lives in the `$PATH` link, so regenerate
+        // it alongside the launcher: a sandboxed app gets the wrapper script
+        // with the new command, an unsandboxed one a plain symlink to the
+        // target. `symlink::install` removes the previous link in place
+        // before rewriting; the target binary is never touched.
+        if let Some(link) = entry.symlink.as_deref() {
+            let base_dir = link
+                .parent()
+                .map(Path::to_path_buf)
+                .unwrap_or_else(|| self.bin_dir.clone());
+            let link_name = link
+                .file_name()
+                .and_then(|name| name.to_str())
+                .map(str::to_string)
+                .unwrap_or_else(|| entry.id.clone());
+            let wrapper =
+                sandbox::sandbox_effective_enabled(&settings, entry.sandbox, &entry.target_bin)
+                    .then(|| sandbox_cmd.clone());
+            symlink::install(&base_dir, &entry.target_bin, &link_name, wrapper.as_deref())?;
+        }
+        let updated = registry
+            .update(query, |stored| {
+                stored.desktop_file = Some(new_file);
+                stored.icon_path = icon;
+            })
+            .ok_or_else(|| anyhow::anyhow!("Application '{}' not found.", query))?
+            .clone();
+        config::save(&self.config_path, &registry)?;
+        self.refresh_desktop_db(&settings);
+        Ok(updated)
     }
 
     pub fn remove(&self, query: &str) -> Result<()> {
@@ -1527,6 +1684,88 @@ pub fn format_visual_diff(old: &AppEntry, new: &AppEntry) -> String {
         out.push_str(&format!("  Sandbox: {} {} {}\n", old_val, arrow, new_val));
     }
     out
+}
+
+/// The sandbox facts `musu show` reports for an app: effective enablement,
+/// resolved backend, fully merged policy, and the human-readable list of
+/// denied permissions as `(label, description)` pairs.
+struct SandboxView {
+    enabled: bool,
+    backend: String,
+    policy: config::SandboxPolicy,
+    denied: Vec<(String, String)>,
+}
+
+/// Compute the effective sandbox view for an app: the global
+/// `[sandbox.policy]` merged with the per-app policy, the resolved backend,
+/// and the denied-permissions list shown by `musu show`.
+fn sandbox_view(settings: &config::Settings, app: &AppEntry) -> SandboxView {
+    let requested = sandbox::sandbox_effective_enabled(settings, app.sandbox, &app.target_bin);
+    let backend = sandbox::resolve_backend(settings);
+    let policy = sandbox::effective_settings_policy(settings, app.sandbox_policy.as_ref());
+    // No backend available means the launcher runs unsandboxed.
+    let enabled = requested && backend != "none";
+    let mut denied = Vec::new();
+    if enabled {
+        if policy.network == Some(false) {
+            denied.push(("network".to_string(), "no network access".to_string()));
+        }
+        denied.push(("~/.ssh".to_string(), "hidden".to_string()));
+        denied.push(("~/.gnupg".to_string(), "hidden".to_string()));
+        for path in policy.hide_paths.iter().flatten() {
+            if is_protected_path(path) {
+                continue;
+            }
+            denied.push((path.clone(), "hidden by policy".to_string()));
+        }
+        for path in policy.extra_ro.iter().flatten() {
+            if is_protected_path(path) {
+                continue;
+            }
+            denied.push((path.clone(), "read-only".to_string()));
+        }
+        if backend == "firejail" {
+            // Restrictions firejail cannot enforce: surfaced as ignored.
+            if policy.home_writable == Some(false) {
+                denied.push(("~".to_string(), "ignored by firejail backend".to_string()));
+            }
+            for path in policy.extra_rw.iter().flatten() {
+                if is_protected_path(path) {
+                    continue;
+                }
+                denied.push((path.clone(), "ignored by firejail backend".to_string()));
+            }
+        }
+    }
+    SandboxView {
+        enabled,
+        backend,
+        policy,
+        denied,
+    }
+}
+
+/// Whether `path` (as written in a policy, `~` allowed) points at one of
+/// the directories the sandbox always hides: `~/.ssh` and `~/.gnupg`.
+fn is_protected_path(path: &str) -> bool {
+    let home = dirs::home_dir().map(|home| home.display().to_string());
+    let Some(home_str) = home.as_deref() else {
+        return path == "~/.ssh" || path == "~/.gnupg";
+    };
+    let expanded = match path.strip_prefix("~/") {
+        Some(rest) => format!("{home_str}/{rest}"),
+        None => path.to_string(),
+    };
+    expanded == format!("{home_str}/.ssh") || expanded == format!("{home_str}/.gnupg")
+}
+
+/// Wrap `text` in an ANSI color code when `color` is enabled.
+fn paint(text: &str, code: &str, color: bool) -> String {
+    if color {
+        format!("{code}{text}{}", crate::colors::RESET)
+    } else {
+        text.to_string()
+    }
 }
 
 fn check_and_warn_path(destination: &Path) {
