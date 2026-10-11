@@ -1,19 +1,38 @@
-//! Sandbox policy: merge semantics, per-backend command generation,
+//! Sandbox profiles: per-type resolution and enablement, field-by-field
+//! merge with per-app overrides, per-backend command generation,
 //! validation warnings, serde roundtrips, and `musu show` output.
 
-use musu::config::{self, SandboxPolicy, Settings};
+use musu::config::{self, SandboxPolicy, SandboxProfile, Settings};
 use musu::manager::{AddOptions, Manager, UpdateOptions, UpdateOutcome};
 use musu::models::{AppEntry, AppRegistry};
-use musu::sandbox::{effective_settings_policy, generate_sandbox_exec, validate_policy};
+use musu::sandbox::{
+    classify, effective_settings_policy, generate_sandbox_exec, resolve_backend,
+    sandbox_effective_enabled, validate_policy,
+};
 use std::fs;
 use std::path::{Path, PathBuf};
 use tempfile::tempdir;
 
+/// The `[sandbox.appimage]` profile enabled with the deterministic `bwrap`
+/// backend so tests never probe the host for `bwrap`/`firejail`.
 fn bwrap_settings() -> Settings {
     let mut settings = Settings::default();
-    settings.sandbox.enabled = true;
-    settings.sandbox.backend = "bwrap".to_string();
+    settings.sandbox.profiles.appimage = Some(SandboxProfile {
+        enabled: Some(true),
+        backend: "bwrap".to_string(),
+        ..SandboxProfile::default()
+    });
     settings
+}
+
+/// Mutable access to the AppImage profile (the only supported type today),
+/// creating it when the config has none.
+fn appimage_profile(settings: &mut Settings) -> &mut SandboxProfile {
+    settings
+        .sandbox
+        .profiles
+        .appimage
+        .get_or_insert_with(SandboxProfile::default)
 }
 
 fn executable(path: &Path) {
@@ -30,6 +49,28 @@ fn executable(path: &Path) {
 /// and the shebang body keeps the `auto_extract` probe harmless.
 fn appimage(path: &Path) {
     executable(path);
+}
+
+/// A fake AppImage inside `dir`: profile resolution classifies targets, so
+/// generation tests need a file that actually identifies as an AppImage.
+fn fake_appimage(dir: &Path) -> PathBuf {
+    let path = dir.join("tool.AppImage");
+    appimage(&path);
+    path
+}
+
+/// A plain script inside `dir` (type "binary": never profile-sandboxed).
+fn fake_binary(dir: &Path) -> PathBuf {
+    let path = dir.join("tool");
+    executable(&path);
+    path
+}
+
+/// The backend a flag-forced sandbox resolves to without any profile: the
+/// default profile's `"auto"`, i.e. whatever the host has installed (or
+/// "none", which leaves the target unwrapped).
+fn auto_backend() -> String {
+    resolve_backend(&Settings::default(), "binary")
 }
 
 // ---------------------------------------------------------------------------
@@ -53,14 +94,14 @@ fn test_effective_policy_merges_field_by_field() {
         extra_ro: None,
     };
     let merged = config::effective_policy(&global, Some(&app));
-    // `Some` in the app replaces the global value.
+    // `Some` in the app replaces the profile value.
     assert_eq!(merged.network, Some(false));
     assert_eq!(
         merged.extra_rw.as_deref(),
         Some(&["/rw".to_string()][..]),
-        "app list replaces the global list"
+        "app list replaces the profile list"
     );
-    // `None` in the app inherits the global value.
+    // `None` in the app inherits the profile value.
     assert_eq!(merged.home_writable, Some(true));
     assert_eq!(
         merged.hide_paths.as_deref(),
@@ -81,38 +122,142 @@ fn test_effective_policy_defaults_when_nothing_defined() {
 }
 
 #[test]
-fn test_global_effective_fills_defaults() {
+fn test_effective_settings_policy_fills_profile_defaults() {
+    // No `[sandbox.appimage]` section at all: the defaults still apply.
     let settings = Settings::default();
-    let policy = settings.sandbox.global_effective();
+    let policy = effective_settings_policy(&settings, "appimage", None);
     assert_eq!(policy.network, Some(true));
     assert_eq!(policy.home_writable, Some(true));
     assert_eq!(policy.hide_paths, Some(Vec::new()));
     assert_eq!(policy.extra_rw, Some(Vec::new()));
     assert_eq!(policy.extra_ro, Some(Vec::new()));
 
-    // An explicit `false` in the global config survives the defaults pass.
+    // An explicit `false` in the profile survives the defaults pass.
     let settings: Settings =
-        toml::from_str("[sandbox]\nenabled = true\n[sandbox.policy]\nnetwork = false\n").unwrap();
-    let policy = settings.sandbox.global_effective();
+        toml::from_str("[sandbox.appimage]\nenabled = true\nnetwork = false\n").unwrap();
+    let policy = effective_settings_policy(&settings, "appimage", None);
     assert_eq!(policy.network, Some(false));
     assert_eq!(policy.home_writable, Some(true));
 }
 
 #[test]
-fn test_effective_settings_policy_merges_global_and_app() {
+fn test_effective_settings_policy_merges_profile_and_app() {
     let mut settings = bwrap_settings();
-    settings.sandbox.policy.hide_paths = Some(vec!["/global-hidden".to_string()]);
+    appimage_profile(&mut settings).hide_paths = Some(vec!["/profile-hidden".to_string()]);
     let app = SandboxPolicy {
         network: Some(false),
         ..Default::default()
     };
-    let policy = effective_settings_policy(&settings, Some(&app));
+    let policy = effective_settings_policy(&settings, "appimage", Some(&app));
     assert_eq!(policy.network, Some(false));
     assert_eq!(
         policy.hide_paths.as_deref(),
-        Some(&["/global-hidden".to_string()][..])
+        Some(&["/profile-hidden".to_string()][..])
     );
     assert_eq!(policy.home_writable, Some(true));
+}
+
+// ---------------------------------------------------------------------------
+// classification and profile resolution
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_classify_appimages_and_binaries() {
+    let temp = tempdir().unwrap();
+    assert_eq!(classify(&fake_appimage(temp.path())), "appimage");
+    assert_eq!(classify(&fake_binary(temp.path())), "binary");
+}
+
+/// `[sandbox.appimage] enabled=true backend="bwrap" network=false` resolves
+/// end to end: the profile enables the app, selects the backend, and its
+/// policy reaches the generated command.
+#[test]
+fn test_appimage_profile_toml_resolves_backend_and_network() {
+    let temp = tempdir().unwrap();
+    fs::write(
+        config::settings_path(temp.path()),
+        "[sandbox.appimage]\nenabled = true\nbackend = \"bwrap\"\nnetwork = false\n",
+    )
+    .unwrap();
+    let settings = config::load_settings(temp.path()).unwrap();
+    let target = fake_appimage(temp.path());
+
+    assert!(sandbox_effective_enabled(&settings, None, &target));
+    assert_eq!(resolve_backend(&settings, "appimage"), "bwrap");
+    let cmd = generate_sandbox_exec(&settings, None, None, &target);
+    assert!(cmd.starts_with("bwrap "), "got: {cmd}");
+    assert!(
+        !cmd.contains("--share-net"),
+        "network=false must reach the wrapper, got: {cmd}"
+    );
+}
+
+/// The explicit flag always beats the profile, in both directions.
+#[test]
+fn test_explicit_flag_wins_over_profile_enablement() {
+    let temp = tempdir().unwrap();
+    let target = fake_appimage(temp.path());
+    let settings = bwrap_settings();
+
+    // Profile enabled=true + flag Some(false): no wrapper at all.
+    assert!(!sandbox_effective_enabled(&settings, Some(false), &target));
+    assert_eq!(
+        generate_sandbox_exec(&settings, Some(false), None, &target),
+        target.display().to_string()
+    );
+
+    // Profile enabled=false + flag Some(true): wrapped with the profile's
+    // backend and policy (the flag gates enablement, not the profile).
+    let mut off = bwrap_settings();
+    appimage_profile(&mut off).enabled = Some(false);
+    assert!(sandbox_effective_enabled(&off, Some(true), &target));
+    let cmd = generate_sandbox_exec(&off, Some(true), None, &target);
+    assert!(cmd.starts_with("bwrap "), "got: {cmd}");
+}
+
+/// A profile without the `enabled` key is assumed off: the app stays
+/// unsandboxed (`musu doctor` reports the missing key).
+#[test]
+fn test_profile_without_enabled_key_is_treated_as_disabled() {
+    let temp = tempdir().unwrap();
+    fs::write(
+        config::settings_path(temp.path()),
+        "[sandbox.appimage]\nbackend = \"bwrap\"\nnetwork = false\n",
+    )
+    .unwrap();
+    let settings = config::load_settings(temp.path()).unwrap();
+    let target = fake_appimage(temp.path());
+
+    assert!(!sandbox_effective_enabled(&settings, None, &target));
+    assert_eq!(
+        generate_sandbox_exec(&settings, None, None, &target),
+        target.display().to_string()
+    );
+}
+
+/// An explicit flag with no profile at all still sandboxes the app with the
+/// default profile: `"auto"` backend and the permissive default policy.
+#[test]
+fn test_explicit_flag_without_profile_wraps_with_default_profile() {
+    let temp = tempdir().unwrap();
+    let target = fake_binary(temp.path());
+    let settings = Settings::default();
+
+    let cmd = generate_sandbox_exec(&settings, Some(true), None, &target);
+    if auto_backend() == "none" {
+        // No backend installed on this host: nothing to wrap with.
+        assert_eq!(cmd, target.display().to_string());
+        return;
+    }
+    assert!(
+        cmd.starts_with("bwrap ") || cmd.starts_with("firejail "),
+        "got: {cmd}"
+    );
+    // The default policy is permissive: network stays on.
+    assert!(
+        cmd.contains("--share-net") || cmd.contains("--net=host"),
+        "default profile must keep the network on, got: {cmd}"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -121,12 +266,14 @@ fn test_effective_settings_policy_merges_global_and_app() {
 
 #[test]
 fn test_bwrap_network_false_omits_share_net() {
+    let temp = tempdir().unwrap();
+    let target = fake_appimage(temp.path());
     let settings = bwrap_settings();
     let policy = SandboxPolicy {
         network: Some(false),
         ..Default::default()
     };
-    let cmd = generate_sandbox_exec(&settings, None, Some(&policy), Path::new("/tmp/bin"));
+    let cmd = generate_sandbox_exec(&settings, None, Some(&policy), &target);
     assert!(cmd.starts_with("bwrap "), "got: {cmd}");
     assert!(cmd.contains("--unshare-all"), "got: {cmd}");
     assert!(!cmd.contains("--share-net"), "got: {cmd}");
@@ -134,6 +281,8 @@ fn test_bwrap_network_false_omits_share_net() {
 
 #[test]
 fn test_bwrap_home_writable_false_ro_binds_home() {
+    let temp = tempdir().unwrap();
+    let target = fake_appimage(temp.path());
     let settings = bwrap_settings();
     let home = dirs::home_dir().unwrap();
     let home_str = home.display().to_string();
@@ -141,7 +290,7 @@ fn test_bwrap_home_writable_false_ro_binds_home() {
         home_writable: Some(false),
         ..Default::default()
     };
-    let cmd = generate_sandbox_exec(&settings, None, Some(&policy), Path::new("/tmp/bin"));
+    let cmd = generate_sandbox_exec(&settings, None, Some(&policy), &target);
     assert!(
         cmd.contains(&format!("--ro-bind {home_str} {home_str}")),
         "got: {cmd}"
@@ -154,6 +303,8 @@ fn test_bwrap_home_writable_false_ro_binds_home() {
 
 #[test]
 fn test_bwrap_hide_paths_extra_rw_extra_ro_emit_flags() {
+    let temp = tempdir().unwrap();
+    let target = fake_appimage(temp.path());
     let settings = bwrap_settings();
     let policy = SandboxPolicy {
         hide_paths: Some(vec!["/data/secret".to_string()]),
@@ -161,7 +312,7 @@ fn test_bwrap_hide_paths_extra_rw_extra_ro_emit_flags() {
         extra_ro: Some(vec!["/data/ro".to_string()]),
         ..Default::default()
     };
-    let cmd = generate_sandbox_exec(&settings, None, Some(&policy), Path::new("/tmp/bin"));
+    let cmd = generate_sandbox_exec(&settings, None, Some(&policy), &target);
     assert!(cmd.contains("--tmpfs /data/secret"), "got: {cmd}");
     assert!(cmd.contains("--bind /data/rw /data/rw"), "got: {cmd}");
     assert!(cmd.contains("--ro-bind /data/ro /data/ro"), "got: {cmd}");
@@ -169,6 +320,8 @@ fn test_bwrap_hide_paths_extra_rw_extra_ro_emit_flags() {
 
 #[test]
 fn test_bwrap_policy_paths_expand_tilde() {
+    let temp = tempdir().unwrap();
+    let target = fake_appimage(temp.path());
     let settings = bwrap_settings();
     let home = dirs::home_dir().unwrap().display().to_string();
     let policy = SandboxPolicy {
@@ -177,7 +330,7 @@ fn test_bwrap_policy_paths_expand_tilde() {
         extra_ro: Some(vec!["~/ro".to_string()]),
         ..Default::default()
     };
-    let cmd = generate_sandbox_exec(&settings, None, Some(&policy), Path::new("/tmp/bin"));
+    let cmd = generate_sandbox_exec(&settings, None, Some(&policy), &target);
     assert!(
         cmd.contains(&format!("--tmpfs {home}/secret")),
         "got: {cmd}"
@@ -198,6 +351,8 @@ fn test_bwrap_policy_paths_expand_tilde() {
 
 #[test]
 fn test_bwrap_ssh_and_gnupg_always_hidden_even_if_policy_exposes_them() {
+    let temp = tempdir().unwrap();
+    let target = fake_appimage(temp.path());
     let settings = bwrap_settings();
     let home = dirs::home_dir().unwrap().display().to_string();
     let policy = SandboxPolicy {
@@ -206,7 +361,7 @@ fn test_bwrap_ssh_and_gnupg_always_hidden_even_if_policy_exposes_them() {
         extra_ro: Some(vec![format!("{home}/.gnupg")]),
         ..Default::default()
     };
-    let cmd = generate_sandbox_exec(&settings, None, Some(&policy), Path::new("/tmp/bin"));
+    let cmd = generate_sandbox_exec(&settings, None, Some(&policy), &target);
     assert!(
         cmd.matches(&format!("--tmpfs {home}/.ssh")).count() == 1,
         "exactly one tmpfs over ~/.ssh, got: {cmd}"
@@ -239,45 +394,47 @@ fn test_bwrap_ssh_and_gnupg_always_hidden_even_if_policy_exposes_them() {
 
 #[test]
 fn test_default_generation_is_byte_identical_to_previous_behavior() {
+    let temp = tempdir().unwrap();
+    let target = fake_appimage(temp.path());
+    let target_str = target.display().to_string();
     let home = dirs::home_dir().unwrap().display().to_string();
-    let target = "/tmp/bin";
 
     let mut settings = bwrap_settings();
     let expected_bwrap = format!(
         "bwrap --unshare-all --share-net --ro-bind / / --dev /dev --proc /proc --bind /tmp /tmp \
-         --bind {home} {home} --tmpfs {home}/.ssh --tmpfs {home}/.gnupg {target}"
+         --bind {home} {home} --tmpfs {home}/.ssh --tmpfs {home}/.gnupg {target_str}"
     );
     assert_eq!(
-        generate_sandbox_exec(&settings, None, None, Path::new(target)),
+        generate_sandbox_exec(&settings, None, None, &target),
         expected_bwrap
     );
     // An all-None per-app policy must produce the very same command.
     let policy = SandboxPolicy::default();
     assert_eq!(
-        generate_sandbox_exec(&settings, None, Some(&policy), Path::new(target)),
+        generate_sandbox_exec(&settings, None, Some(&policy), &target),
         expected_bwrap
     );
 
-    settings.sandbox.backend = "firejail".to_string();
+    appimage_profile(&mut settings).backend = "firejail".to_string();
     let expected_firejail = format!(
         "firejail --noprofile --net=host --env=WAYLAND_DISPLAY --env=DISPLAY \
          --env=XDG_RUNTIME_DIR --env=PULSE_SERVER --env=PIPEWIRE_REMOTE \
-         --blacklist=~/.ssh --blacklist=~/.gnupg {target}"
+         --blacklist=~/.ssh --blacklist=~/.gnupg {target_str}"
     );
     assert_eq!(
-        generate_sandbox_exec(&settings, None, None, Path::new(target)),
+        generate_sandbox_exec(&settings, None, None, &target),
         expected_firejail
     );
     assert_eq!(
-        generate_sandbox_exec(&settings, None, Some(&policy), Path::new(target)),
+        generate_sandbox_exec(&settings, None, Some(&policy), &target),
         expected_firejail
     );
 
-    // Disabled sandbox still returns the plain target.
-    settings.sandbox.enabled = false;
+    // Disabled profile still returns the plain target.
+    appimage_profile(&mut settings).enabled = Some(false);
     assert_eq!(
-        generate_sandbox_exec(&settings, None, None, Path::new(target)),
-        target
+        generate_sandbox_exec(&settings, None, None, &target),
+        target_str
     );
 }
 
@@ -287,28 +444,32 @@ fn test_default_generation_is_byte_identical_to_previous_behavior() {
 
 #[test]
 fn test_firejail_network_false_uses_net_none() {
+    let temp = tempdir().unwrap();
+    let target = fake_appimage(temp.path());
     let mut settings = bwrap_settings();
-    settings.sandbox.backend = "firejail".to_string();
+    appimage_profile(&mut settings).backend = "firejail".to_string();
     let policy = SandboxPolicy {
         network: Some(false),
         ..Default::default()
     };
-    let cmd = generate_sandbox_exec(&settings, None, Some(&policy), Path::new("/tmp/bin"));
+    let cmd = generate_sandbox_exec(&settings, None, Some(&policy), &target);
     assert!(cmd.contains("--net=none"), "got: {cmd}");
     assert!(!cmd.contains("--net=host"), "got: {cmd}");
 }
 
 #[test]
 fn test_firejail_hide_paths_and_extra_ro_blacklist() {
+    let temp = tempdir().unwrap();
+    let target = fake_appimage(temp.path());
     let mut settings = bwrap_settings();
-    settings.sandbox.backend = "firejail".to_string();
+    appimage_profile(&mut settings).backend = "firejail".to_string();
     let home = dirs::home_dir().unwrap().display().to_string();
     let policy = SandboxPolicy {
         hide_paths: Some(vec!["~/secret".to_string(), format!("{home}/.ssh")]),
         extra_ro: Some(vec!["/data/ro".to_string()]),
         ..Default::default()
     };
-    let cmd = generate_sandbox_exec(&settings, None, Some(&policy), Path::new("/tmp/bin"));
+    let cmd = generate_sandbox_exec(&settings, None, Some(&policy), &target);
     assert!(
         cmd.contains(&format!("--blacklist={home}/secret")),
         "got: {cmd}"
@@ -326,14 +487,16 @@ fn test_firejail_hide_paths_and_extra_ro_blacklist() {
 
 #[test]
 fn test_firejail_ignores_home_writable_and_extra_rw() {
+    let temp = tempdir().unwrap();
+    let target = fake_appimage(temp.path());
     let mut settings = bwrap_settings();
-    settings.sandbox.backend = "firejail".to_string();
+    appimage_profile(&mut settings).backend = "firejail".to_string();
     let policy = SandboxPolicy {
         home_writable: Some(false),
         extra_rw: Some(vec!["/data/rw".to_string()]),
         ..Default::default()
     };
-    let cmd = generate_sandbox_exec(&settings, None, Some(&policy), Path::new("/tmp/bin"));
+    let cmd = generate_sandbox_exec(&settings, None, Some(&policy), &target);
     assert!(
         !cmd.contains("/data/rw"),
         "firejail cannot grant extra_rw; got: {cmd}"
@@ -407,48 +570,54 @@ fn test_app_entry_sandbox_policy_roundtrips_in_apps_toml() {
 }
 
 // ---------------------------------------------------------------------------
-// Per-app policy EXEMPTS (bidirectional override) of the global policy
+// Per-app policy EXEMPTS (bidirectional override) of the profile policy
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_app_network_true_exempts_global_network_false() {
+fn test_app_network_true_exempts_profile_network_false() {
+    let temp = tempdir().unwrap();
+    let target = fake_appimage(temp.path());
     let mut settings = bwrap_settings();
-    settings.sandbox.policy.network = Some(false);
+    appimage_profile(&mut settings).network = Some(false);
     let app = SandboxPolicy {
         network: Some(true),
         ..Default::default()
     };
-    let cmd = generate_sandbox_exec(&settings, None, Some(&app), Path::new("/tmp/bin"));
+    let cmd = generate_sandbox_exec(&settings, None, Some(&app), &target);
     assert!(
         cmd.contains("--share-net"),
-        "app network=true must exempt the global network=false, got: {cmd}"
+        "app network=true must exempt the profile network=false, got: {cmd}"
     );
 }
 
 #[test]
-fn test_app_network_false_overrides_global_default() {
+fn test_app_network_false_overrides_profile_default() {
+    let temp = tempdir().unwrap();
+    let target = fake_appimage(temp.path());
     let settings = bwrap_settings();
     let app = SandboxPolicy {
         network: Some(false),
         ..Default::default()
     };
-    let cmd = generate_sandbox_exec(&settings, None, Some(&app), Path::new("/tmp/bin"));
+    let cmd = generate_sandbox_exec(&settings, None, Some(&app), &target);
     assert!(!cmd.contains("--share-net"), "got: {cmd}");
 }
 
 #[test]
-fn test_app_home_writable_true_exempts_global_home_writable_false() {
+fn test_app_home_writable_true_exempts_profile_home_writable_false() {
+    let temp = tempdir().unwrap();
+    let target = fake_appimage(temp.path());
     let mut settings = bwrap_settings();
-    settings.sandbox.policy.home_writable = Some(false);
+    appimage_profile(&mut settings).home_writable = Some(false);
     let home = dirs::home_dir().unwrap().display().to_string();
     let app = SandboxPolicy {
         home_writable: Some(true),
         ..Default::default()
     };
-    let cmd = generate_sandbox_exec(&settings, None, Some(&app), Path::new("/tmp/bin"));
+    let cmd = generate_sandbox_exec(&settings, None, Some(&app), &target);
     assert!(
         cmd.contains(&format!("--bind {home} {home}")),
-        "app home_writable=true must exempt the global restriction, got: {cmd}"
+        "app home_writable=true must exempt the profile restriction, got: {cmd}"
     );
     assert!(
         !cmd.contains(&format!("--ro-bind {home} {home}")),
@@ -457,14 +626,16 @@ fn test_app_home_writable_true_exempts_global_home_writable_false() {
 }
 
 #[test]
-fn test_app_home_writable_false_overrides_global_default() {
+fn test_app_home_writable_false_overrides_profile_default() {
+    let temp = tempdir().unwrap();
+    let target = fake_appimage(temp.path());
     let settings = bwrap_settings();
     let home = dirs::home_dir().unwrap().display().to_string();
     let app = SandboxPolicy {
         home_writable: Some(false),
         ..Default::default()
     };
-    let cmd = generate_sandbox_exec(&settings, None, Some(&app), Path::new("/tmp/bin"));
+    let cmd = generate_sandbox_exec(&settings, None, Some(&app), &target);
     assert!(
         cmd.contains(&format!("--ro-bind {home} {home}")),
         "got: {cmd}"
@@ -518,7 +689,7 @@ fn test_cli_parses_network_and_home_writable_values_on_add_and_update() {
     assert_eq!(args.home_writable, None);
     assert_eq!(args.extra_ro, vec![PathBuf::from("/data")]);
 
-    // Omitting the flags keeps everything None (inherit the global policy).
+    // Omitting the flags keeps everything None (inherit the profile policy).
     let cli = Cli::try_parse_from(["musu", "add", "./app"]).unwrap();
     let Command::Add(args) = cli.command else {
         panic!("expected add");
@@ -543,7 +714,7 @@ fn test_update_with_sandbox_policy_changes_entry_and_regenerates_desktop() {
     fs::create_dir_all(temp.path().join("config")).unwrap();
     fs::write(
         temp.path().join("config/config.toml"),
-        "[sandbox]\nenabled = true\nbackend = \"bwrap\"\n",
+        "[sandbox.appimage]\nenabled = true\nbackend = \"bwrap\"\n",
     )
     .unwrap();
 
@@ -603,7 +774,7 @@ fn test_show_displays_sandbox_denied_permissions() {
     fs::create_dir_all(temp.path().join("config")).unwrap();
     fs::write(
         temp.path().join("config/config.toml"),
-        "[sandbox]\nenabled = true\nbackend = \"bwrap\"\n[sandbox.policy]\nnetwork = false\n",
+        "[sandbox.appimage]\nenabled = true\nbackend = \"bwrap\"\nnetwork = false\n",
     )
     .unwrap();
 
@@ -620,7 +791,10 @@ fn test_show_displays_sandbox_denied_permissions() {
         .unwrap();
 
     let output = manager.show(&entry.id, Default::default()).unwrap();
-    assert!(output.contains("Sandbox: active (bwrap)"), "got: {output}");
+    assert!(
+        output.contains("Sandbox: active (bwrap) [appimage]"),
+        "got: {output}"
+    );
     assert!(output.contains("no network access"), "got: {output}");
     assert!(output.contains("~/.ssh"), "got: {output}");
     assert!(output.contains("~/.gnupg"), "got: {output}");
@@ -637,6 +811,7 @@ fn test_show_displays_sandbox_denied_permissions() {
     let value: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert_eq!(value["sandbox"]["enabled"], true);
     assert_eq!(value["sandbox"]["backend"], "bwrap");
+    assert_eq!(value["sandbox"]["profile"], "appimage");
     assert_eq!(value["sandbox"]["policy"]["network"], false);
     let denied = value["sandbox"]["denied"].as_array().unwrap();
     assert!(
@@ -684,6 +859,7 @@ fn test_show_reports_sandbox_inactive() {
         .unwrap();
     let value: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert_eq!(value["sandbox"]["enabled"], false);
+    assert!(value["sandbox"]["profile"].is_null());
     assert!(value["sandbox"]["denied"].as_array().unwrap().is_empty());
 }
 
@@ -698,11 +874,12 @@ fn test_add_with_sandbox_option_persists_flag_and_wraps_desktop() {
     let target = temp.path().join("tool");
     executable(&target);
 
-    // Global sandbox OFF: only the per-entry flag can enable the wrapper.
+    // The AppImage profile is ON, but a plain binary never resolves it: only
+    // the per-entry flag can enable the wrapper.
     fs::create_dir_all(temp.path().join("config")).unwrap();
     fs::write(
         temp.path().join("config/config.toml"),
-        "[sandbox]\nenabled = false\nbackend = \"bwrap\"\n",
+        "[sandbox.appimage]\nenabled = true\nbackend = \"bwrap\"\n",
     )
     .unwrap();
 
@@ -732,11 +909,21 @@ fn test_add_with_sandbox_option_persists_flag_and_wraps_desktop() {
         "flag must survive the TOML roundtrip"
     );
 
+    // A flag-forced binary has no profile: the default "auto" backend wraps
+    // it when this host provides one, and leaves it plain otherwise.
     let desktop = fs::read_to_string(entry.desktop_file.as_ref().unwrap()).unwrap();
-    assert!(
-        desktop.contains("bwrap"),
-        "desktop Exec must be wrapped in bwrap, got: {desktop}"
-    );
+    let backend = auto_backend();
+    if backend == "none" {
+        assert!(
+            !desktop.contains("bwrap") && !desktop.contains("firejail"),
+            "no backend installed means no wrapper, got: {desktop}"
+        );
+    } else {
+        assert!(
+            desktop.contains(&backend),
+            "desktop Exec must be wrapped in {backend}, got: {desktop}"
+        );
+    }
 }
 
 #[test]
@@ -745,11 +932,12 @@ fn test_add_with_no_sandbox_option_stays_unwrapped() {
     let target = temp.path().join("tool");
     executable(&target);
 
-    // Global sandbox ON: add without flags must NOT force-sandbox the app.
+    // The AppImage profile is ON: add without flags must NOT force-sandbox a
+    // plain script (no profile governs the "binary" type).
     fs::create_dir_all(temp.path().join("config")).unwrap();
     fs::write(
         temp.path().join("config/config.toml"),
-        "[sandbox]\nenabled = true\nbackend = \"bwrap\"\n",
+        "[sandbox.appimage]\nenabled = true\nbackend = \"bwrap\"\n",
     )
     .unwrap();
 
@@ -767,12 +955,12 @@ fn test_add_with_no_sandbox_option_stays_unwrapped() {
 
     assert_eq!(entry.sandbox, None, "no flag means no explicit override");
     let desktop = fs::read_to_string(entry.desktop_file.as_ref().unwrap()).unwrap();
-    // The global enabled=true flag only wraps AppImages; a script must stay
-    // unwrapped even with the global sandbox on. The entry flag itself must
+    // The profile only covers AppImages; a script must stay unwrapped even
+    // with `[sandbox.appimage] enabled = true`. The entry flag itself must
     // stay None in the registry.
     assert!(
-        !desktop.contains("bwrap"),
-        "a non-AppImage must not be wrapped by the global flag, got: {desktop}"
+        !desktop.contains("bwrap") && !desktop.contains("firejail"),
+        "a non-AppImage must not be wrapped by a profile, got: {desktop}"
     );
     assert!(
         desktop.contains(&target.display().to_string()),
@@ -795,7 +983,7 @@ fn test_add_with_no_sandbox_option_stays_unwrapped() {
 }
 
 // ---------------------------------------------------------------------------
-// Global sandbox enablement only covers AppImages; the explicit flag wins
+// Profile enablement only covers AppImages; the explicit flag wins
 // ---------------------------------------------------------------------------
 
 /// The explicit `--sandbox` flag always wins: a script force-sandboxed by
@@ -809,7 +997,7 @@ fn test_add_script_with_explicit_sandbox_flag_gets_wrapper() {
     fs::create_dir_all(temp.path().join("config")).unwrap();
     fs::write(
         temp.path().join("config/config.toml"),
-        "[sandbox]\nenabled = true\nbackend = \"bwrap\"\n",
+        "[sandbox.appimage]\nenabled = true\nbackend = \"bwrap\"\n",
     )
     .unwrap();
 
@@ -827,22 +1015,27 @@ fn test_add_script_with_explicit_sandbox_flag_gets_wrapper() {
         .unwrap();
 
     assert_eq!(entry.sandbox, Some(true));
+    let backend = auto_backend();
+    if backend == "none" {
+        // Nothing on this host to wrap with; the flag itself is persisted.
+        return;
+    }
     let desktop = fs::read_to_string(entry.desktop_file.as_ref().unwrap()).unwrap();
     assert!(
-        desktop.contains("bwrap"),
+        desktop.contains(&backend),
         "an explicit --sandbox must wrap any executable, got: {desktop}"
     );
     let link = entry.symlink.clone().unwrap();
     assert!(
-        fs::read_to_string(&link).unwrap().contains("bwrap"),
+        fs::read_to_string(&link).unwrap().contains(&backend),
         "the $PATH wrapper must be generated too"
     );
 }
 
-/// No regression: an AppImage registered under a globally enabled sandbox
-/// keeps getting the wrapper without any explicit flag.
+/// No regression: an AppImage registered under an enabled profile keeps
+/// getting the wrapper without any explicit flag.
 #[test]
-fn test_add_appimage_with_global_sandbox_enabled_gets_wrapper() {
+fn test_add_appimage_with_enabled_profile_gets_wrapper() {
     let temp = tempdir().unwrap();
     let target = temp.path().join("tool.AppImage");
     appimage(&target);
@@ -850,7 +1043,7 @@ fn test_add_appimage_with_global_sandbox_enabled_gets_wrapper() {
     fs::create_dir_all(temp.path().join("config")).unwrap();
     fs::write(
         temp.path().join("config/config.toml"),
-        "[sandbox]\nenabled = true\nbackend = \"bwrap\"\n",
+        "[sandbox.appimage]\nenabled = true\nbackend = \"bwrap\"\n",
     )
     .unwrap();
 
@@ -870,14 +1063,14 @@ fn test_add_appimage_with_global_sandbox_enabled_gets_wrapper() {
     let desktop = fs::read_to_string(entry.desktop_file.as_ref().unwrap()).unwrap();
     assert!(
         desktop.contains("bwrap"),
-        "a globally sandboxed AppImage must be wrapped, got: {desktop}"
+        "an AppImage under an enabled profile must be wrapped, got: {desktop}"
     );
 }
 
-/// `musu show` reports the effective state: a script registered under a
-/// globally enabled sandbox is inactive, in both the text and JSON views.
+/// `musu show` reports the effective state: a script registered under an
+/// enabled AppImage profile is inactive, in both the text and JSON views.
 #[test]
-fn test_show_reports_sandbox_inactive_for_script_with_global_enabled() {
+fn test_show_reports_sandbox_inactive_for_script_with_enabled_profile() {
     let temp = tempdir().unwrap();
     let target = temp.path().join("tool");
     executable(&target);
@@ -885,7 +1078,7 @@ fn test_show_reports_sandbox_inactive_for_script_with_global_enabled() {
     fs::create_dir_all(temp.path().join("config")).unwrap();
     fs::write(
         temp.path().join("config/config.toml"),
-        "[sandbox]\nenabled = true\nbackend = \"bwrap\"\n",
+        "[sandbox.appimage]\nenabled = true\nbackend = \"bwrap\"\n",
     )
     .unwrap();
 
@@ -918,5 +1111,6 @@ fn test_show_reports_sandbox_inactive_for_script_with_global_enabled() {
         .unwrap();
     let value: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert_eq!(value["sandbox"]["enabled"], false);
+    assert!(value["sandbox"]["profile"].is_null());
     assert!(value["sandbox"]["denied"].as_array().unwrap().is_empty());
 }

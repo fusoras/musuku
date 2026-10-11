@@ -12,7 +12,7 @@ use musu::{
     symlink,
 };
 use std::io::{self, IsTerminal, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 fn main() -> Result<()> {
     let _ = musu::completions::ensure_completions_installed();
@@ -45,7 +45,7 @@ fn main() -> Result<()> {
                 &args.extra_rw,
                 &args.extra_ro,
             );
-            warn_sandbox_policy(&manager, sandbox_policy.as_ref());
+            warn_sandbox_policy(&manager, Some(&args.executable), sandbox_policy.as_ref());
             manager.add(AddOptions {
                 target: args.executable,
                 name: args.name,
@@ -139,14 +139,20 @@ fn main() -> Result<()> {
                 &args.extra_ro,
             );
             // Warn against the policy that will actually be in effect: the
-            // CLI policy when given, otherwise the app's stored one.
+            // CLI policy when given, otherwise the app's stored one. The
+            // target (new or stored) selects the app type, and therefore
+            // the profile whose backend enforces the policy.
+            let stored = manager.get(&args.id_or_name).ok();
             let effective_app_policy = sandbox_policy.clone().or_else(|| {
-                manager
-                    .get(&args.id_or_name)
-                    .ok()
-                    .and_then(|entry| entry.sandbox_policy)
+                stored
+                    .as_ref()
+                    .and_then(|entry| entry.sandbox_policy.clone())
             });
-            warn_sandbox_policy(&manager, effective_app_policy.as_ref());
+            let target = args
+                .target
+                .clone()
+                .or_else(|| stored.as_ref().map(|entry| entry.target_bin.clone()));
+            warn_sandbox_policy(&manager, target.as_deref(), effective_app_policy.as_ref());
             let outcome = manager.update(
                 &args.id_or_name,
                 UpdateOptions {
@@ -333,9 +339,9 @@ fn warn_unknown_categories(values: &[String]) {
 }
 
 /// Build the per-app sandbox policy from the CLI flags: `None` when no
-/// policy flag was given (inherit the global policy), otherwise a policy
-/// where every given flag overrides the global field — in either direction,
-/// so a per-app `--network true` exempts the app from a global
+/// policy flag was given (inherit the type profile's policy), otherwise a
+/// policy where every given flag overrides the profile field — in either
+/// direction, so a per-app `--network true` exempts the app from a profile
 /// `network = false` — and the remaining fields stay `None` (inherit).
 fn build_sandbox_policy(
     network: Option<bool>,
@@ -367,13 +373,20 @@ fn paths_to_strings(paths: &[PathBuf]) -> Vec<String> {
 
 /// Emit advisory sandbox-policy warnings for restrictions the resolved
 /// backend cannot enforce, styled like [`warn_unknown_categories`]. Never
-/// fatal, always stderr (stdout stays script-friendly).
-fn warn_sandbox_policy(manager: &Manager, app_policy: Option<&SandboxPolicy>) {
-    let Ok(settings) = manager.load_settings() else {
+/// fatal, always stderr (stdout stays script-friendly). `target` selects
+/// the app type whose profile applies; without it there is nothing to warn
+/// about yet.
+fn warn_sandbox_policy(
+    manager: &Manager,
+    target: Option<&Path>,
+    app_policy: Option<&SandboxPolicy>,
+) {
+    let (Ok(settings), Some(target)) = (manager.load_settings(), target) else {
         return;
     };
-    let backend = musu::sandbox::resolve_backend(&settings);
-    let effective = musu::sandbox::effective_settings_policy(&settings, app_policy);
+    let kind = musu::sandbox::classify(target);
+    let backend = musu::sandbox::resolve_backend(&settings, kind);
+    let effective = musu::sandbox::effective_settings_policy(&settings, kind, app_policy);
     let color = colors::should_color();
     for warning in musu::sandbox::validate_policy(&backend, &effective) {
         eprintln!(

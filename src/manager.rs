@@ -26,8 +26,8 @@ pub struct AddOptions {
     pub no_symlink: bool,
     pub dest_bin: Option<PathBuf>,
     pub sandbox: Option<bool>,
-    /// Per-app sandbox policy restrictions (merged over the global
-    /// `[sandbox.policy]`). `None` when no policy flag was given.
+    /// Per-app sandbox policy restrictions (merged over the target's type
+    /// profile, `[sandbox.<type>]`). `None` when no policy flag was given.
     pub sandbox_policy: Option<config::SandboxPolicy>,
     /// Replace an existing registration with the same name/ID without
     /// prompting (equivalent to answering "overwrite" in the interactive
@@ -47,8 +47,9 @@ pub struct UpdateOptions {
     pub descriptions: Option<Descriptions>,
     pub remove_symlink: bool,
     pub sandbox: Option<bool>,
-    /// Per-app sandbox policy restrictions (merged over the global
-    /// `[sandbox.policy]`). Replaces the stored policy wholesale when `Some`.
+    /// Per-app sandbox policy restrictions (merged over the target's type
+    /// profile, `[sandbox.<type>]`). Replaces the stored policy wholesale
+    /// when `Some`.
     pub sandbox_policy: Option<config::SandboxPolicy>,
     pub portable: bool,
 }
@@ -392,13 +393,11 @@ impl Manager {
         } else {
             None
         };
+        let sandboxed =
+            sandbox::sandbox_effective_enabled(&settings, entry.sandbox, &entry.target_bin);
         let sandbox_cmd = sandbox::generate_sandbox_exec(
             &settings,
-            Some(sandbox::sandbox_effective_enabled(
-                &settings,
-                entry.sandbox,
-                &entry.target_bin,
-            )),
+            entry.sandbox,
             entry.sandbox_policy.as_ref(),
             &entry.target_bin,
         );
@@ -448,7 +447,7 @@ impl Manager {
                 destination,
                 &entry.target_bin,
                 options.bin_name.as_deref().unwrap_or(&entry.id),
-                if sandbox::sandbox_effective_enabled(&settings, entry.sandbox, &entry.target_bin) {
+                if sandboxed {
                     Some(sandbox_cmd.as_str())
                 } else {
                     None
@@ -626,6 +625,7 @@ impl Manager {
             value["sandbox"] = serde_json::json!({
                 "enabled": view.enabled,
                 "backend": view.backend,
+                "profile": view.profile,
                 "policy": serde_json::to_value(&view.policy)
                     .context("failed to serialize effective sandbox policy")?,
                 "denied": view
@@ -757,10 +757,10 @@ impl Manager {
         .unwrap();
         let view = sandbox_view(&settings, app);
         let color = crate::colors::should_color_policy(settings.display.color);
-        let header = if view.enabled {
-            format!("Sandbox: active ({})", view.backend)
-        } else {
-            "Sandbox: inactive".to_string()
+        let header = match (&view.profile, view.enabled) {
+            (Some(profile), true) => format!("Sandbox: active ({}) [{profile}]", view.backend),
+            (None, true) => format!("Sandbox: active ({})", view.backend),
+            (_, false) => "Sandbox: inactive".to_string(),
         };
         writeln!(
             output,
@@ -900,13 +900,11 @@ impl Manager {
                 desktop::remove(None, entry.icon_path.as_deref())?;
                 entry.icon_path = None;
             }
+            let sandboxed =
+                sandbox::sandbox_effective_enabled(&settings, entry.sandbox, &entry.target_bin);
             let sandbox_cmd = sandbox::generate_sandbox_exec(
                 &settings,
-                Some(sandbox::sandbox_effective_enabled(
-                    &settings,
-                    entry.sandbox,
-                    &entry.target_bin,
-                )),
+                entry.sandbox,
                 entry.sandbox_policy.as_ref(),
                 &entry.target_bin,
             );
@@ -948,11 +946,7 @@ impl Manager {
                     &destination,
                     &entry.target_bin,
                     link_name,
-                    if sandbox::sandbox_effective_enabled(
-                        &settings,
-                        entry.sandbox,
-                        &entry.target_bin,
-                    ) {
+                    if sandboxed {
                         Some(sandbox_cmd.as_str())
                     } else {
                         None
@@ -1002,10 +996,11 @@ impl Manager {
     }
 
     /// Rewrite an app's `.desktop` launcher with the sandbox command
-    /// derived from the current settings (global `[sandbox.policy]` merged
-    /// with the per-app policy), without requiring any metadata options.
+    /// derived from the current settings (the target's type profile
+    /// `[sandbox.<type>]`, merged with the per-app policy), without
+    /// requiring any metadata options.
     ///
-    /// Used by `musu doctor --fix` to re-apply an edited global policy to
+    /// Used by `musu doctor --fix` to re-apply an edited profile policy to
     /// existing apps. Name, categories, description, and icon are reused
     /// as stored; the target binary is never touched. Only AppImages are
     /// regenerated (both the `.desktop` launcher and the `$PATH` wrapper);
@@ -1031,13 +1026,11 @@ impl Manager {
                 entry.name
             );
         };
+        let sandboxed =
+            sandbox::sandbox_effective_enabled(&settings, entry.sandbox, &entry.target_bin);
         let sandbox_cmd = sandbox::generate_sandbox_exec(
             &settings,
-            Some(sandbox::sandbox_effective_enabled(
-                &settings,
-                entry.sandbox,
-                &entry.target_bin,
-            )),
+            entry.sandbox,
             entry.sandbox_policy.as_ref(),
             &entry.target_bin,
         );
@@ -1072,9 +1065,7 @@ impl Manager {
                 .and_then(|name| name.to_str())
                 .map(str::to_string)
                 .unwrap_or_else(|| entry.id.clone());
-            let wrapper =
-                sandbox::sandbox_effective_enabled(&settings, entry.sandbox, &entry.target_bin)
-                    .then(|| sandbox_cmd.clone());
+            let wrapper = sandboxed.then(|| sandbox_cmd.clone());
             symlink::install(&base_dir, &entry.target_bin, &link_name, wrapper.as_deref())?;
         }
         let updated = registry
@@ -1687,24 +1678,35 @@ pub fn format_visual_diff(old: &AppEntry, new: &AppEntry) -> String {
 }
 
 /// The sandbox facts `musu show` reports for an app: effective enablement,
-/// resolved backend, fully merged policy, and the human-readable list of
-/// denied permissions as `(label, description)` pairs.
+/// resolved backend, applied profile, fully merged policy, and the
+/// human-readable list of denied permissions as `(label, description)` pairs.
 struct SandboxView {
     enabled: bool,
     backend: String,
+    /// The profile type governing this app (`"appimage"`), when it is
+    /// sandboxed through a configured profile rather than bare defaults.
+    profile: Option<String>,
     policy: config::SandboxPolicy,
     denied: Vec<(String, String)>,
 }
 
-/// Compute the effective sandbox view for an app: the global
-/// `[sandbox.policy]` merged with the per-app policy, the resolved backend,
-/// and the denied-permissions list shown by `musu show`.
+/// Compute the effective sandbox view for an app: the profile of the
+/// target's type merged with the per-app policy, the resolved backend, and
+/// the denied-permissions list shown by `musu show`.
 fn sandbox_view(settings: &config::Settings, app: &AppEntry) -> SandboxView {
+    let kind = sandbox::classify(&app.target_bin);
     let requested = sandbox::sandbox_effective_enabled(settings, app.sandbox, &app.target_bin);
-    let backend = sandbox::resolve_backend(settings);
-    let policy = sandbox::effective_settings_policy(settings, app.sandbox_policy.as_ref());
+    let backend = sandbox::resolve_backend(settings, kind);
+    let policy = sandbox::effective_settings_policy(settings, kind, app.sandbox_policy.as_ref());
     // No backend available means the launcher runs unsandboxed.
     let enabled = requested && backend != "none";
+    // A profile only counts as applied when one actually governs this type;
+    // a flag-forced app of an unsupported (or unconfigured) type runs on
+    // bare defaults with no profile behind it.
+    let profile = enabled
+        .then(|| settings.sandbox.profile_for_type(kind))
+        .flatten()
+        .map(|_| kind.to_string());
     let mut denied = Vec::new();
     if enabled {
         if policy.network == Some(false) {
@@ -1740,6 +1742,7 @@ fn sandbox_view(settings: &config::Settings, app: &AppEntry) -> SandboxView {
     SandboxView {
         enabled,
         backend,
+        profile,
         policy,
         denied,
     }

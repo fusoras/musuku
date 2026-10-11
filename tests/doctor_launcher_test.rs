@@ -5,7 +5,7 @@
 //! no `.desktop`, sandbox off). Staleness detection and regeneration only
 //! apply to AppImages.
 
-use musu::config::{self, SandboxPolicy, Settings};
+use musu::config::{self, SandboxPolicy, SandboxProfile, Settings};
 use musu::doctor::run_doctor;
 use musu::manager::{AddOptions, Manager};
 use std::fs;
@@ -39,16 +39,28 @@ fn manager_with(base: &Path) -> Manager {
     )
 }
 
-/// Sandbox on with the deterministic `bwrap` backend so tests never probe
-/// the host for `bwrap`/`firejail`. `symlink_appimages` is on because
-/// AppImage targets only get a `$PATH` wrapper when it is enabled, and the
-/// wrapper-regeneration tests need one to exist.
+/// The AppImage profile enabled with the deterministic `bwrap` backend so
+/// tests never probe the host for `bwrap`/`firejail`. `symlink_appimages`
+/// is on because AppImage targets only get a `$PATH` wrapper when it is
+/// enabled, and the wrapper-regeneration tests need one to exist.
 fn bwrap_settings() -> Settings {
     let mut settings = Settings::default();
-    settings.sandbox.enabled = true;
-    settings.sandbox.backend = "bwrap".to_string();
+    settings.sandbox.profiles.appimage = Some(SandboxProfile {
+        enabled: Some(true),
+        backend: "bwrap".to_string(),
+        ..SandboxProfile::default()
+    });
     settings.defaults.symlink_appimages = true;
     settings
+}
+
+/// Mutable access to the AppImage profile (created when absent).
+fn appimage_profile(settings: &mut Settings) -> &mut SandboxProfile {
+    settings
+        .sandbox
+        .profiles
+        .appimage
+        .get_or_insert_with(SandboxProfile::default)
 }
 
 fn write_settings(base: &Path, settings: &Settings) {
@@ -108,9 +120,10 @@ fn test_doctor_reports_stale_sandbox_launcher_only_for_outdated_exec() {
     write_settings(base, &bwrap_settings());
     add_app(&manager, base, "Stale App", AddOptions::default());
 
-    // The user edits `[sandbox.policy]` in config.toml afterwards.
+    // The user edits the `[sandbox.appimage]` profile in config.toml
+    // afterwards.
     let mut changed = bwrap_settings();
-    changed.sandbox.policy.network = Some(false);
+    appimage_profile(&mut changed).network = Some(false);
     write_settings(base, &changed);
 
     // Registered after the change: its Exec already matches.
@@ -153,9 +166,9 @@ fn test_doctor_fix_regenerates_stale_launcher_exec() {
     write_settings(base, &bwrap_settings());
     add_app(&manager, base, "Stale App", AddOptions::default());
 
-    // New global policy adds a hidden path (bwrap renders it as --tmpfs).
+    // New profile policy adds a hidden path (bwrap renders it as --tmpfs).
     let mut changed = bwrap_settings();
-    changed.sandbox.policy.hide_paths = Some(vec!["/musu-doctor-hidden".to_string()]);
+    appimage_profile(&mut changed).hide_paths = Some(vec!["/musu-doctor-hidden".to_string()]);
     write_settings(base, &changed);
 
     let before = run_doctor(&manager, false, false).unwrap();
@@ -189,7 +202,7 @@ fn test_doctor_fix_is_idempotent() {
     add_app(&manager, base, "Stale App", AddOptions::default());
 
     let mut changed = bwrap_settings();
-    changed.sandbox.policy.network = Some(false);
+    appimage_profile(&mut changed).network = Some(false);
     write_settings(base, &changed);
 
     run_doctor(&manager, true, true).unwrap();
@@ -243,9 +256,9 @@ fn test_doctor_fix_preserves_per_app_policy_override() {
         },
     );
 
-    // Global policy gains a hidden path; the app keeps its own network rule.
+    // Profile policy gains a hidden path; the app keeps its own network rule.
     let mut changed = bwrap_settings();
-    changed.sandbox.policy.hide_paths = Some(vec!["/musu-global-hidden".to_string()]);
+    appimage_profile(&mut changed).hide_paths = Some(vec!["/musu-global-hidden".to_string()]);
     write_settings(base, &changed);
 
     let before = run_doctor(&manager, false, false).unwrap();
@@ -303,8 +316,8 @@ fn test_doctor_skips_apps_without_desktop_or_with_sandbox_off() {
     add_app(&manager, base, "Stale App", AddOptions::default());
 
     let mut changed = bwrap_settings();
-    changed.sandbox.policy.hide_paths = Some(vec!["/musu-doctor-hidden".to_string()]);
-    changed.sandbox.policy.network = Some(false);
+    appimage_profile(&mut changed).hide_paths = Some(vec!["/musu-doctor-hidden".to_string()]);
+    appimage_profile(&mut changed).network = Some(false);
     write_settings(base, &changed);
 
     let report = run_doctor(&manager, false, false).unwrap();
@@ -358,7 +371,7 @@ fn test_doctor_ignores_non_appimage_targets_even_when_exec_is_stale() {
     add_app(&manager, base, "Stale App", AddOptions::default());
 
     let mut changed = bwrap_settings();
-    changed.sandbox.policy.network = Some(false);
+    appimage_profile(&mut changed).network = Some(false);
     write_settings(base, &changed);
 
     let report = run_doctor(&manager, false, false).unwrap();
@@ -380,8 +393,10 @@ fn test_doctor_ignores_non_appimage_targets_even_when_exec_is_stale() {
     let script = manager.get("script-app").unwrap();
     let desktop_path = script.desktop_file.clone().unwrap();
     let before = fs::read_to_string(&desktop_path).unwrap();
+    // Registered under the network-allowed policy: a flag-forced binary has
+    // no profile, so it is wrapped only when this host has a backend at all.
     assert!(
-        before.contains("--share-net"),
+        !before.contains("--net=none"),
         "precondition: registered under the network-allowed policy:\n{before}"
     );
 
@@ -419,7 +434,7 @@ fn test_doctor_fix_regenerates_appimage_path_wrapper() {
 
     // New global policy: no network.
     let mut changed = bwrap_settings();
-    changed.sandbox.policy.network = Some(false);
+    appimage_profile(&mut changed).network = Some(false);
     write_settings(base, &changed);
 
     run_doctor(&manager, true, true).unwrap();
@@ -477,7 +492,7 @@ fn test_doctor_fix_preserves_sandbox_off_symlink() {
     );
 
     let mut changed = bwrap_settings();
-    changed.sandbox.policy.network = Some(false);
+    appimage_profile(&mut changed).network = Some(false);
     write_settings(base, &changed);
 
     run_doctor(&manager, true, true).unwrap();
@@ -508,4 +523,60 @@ fn test_doctor_fix_preserves_sandbox_off_symlink() {
         "sandbox-off launcher must not gain a wrapper:\n{desktop}"
     );
     assert!(desktop.contains(&off.target_bin.display().to_string()));
+}
+
+// ---------------------------------------------------------------------------
+// Sandbox profile warnings
+// ---------------------------------------------------------------------------
+
+/// Profiles that will never fire are surfaced as advisory warnings: a
+/// profile type musu doesn't support, and a known profile missing the
+/// `enabled` key (assumed off). Neither breaks the parse.
+#[test]
+fn test_doctor_warns_for_unknown_profile_and_missing_enabled_key() {
+    let temp = tempdir().unwrap();
+    let base = temp.path();
+    let manager = manager_with(base);
+
+    fs::create_dir_all(base.join("config")).unwrap();
+    fs::write(
+        base.join("config/config.toml"),
+        "[sandbox.appimage]\nbackend = \"bwrap\"\n\n[sandbox.foobar]\nenabled = true\nbackend = \"bwrap\"\n",
+    )
+    .unwrap();
+
+    let report = run_doctor(&manager, false, false).unwrap();
+    assert!(
+        report
+            .details
+            .iter()
+            .any(|d| d.contains("unknown sandbox profile 'foobar'") && d.contains("appimage")),
+        "unknown profile types must be reported: {:?}",
+        report.details
+    );
+    assert!(
+        report
+            .details
+            .iter()
+            .any(|d| d.contains("sandbox profile 'appimage' has no 'enabled' key; assuming false")),
+        "a profile without the enabled key must be reported: {:?}",
+        report.details
+    );
+}
+
+/// A complete, enabled profile produces no warnings at all.
+#[test]
+fn test_doctor_is_silent_for_a_complete_profile() {
+    let temp = tempdir().unwrap();
+    let base = temp.path();
+    let manager = manager_with(base);
+
+    write_settings(base, &bwrap_settings());
+
+    let report = run_doctor(&manager, false, false).unwrap();
+    assert!(
+        !report.details.iter().any(|d| d.contains("sandbox profile")),
+        "no profile warnings expected: {:?}",
+        report.details
+    );
 }

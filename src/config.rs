@@ -6,8 +6,9 @@
 //! ever touching the real user configuration.
 
 use crate::models::AppRegistry;
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -45,35 +46,122 @@ pub struct Settings {
     pub sandbox: SandboxConfig,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+/// Profile types musu knows how to classify and honor today. A type in this
+/// list may be enabled by its `[sandbox.<type>]` profile; any other profile
+/// section is reported by `musu doctor` and ignored by resolution (its apps
+/// are sandboxed only through an explicit `--sandbox` flag).
+pub const SUPPORTED_SANDBOX_PROFILES: &[&str] = &["appimage"];
+
+/// The `[sandbox]` table: one profile per app type.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
 pub struct SandboxConfig {
-    #[serde(default)]
-    pub enabled: bool,
-    #[serde(default = "default_sandbox_backend")]
-    pub backend: String,
-    /// Global sandbox policy: every field is optional so "unset" can be
-    /// distinguished from an explicit `false`/empty value. See
-    /// [`SandboxPolicy`] and [`effective_policy`].
-    #[serde(default)]
-    pub policy: SandboxPolicy,
+    /// Per-type profiles. Flattened so each `[sandbox.<type>]` table maps
+    /// onto one profile.
+    #[serde(flatten)]
+    pub profiles: SandboxProfiles,
 }
 
-impl Default for SandboxConfig {
+impl SandboxConfig {
+    /// The profile configured for `kind`, if any. Unsupported types never
+    /// resolve to a profile, no matter what their section says.
+    pub fn profile_for_type(&self, kind: &str) -> Option<&SandboxProfile> {
+        if !SUPPORTED_SANDBOX_PROFILES.contains(&kind) {
+            return None;
+        }
+        if kind == "appimage" {
+            return self.profiles.appimage.as_ref();
+        }
+        self.profiles.extra.get(kind)
+    }
+}
+
+/// The profiles stored under `[sandbox]`.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
+pub struct SandboxProfiles {
+    /// The AppImage profile (`[sandbox.appimage]`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub appimage: Option<SandboxProfile>,
+    /// Profiles for types musu doesn't support yet: kept so unknown sections
+    /// parse (and `musu doctor` can warn about them) instead of failing.
+    #[serde(flatten)]
+    pub extra: BTreeMap<String, SandboxProfile>,
+}
+
+impl SandboxProfiles {
+    /// Every configured profile as `(type, profile)` pairs, including types
+    /// outside [`SUPPORTED_SANDBOX_PROFILES`].
+    pub fn iter(&self) -> impl Iterator<Item = (&str, &SandboxProfile)> {
+        self.appimage
+            .iter()
+            .map(|profile| ("appimage", profile))
+            .chain(
+                self.extra
+                    .iter()
+                    .map(|(kind, profile)| (kind.as_str(), profile)),
+            )
+    }
+}
+
+/// The sandbox configuration for one app type (`[sandbox.<type>]`): an
+/// optional enablement flag, a backend, and the restrictions that apply to
+/// every sandboxed app of that type.
+///
+/// Every restriction field is optional so "unset" can be distinguished from
+/// an explicit `false`/empty value. See [`SandboxPolicy`] and
+/// [`effective_policy`].
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+pub struct SandboxProfile {
+    /// `None` = not configured: the sandbox stays off for this type and
+    /// `musu doctor` warns about the missing key.
+    #[serde(default)]
+    pub enabled: Option<bool>,
+    /// Backend for this type: `auto` | `bwrap` | `firejail` | `none`.
+    #[serde(default = "default_sandbox_backend")]
+    pub backend: String,
+    /// `None` inherits the default; `Some(false)` denies network access.
+    #[serde(default)]
+    pub network: Option<bool>,
+    /// `None` inherits the default; `Some(false)` mounts `$HOME` read-only.
+    #[serde(default)]
+    pub home_writable: Option<bool>,
+    /// Paths to hide entirely (tmpfs over them in bwrap, blacklisted in
+    /// firejail). Replaces the default list.
+    #[serde(default)]
+    pub hide_paths: Option<Vec<String>>,
+    /// Extra paths to expose read-write. Replaces the default list.
+    #[serde(default)]
+    pub extra_rw: Option<Vec<String>>,
+    /// Extra paths to expose read-only. Replaces the default list.
+    #[serde(default)]
+    pub extra_ro: Option<Vec<String>>,
+}
+
+impl Default for SandboxProfile {
     fn default() -> Self {
         Self {
-            enabled: false,
+            enabled: None,
             backend: default_sandbox_backend(),
-            policy: SandboxPolicy::default(),
+            network: None,
+            home_writable: None,
+            hide_paths: None,
+            extra_rw: None,
+            extra_ro: None,
         }
     }
 }
 
-impl SandboxConfig {
-    /// The global policy with all defaults filled in: network on, home
-    /// writable, empty path lists. This is the base that per-app policies
-    /// merge onto via [`effective_policy`].
-    pub fn global_effective(&self) -> SandboxPolicy {
-        effective_policy(&self.policy, None)
+impl SandboxProfile {
+    /// The profile's restrictions as a [`SandboxPolicy`]: unset fields stay
+    /// `None` so they inherit the effective defaults (or the per-app
+    /// overrides, see [`effective_policy`]).
+    pub fn policy(&self) -> SandboxPolicy {
+        SandboxPolicy {
+            network: self.network,
+            home_writable: self.home_writable,
+            hide_paths: self.hide_paths.clone(),
+            extra_rw: self.extra_rw.clone(),
+            extra_ro: self.extra_ro.clone(),
+        }
     }
 }
 
@@ -81,13 +169,13 @@ fn default_sandbox_backend() -> String {
     "auto".to_string()
 }
 
-/// Sandbox restrictions, configurable globally (`config.toml`) and per app
-/// (`apps.toml`).
+/// Sandbox restrictions, configurable per app type (`config.toml`, inside
+/// the `[sandbox.<type>]` profile) and per app (`apps.toml`).
 ///
 /// Every field is optional so "not defined" can be distinguished from an
 /// explicit `false`/empty value. Merging happens field by field via
 /// [`effective_policy`]: a `Some` field of the per-app policy replaces the
-/// global value wholesale (list fields are replaced, never concatenated),
+/// profile value wholesale (list fields are replaced, never concatenated),
 /// a `None` field inherits it.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Default)]
 #[serde(default)]
@@ -97,21 +185,21 @@ pub struct SandboxPolicy {
     /// `None` inherits; `Some(false)` mounts `$HOME` read-only.
     pub home_writable: Option<bool>,
     /// Paths to hide entirely (tmpfs over them in bwrap, blacklisted in
-    /// firejail). Replaces the global list.
+    /// firejail). Replaces the profile list.
     pub hide_paths: Option<Vec<String>>,
-    /// Extra paths to expose read-write. Replaces the global list.
+    /// Extra paths to expose read-write. Replaces the profile list.
     pub extra_rw: Option<Vec<String>>,
-    /// Extra paths to expose read-only. Replaces the global list.
+    /// Extra paths to expose read-only. Replaces the profile list.
     pub extra_ro: Option<Vec<String>>,
 }
 
-/// Merge the global policy with an optional per-app policy, field by field:
-/// every `Some` field of `app` replaces the global value, `None` inherits it.
-/// Fields unset in both fall back to the effective defaults (network on, home
-/// writable, empty path lists), so the returned policy always has every
+/// Merge a profile policy with an optional per-app policy, field by field:
+/// every `Some` field of `app` replaces the profile value, `None` inherits
+/// it. Fields unset in both fall back to the effective defaults (network on,
+/// home writable, empty path lists), so the returned policy always has every
 /// field `Some`.
-pub fn effective_policy(global: &SandboxPolicy, app: Option<&SandboxPolicy>) -> SandboxPolicy {
-    let mut merged = global.clone();
+pub fn effective_policy(profile: &SandboxPolicy, app: Option<&SandboxPolicy>) -> SandboxPolicy {
+    let mut merged = profile.clone();
     if let Some(app) = app {
         if app.network.is_some() {
             merged.network = app.network;
@@ -320,6 +408,9 @@ fn default_dest_bin() -> PathBuf {
 }
 
 /// Load optional program settings, using safe defaults when the file is absent.
+///
+/// A config still written in the legacy flat `[sandbox]` format is rejected
+/// with a migration hint instead of being silently reinterpreted.
 pub fn load_settings(base_dir: &Path) -> Result<Settings> {
     let path = settings_path(base_dir);
     if !path.exists() {
@@ -327,8 +418,28 @@ pub fn load_settings(base_dir: &Path) -> Result<Settings> {
     }
     let contents = fs::read_to_string(&path)
         .with_context(|| format!("failed to read settings file {}", path.display()))?;
+    if let Some(key) = legacy_sandbox_key(&contents) {
+        bail!(
+            "legacy [sandbox] format detected in {} (found `{key}`); migrate to per-type \
+             profiles:\n  [sandbox.appimage]\n  enabled = true\n  backend = \"auto\"",
+            path.display()
+        );
+    }
     toml::from_str(&contents)
         .with_context(|| format!("failed to parse settings file {}", path.display()))
+}
+
+/// The legacy flat key found directly under `[sandbox]`, if any: the
+/// pre-profile format kept `enabled`, `backend`, and a nested
+/// `[sandbox.policy]` table there, while the profile format only holds
+/// `[sandbox.<type>]` tables. Unparsable TOML yields `None` so the regular
+/// parse reports it with its own context.
+fn legacy_sandbox_key(contents: &str) -> Option<&'static str> {
+    let parsed = toml::from_str::<toml::Value>(contents).ok()?;
+    let sandbox = parsed.as_table()?.get("sandbox")?.as_table()?;
+    ["enabled", "backend", "policy"]
+        .into_iter()
+        .find(|key| sandbox.contains_key(*key))
 }
 
 /// Save optional program settings to `config.toml` in `base_dir`.

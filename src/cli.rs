@@ -81,13 +81,13 @@ pub struct Add {
     /// Disable sandboxing explicitly.
     #[arg(long)]
     pub no_sandbox: bool,
-    /// Enable or disable network access in the sandbox (overrides global policy).
+    /// Enable or disable network access in the sandbox (overrides the type's profile policy).
     #[arg(long, value_name = "true|false", num_args = 1)]
     pub network: Option<bool>,
-    /// Mount $HOME writable (true) or read-only (false) in the sandbox (overrides global policy).
+    /// Mount $HOME writable (true) or read-only (false) in the sandbox (overrides the type's profile policy).
     #[arg(long, value_name = "true|false", num_args = 1)]
     pub home_writable: Option<bool>,
-    /// Additional path to hide inside the sandbox (repeatable; replaces global hide_paths).
+    /// Additional path to hide inside the sandbox (repeatable; replaces the profile hide_paths).
     #[arg(long = "hide-path", value_name = "PATH")]
     pub hide_path: Vec<PathBuf>,
     /// Additional writable bind path inside the sandbox (repeatable).
@@ -221,13 +221,13 @@ pub struct Update {
     /// Disable sandboxing explicitly.
     #[arg(long)]
     pub no_sandbox: bool,
-    /// Enable or disable network access in the sandbox (overrides global policy).
+    /// Enable or disable network access in the sandbox (overrides the type's profile policy).
     #[arg(long, value_name = "true|false", num_args = 1)]
     pub network: Option<bool>,
-    /// Mount $HOME writable (true) or read-only (false) in the sandbox (overrides global policy).
+    /// Mount $HOME writable (true) or read-only (false) in the sandbox (overrides the type's profile policy).
     #[arg(long, value_name = "true|false", num_args = 1)]
     pub home_writable: Option<bool>,
-    /// Additional path to hide inside the sandbox (repeatable; replaces global hide_paths).
+    /// Additional path to hide inside the sandbox (repeatable; replaces the profile hide_paths).
     #[arg(long = "hide-path", value_name = "PATH")]
     pub hide_path: Vec<PathBuf>,
     /// Additional writable bind path inside the sandbox (repeatable).

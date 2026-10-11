@@ -1,12 +1,40 @@
-use crate::config::{self, SandboxPolicy, Settings};
+use crate::config::{self, SandboxPolicy, SandboxProfile, Settings};
 use std::path::Path;
 
-/// Resolve the effective sandbox backend for `settings`.
+/// The sandbox profile type for `target_bin`: `"appimage"` for AppImages,
+/// `"binary"` for everything else. Only types listed in
+/// [`config::SUPPORTED_SANDBOX_PROFILES`] can be sandboxed by profile —
+/// `"binary"` is recognized but not supported yet, so plain binaries and
+/// scripts are only ever sandboxed through an explicit `--sandbox` flag.
+pub fn classify(target_bin: &Path) -> &'static str {
+    if crate::extractor::is_appimage(target_bin).unwrap_or(false) {
+        "appimage"
+    } else {
+        "binary"
+    }
+}
+
+/// The profile governing `target_bin`: `None` when its type has no profile
+/// configured, or when the type itself is unsupported (defaults apply).
+pub fn effective_profile<'a>(
+    settings: &'a Settings,
+    target_bin: &Path,
+) -> Option<&'a SandboxProfile> {
+    settings.sandbox.profile_for_type(classify(target_bin))
+}
+
+/// Resolve the effective backend for the profile of type `kind`.
 ///
 /// `"auto"` probes for an installed `bwrap` first and falls back to
-/// `firejail`; `"none"` (or neither installed) means no sandboxing.
-pub fn resolve_backend(settings: &Settings) -> String {
-    if settings.sandbox.backend == "auto" {
+/// `firejail`; `"none"` (or neither installed) means no sandboxing. A type
+/// without a profile falls back to the default `"auto"`.
+pub fn resolve_backend(settings: &Settings, kind: &str) -> String {
+    let backend = settings
+        .sandbox
+        .profile_for_type(kind)
+        .map(|profile| profile.backend.as_str())
+        .unwrap_or("auto");
+    if backend == "auto" {
         if std::process::Command::new("bwrap")
             .arg("--version")
             .output()
@@ -23,17 +51,24 @@ pub fn resolve_backend(settings: &Settings) -> String {
             "none".to_string()
         }
     } else {
-        settings.sandbox.backend.clone()
+        backend.to_string()
     }
 }
 
-/// The fully effective policy for an app: the global `[sandbox.policy]`
-/// (with defaults filled) merged with the optional per-app policy.
+/// The fully effective policy for an app of type `kind`: the profile's
+/// restrictions (defaults filled in) merged with the optional per-app
+/// policy.
 pub fn effective_settings_policy(
     settings: &Settings,
+    kind: &str,
     app: Option<&SandboxPolicy>,
 ) -> SandboxPolicy {
-    config::effective_policy(&settings.sandbox.global_effective(), app)
+    let base = settings
+        .sandbox
+        .profile_for_type(kind)
+        .map(SandboxProfile::policy)
+        .unwrap_or_default();
+    config::effective_policy(&base, app)
 }
 
 /// Advisory warnings for policy restrictions the given backend cannot
@@ -90,10 +125,12 @@ fn always_hidden() -> Vec<String> {
 
 /// Whether the sandbox effectively applies to `target_bin`.
 ///
-/// The global `[sandbox].enabled` flag only wraps AppImages: scripts and
-/// plain binaries are never sandboxed implicitly. An explicit per-app
-/// `entry_sandbox` flag always wins, in both directions — `--sandbox`
-/// force-wraps any executable, `--no-sandbox` opts an AppImage out.
+/// The per-type profile's `enabled` key only wraps apps whose type resolves
+/// to a profile (today: AppImages); scripts and plain binaries have no
+/// profile and are never sandboxed implicitly. A profile without an
+/// `enabled` key counts as off. An explicit per-app `entry_sandbox` flag
+/// always wins, in both directions — `--sandbox` force-wraps any
+/// executable, `--no-sandbox` opts an AppImage out.
 pub fn sandbox_effective_enabled(
     settings: &Settings,
     entry_sandbox: Option<bool>,
@@ -101,31 +138,32 @@ pub fn sandbox_effective_enabled(
 ) -> bool {
     match entry_sandbox {
         Some(explicit) => explicit,
-        None => {
-            settings.sandbox.enabled && crate::extractor::is_appimage(target_bin).unwrap_or(false)
-        }
+        None => effective_profile(settings, target_bin)
+            .and_then(|profile| profile.enabled)
+            .unwrap_or(false),
     }
 }
 
 /// Generate the command prefix wrapping `target_bin` in the desktop file
-/// and symlink, honoring the effective sandbox policy (global merged with
-/// the optional per-app `entry_policy`). With no policy defined the output
-/// is byte-for-byte identical to the pre-policy behavior.
+/// and symlink, honoring the effective sandbox policy (the profile of the
+/// target's type merged with the optional per-app `entry_policy`). With no
+/// policy defined the output is byte-for-byte identical to the pre-policy
+/// behavior.
 pub fn generate_sandbox_exec(
     settings: &Settings,
     entry_sandbox: Option<bool>,
     entry_policy: Option<&SandboxPolicy>,
     target_bin: &Path,
 ) -> String {
-    let enabled = entry_sandbox.unwrap_or(settings.sandbox.enabled);
     let target = target_bin.display().to_string();
 
-    if !enabled {
+    if !sandbox_effective_enabled(settings, entry_sandbox, target_bin) {
         return target;
     }
 
-    let backend = resolve_backend(settings);
-    let policy = effective_settings_policy(settings, entry_policy);
+    let kind = classify(target_bin);
+    let backend = resolve_backend(settings, kind);
+    let policy = effective_settings_policy(settings, kind, entry_policy);
     let network = policy.network.unwrap_or(true);
     let home_writable = policy.home_writable.unwrap_or(true);
     let hidden: Vec<String> = policy

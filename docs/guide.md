@@ -168,31 +168,31 @@ musu remove obsidian
 
 `musu` can wrap a launcher in a Bubblewrap (`bwrap`) or Firejail sandbox so the application runs with reduced privileges: optional network denial, a read-only home, and hidden folders.
 
-The backend is auto-detected — `bwrap` first, then `firejail`; if neither is installed, apps keep running unsandboxed. Force one with `backend = "bwrap" | "firejail" | "none"` in `~/.config/musu/config.toml`.
+The backend is auto-detected — `bwrap` first, then `firejail`; if neither is installed, apps keep running unsandboxed. Force one per app type with `backend = "bwrap" | "firejail" | "none"` inside its profile in `~/.config/musu/config.toml`.
 
 ---
 
-### Set a global policy
+### Set an app-type policy
+
+Policies live in per-type profiles; today AppImages are the only supported type:
 
 ```toml
 # ~/.config/musu/config.toml
-[sandbox]
+[sandbox.appimage]
 enabled = true
 backend = "auto"
-
-[sandbox.policy]
-network = false        # every sandboxed app loses network access
+network = false        # every sandboxed AppImage loses network access
 home_writable = false  # $HOME is mounted read-only
 hide_paths = ["~/Private"]
 ```
 
-Every **AppImage** registered from now on is wrapped automatically. The global flag never wraps scripts or plain binaries — pass `--sandbox` explicitly to sandbox those. See [config.md](config.md#sandbox) for all keys and defaults.
+Every **AppImage** registered from now on is wrapped automatically. Profiles never wrap scripts or plain binaries — pass `--sandbox` explicitly to sandbox those. See [config.md](config.md#sandbox) for all keys, defaults, and how to migrate a legacy flat `[sandbox]` config.
 
 ---
 
 ### Exempt (or restrict) a single app
 
-Policies merge per field: what you specify for an app replaces the global value, everything else is inherited. With the restrictive policy above, a music player that needs the network gets it back — while everything else stays offline:
+Policies merge per field: what you specify for an app replaces the profile value, everything else is inherited. With the restrictive profile above, a music player that needs the network gets it back — while everything else stays offline:
 
 ```sh
 musu add ~/Apps/Music.AppImage --sandbox --network true
@@ -204,7 +204,7 @@ The reverse works too: with the default permissive policy, tighten one app witho
 musu add ~/Apps/Scraper.AppImage --sandbox --network false --hide-path ~/Projects
 ```
 
-`--hide-path`, `--extra-rw`, and `--extra-ro` (repeatable) replace the global lists for that app. Existing apps can be re-configured the same way with `musu update`, which also regenerates their launcher.
+`--hide-path`, `--extra-rw`, and `--extra-ro` (repeatable) replace the profile lists for that app. Existing apps can be re-configured the same way with `musu update`, which also regenerates their launcher.
 
 Two rules always hold:
 
@@ -220,7 +220,7 @@ musu show music
 ```text
 Music (music)
   ...
-Sandbox: active (bwrap)
+Sandbox: active (bwrap) [appimage]
   ✗ ~/.ssh     → hidden
   ✗ ~/.gnupg   → hidden
 ```
@@ -252,8 +252,8 @@ One detail to know before comparing: inside the sandbox `~/.ssh` (and any `hide_
 
 ### Limitations
 
-- **The global sandbox flag only covers AppImages.** With `[sandbox] enabled = true`, newly registered AppImages are wrapped automatically; scripts and plain binaries stay unsandboxed unless you pass `--sandbox` explicitly on `musu add`/`musu update` (the explicit flag always wins, in both directions).
-- **Launchers are baked at creation time.** The sandbox wrapper lives in the launcher's `Exec=` line and the generated `$PATH` wrapper script, so changing the policy (globally in `config.toml` or per app) does **not** rewrite existing launchers automatically. After editing the global `[sandbox.policy]`, run `musu doctor --fix` to detect every **AppImage** whose `Exec` no longer matches the current policy and regenerate its launcher and `$PATH` wrapper in one go. Other apps (scripts, extracted binaries) are not covered by the automatic regeneration; apply the new policy manually with `musu update <app>` (e.g. `musu update music --network false`, which regenerates the launcher) or re-register with `musu add --overwrite`.
+- **The AppImage profile only covers AppImages.** With `[sandbox.appimage] enabled = true`, newly registered AppImages are wrapped automatically; scripts and plain binaries stay unsandboxed unless you pass `--sandbox` explicitly on `musu add`/`musu update` (the explicit flag always wins, in both directions).
+- **Launchers are baked at creation time.** The sandbox wrapper lives in the launcher's `Exec=` line and the generated `$PATH` wrapper script, so changing the policy (in a `config.toml` profile or per app) does **not** rewrite existing launchers automatically. After editing the `[sandbox.appimage]` profile, run `musu doctor --fix` to detect every **AppImage** whose `Exec` no longer matches the current policy and regenerate its launcher and `$PATH` wrapper in one go. Other apps (scripts, extracted binaries) are not covered by the automatic regeneration; apply the new policy manually with `musu update <app>` (e.g. `musu update music --network false`, which regenerates the launcher) or re-register with `musu add --overwrite`.
 - **Only wrapped entry points run sandboxed.** Launching via the `.desktop` entry or the generated `$PATH` wrapper script runs inside the sandbox; executing the original binary directly (e.g. `~/Apps/Firefox.AppImage`) runs **without** any sandbox.
 - **Firejail is best-effort.** `home_writable = false` and `extra_rw` are ignored with a warning, and `extra_ro` maps to `--blacklist`.
 - **Paths with spaces are not fully escaped** in the generated launcher/wrapper line and can break it — keep registered executables on paths without spaces.
