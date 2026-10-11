@@ -401,7 +401,7 @@ fn test_default_generation_is_byte_identical_to_previous_behavior() {
 
     let mut settings = bwrap_settings();
     let expected_bwrap = format!(
-        "bwrap --unshare-all --share-net --ro-bind / / --dev /dev --proc /proc --bind /tmp /tmp \
+        "bwrap --unshare-all --share-net --setenv APPIMAGE_EXTRACT_AND_RUN=1 --ro-bind / / --dev /dev --proc /proc --bind /tmp /tmp \
          --bind {home} {home} --tmpfs {home}/.ssh --tmpfs {home}/.gnupg {target_str}"
     );
     assert_eq!(
@@ -417,7 +417,7 @@ fn test_default_generation_is_byte_identical_to_previous_behavior() {
 
     appimage_profile(&mut settings).backend = "firejail".to_string();
     let expected_firejail = format!(
-        "firejail --noprofile --net=host --env=WAYLAND_DISPLAY --env=DISPLAY \
+        "firejail --noprofile --net=host --env=APPIMAGE_EXTRACT_AND_RUN=1 --env=WAYLAND_DISPLAY --env=DISPLAY \
          --env=XDG_RUNTIME_DIR --env=PULSE_SERVER --env=PIPEWIRE_REMOTE \
          --blacklist=~/.ssh --blacklist=~/.gnupg {target_str}"
     );
@@ -435,6 +435,38 @@ fn test_default_generation_is_byte_identical_to_previous_behavior() {
     assert_eq!(
         generate_sandbox_exec(&settings, None, None, &target),
         target_str
+    );
+}
+
+// ---------------------------------------------------------------------------
+// AppImage runtime inside the sandbox: no FUSE, extract-and-run
+// ---------------------------------------------------------------------------
+
+/// FUSE is unavailable inside the sandbox (`/dev/fuse` is missing from
+/// bwrap's minimal `/dev` and setuid `fusermount` does not resolve in user
+/// namespaces), so the wrapper always exports `APPIMAGE_EXTRACT_AND_RUN=1`:
+/// the AppImage runtime extracts to tmp and executes without mounting.
+/// The variable is harmless for non-AppImage targets entering via an
+/// explicit `--sandbox`.
+#[test]
+fn test_wrapper_always_sets_appimage_extract_and_run() {
+    let temp = tempdir().unwrap();
+    let target = fake_appimage(temp.path());
+    let mut settings = bwrap_settings();
+
+    let cmd = generate_sandbox_exec(&settings, None, None, &target);
+    assert!(cmd.starts_with("bwrap "), "got: {cmd}");
+    assert!(
+        cmd.contains("--setenv APPIMAGE_EXTRACT_AND_RUN=1"),
+        "bwrap wrapper must disable FUSE via APPIMAGE_EXTRACT_AND_RUN=1, got: {cmd}"
+    );
+
+    appimage_profile(&mut settings).backend = "firejail".to_string();
+    let cmd = generate_sandbox_exec(&settings, None, None, &target);
+    assert!(cmd.starts_with("firejail "), "got: {cmd}");
+    assert!(
+        cmd.contains("--env=APPIMAGE_EXTRACT_AND_RUN=1"),
+        "firejail wrapper must disable FUSE via APPIMAGE_EXTRACT_AND_RUN=1, got: {cmd}"
     );
 }
 

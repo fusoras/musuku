@@ -123,6 +123,8 @@ extra_ro = []
 
 `~/.ssh` and `~/.gnupg` are **always hidden** inside the sandbox. No policy can expose them: they are masked with an empty `tmpfs` (`bwrap`) or blacklisted (`firejail`) even when a `hide_paths`, `extra_rw`, or `extra_ro` entry points at them.
 
+The generated wrapper always exports `APPIMAGE_EXTRACT_AND_RUN=1` (`bwrap`: `--setenv`; `firejail`: `--env=`). FUSE is not available inside the sandbox — `/dev/fuse` does not exist in bwrap's minimal `/dev` and the setuid `fusermount` helper does not resolve in user namespaces — so the AppImage runtime extracts itself to a temporary directory and runs from there on every launch (a bit slower on the first start) instead of mounting via FUSE. Non-AppImage targets simply ignore the variable.
+
 ### Enablement layers
 
 The most explicit layer wins:

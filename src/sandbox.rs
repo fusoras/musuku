@@ -197,6 +197,11 @@ pub fn generate_sandbox_exec(
             if network {
                 cmd.push("--share-net".to_string());
             }
+            // FUSE is unavailable inside the sandbox (no /dev/fuse in the
+            // minimal /dev, and setuid fusermount does not resolve in user
+            // namespaces): force the AppImage runtime to extract to tmp and
+            // run without mounting. Harmless for non-AppImage targets.
+            cmd.push("--setenv APPIMAGE_EXTRACT_AND_RUN=1".to_string());
             cmd.push("--ro-bind / /".to_string());
             cmd.push("--dev /dev".to_string());
             cmd.push("--proc /proc".to_string());
@@ -243,6 +248,10 @@ pub fn generate_sandbox_exec(
             } else {
                 cmd.push("--net=none".to_string());
             }
+            // Same FUSE workaround as the bwrap branch: extract-and-run
+            // instead of mounting (no /dev/fuse, setuid fusermount is a
+            // dead end inside user namespaces).
+            cmd.push("--env=APPIMAGE_EXTRACT_AND_RUN=1".to_string());
             cmd.push("--env=WAYLAND_DISPLAY".to_string());
             cmd.push("--env=DISPLAY".to_string());
             cmd.push("--env=XDG_RUNTIME_DIR".to_string());
