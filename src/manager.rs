@@ -818,6 +818,7 @@ impl Manager {
             || options.categories.is_some()
             || options.description.is_some()
             || options.descriptions.is_some()
+            || options.sandbox.is_some()
             || options.sandbox_policy.is_some()
             || options.portable;
         if !metadata_change && !options.remove_symlink {

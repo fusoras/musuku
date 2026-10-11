@@ -1114,3 +1114,55 @@ fn test_show_reports_sandbox_inactive_for_script_with_enabled_profile() {
     assert!(value["sandbox"]["profile"].is_null());
     assert!(value["sandbox"]["denied"].as_array().unwrap().is_empty());
 }
+
+// ---------------------------------------------------------------------------
+// update --no-sandbox alone must count as a change (the sandbox flag was
+// missing from metadata_change, so a lone opt-out returned NoChanges)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_update_with_only_sandbox_flag_applies_and_regenerates() {
+    let temp = tempdir().unwrap();
+    let target = temp.path().join("tool.AppImage");
+    executable(&target);
+
+    fs::create_dir_all(temp.path().join("config")).unwrap();
+    fs::write(
+        temp.path().join("config/config.toml"),
+        "[sandbox.appimage]\nenabled = true\nbackend = \"bwrap\"\n",
+    )
+    .unwrap();
+
+    let manager = Manager::new(
+        temp.path().join("config/apps.toml"),
+        temp.path().join("share"),
+        temp.path().join("bin"),
+    );
+    let entry = manager
+        .add(AddOptions {
+            target,
+            ..AddOptions::default()
+        })
+        .unwrap();
+    let desktop_before = fs::read_to_string(entry.desktop_file.as_ref().unwrap()).unwrap();
+    assert!(desktop_before.contains("bwrap"), "got: {desktop_before}");
+
+    let outcome = manager
+        .update(
+            &entry.id,
+            UpdateOptions {
+                sandbox: Some(false),
+                ..UpdateOptions::default()
+            },
+        )
+        .unwrap();
+    let UpdateOutcome::Updated { new, .. } = outcome else {
+        panic!("a lone --no-sandbox must count as an update, got NoChanges");
+    };
+    assert_eq!(new.sandbox, Some(false));
+    let desktop_after = fs::read_to_string(new.desktop_file.as_ref().unwrap()).unwrap();
+    assert!(
+        !desktop_after.contains("bwrap"),
+        "wrapper must be gone, got: {desktop_after}"
+    );
+}
