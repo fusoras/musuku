@@ -43,25 +43,7 @@ musu add [OPTIONS] <EXECUTABLE>
 | `--no-symlink` | Skip creating the terminal `$PATH` symlink. | `false` |
 | `--dest-bin <PATH>` | Custom directory for the binary symlink (prompts for `sudo` if outside `$HOME`). | `~/.local/bin` |
 | `--overwrite` | Replace an existing application with the same name/ID without asking (aliases: `--force`, `-f`). | `false` |
-| `--sandbox` | Wrap the launcher and terminal symlink in a sandbox (bwrap or firejail; visible alias: `--isolate`). Required for scripts and plain binaries — the `[sandbox.appimage]` profile only wraps AppImages. | `[sandbox.appimage].enabled` |
-| `--no-sandbox` | Keep this application unsandboxed, even when `[sandbox.appimage] enabled = true`. | `[sandbox.appimage].enabled` |
-| `--network <true\|false>` | Enable or disable network access for this app, overriding the profile `network` in either direction. | profile `[sandbox.<type>]` |
-| `--home-writable <true\|false>` | Mount `$HOME` writable or read-only for this app, overriding the profile `home_writable` in either direction. | profile `[sandbox.<type>]` |
-| `--hide-path <PATH>` | Hide a path inside the sandbox (repeatable). Replaces the profile `hide_paths` for this app. | profile `[sandbox.<type>]` |
-| `--extra-rw <PATH>` | Expose an extra path read-write in the sandbox (repeatable). | profile `[sandbox.<type>]` |
-| `--extra-ro <PATH>` | Expose an extra path read-only in the sandbox (repeatable). | profile `[sandbox.<type>]` |
 | `--portable` | Save metadata to a portable `.musu.toml` bundle file in the application's directory. | `false` |
-
-### Sandbox Policy Flags
-
-The policy flags store a per-app `sandbox_policy` in `apps.toml`, merged over the app type's profile (`[sandbox.<type>]`) field by field (see [config.md](config.md#sandbox)). The wrapper is only generated when the app is effectively sandboxed: the explicit `--sandbox` flag (which wraps any executable), or `enabled = true` in the profile of the app's type (today: `[sandbox.appimage]` for AppImages) — profiles never wrap scripts or plain binaries.
-
-- Overrides are **bidirectional**: with a profile `network = false`, `--network true` exempts one app; with the default permissive policy, `--network false` restricts just this app. The same applies to `--home-writable`.
-- `--hide-path`, `--extra-rw`, and `--extra-ro` are repeatable and **replace** the corresponding profile list for this app — they are never appended to it.
-- `~/.ssh` and `~/.gnupg` are always hidden; no flag can expose them.
-
-> [!WARNING]
-> The `firejail` backend cannot reliably enforce `home_writable = false` and `extra_rw`. When `firejail` is the resolved backend, `musu add`/`musu update` print advisory warnings to stderr (never fatal; stdout stays clean) and ignore those restrictions. `extra_ro` is best-effort (emitted as `--blacklist`). The `bwrap` backend supports the full policy.
 
 ### Fallback Name & ID Behavior
 
@@ -115,15 +97,6 @@ musu add /opt/tools/my-cli --no-desktop --bin-name mycli
 
 # Standalone GUI app: desktop launcher only, no terminal symlink
 musu add /opt/blender/blender --no-symlink --icon /opt/blender/icon.png
-
-# Sandbox an AppImage: no network access, one hidden folder
-musu add ~/Apps/Firefox.AppImage --sandbox --network false --hide-path ~/Secretos
-
-# Exempt a single app from a restrictive global policy (network = false)
-musu add ~/Apps/Music.AppImage --sandbox --network true
-
-# Grant an editor access to a workspace folder while hiding client files
-musu add ~/Apps/Editor.AppImage --sandbox --extra-rw ~/Work/active --hide-path ~/Work/clients
 ```
 
 ---
@@ -217,43 +190,9 @@ My App (my-app)
     [es]: Grabadora de audio ligera
     [fr]: Enregistreur audio léger
   Registered:  2026-10-06 14:00:00 UTC
-Sandbox: active (bwrap) [appimage]
-  ✗ network    → no network access
-  ✗ ~/.ssh     → hidden
-  ✗ ~/.gnupg   → hidden
 ```
 
 Per-language descriptions (registered via `-d LANG=TEXT`) are listed indented under `Description`.
-
-The `Sandbox` block reports the effective state: `active (bwrap) [appimage]` / `active (firejail) [appimage]` (the bracket names the applied profile), `active (bwrap)` when the app is sandboxed by an explicit `--sandbox` flag without any profile behind it, or `inactive` for unsandboxed apps (including non-AppImages registered without an explicit `--sandbox`). Each line is a denied permission, showing the fully merged policy (the type's profile plus per-app overrides):
-
-- `✗` (red): a restriction the backend enforces.
-- `!` (yellow): a restriction the `firejail` backend cannot enforce and will ignore (e.g. `home_writable = false`, `extra_rw`).
-- `~/.ssh` and `~/.gnupg` are always listed when the sandbox is active.
-
-With `--json`, the computed view is injected under the `sandbox` key (the raw stored `sandbox_policy` also appears as a regular entry field):
-
-```json
-"sandbox": {
-  "backend": "bwrap",
-  "denied": [
-    "~/.ssh hidden",
-    "~/.gnupg hidden",
-    "~/Secretos hidden by policy"
-  ],
-  "enabled": true,
-  "profile": "appimage",
-  "policy": {
-    "extra_ro": [],
-    "extra_rw": [],
-    "hide_paths": ["~/Secretos"],
-    "home_writable": true,
-    "network": false
-  }
-}
-```
-
-`policy` is the effective policy with every field filled in; `denied` combines each denied label with its human-readable reason. `profile` is the type whose profile governs the app (`"appimage"`), or `null` when the sandbox is inactive or runs without a profile (e.g. a flag-forced script).
 
 ### Path Extraction for Scripts
 
@@ -285,22 +224,12 @@ musu update <ID_OR_NAME> [OPTIONS]
 | `--name <NAME>` | New display name (re-derives slug ID and updates desktop entry). | name unchanged |
 | `--categories <LIST>` | New desktop categories (e.g. `Graphics,3DGraphics`). Use without a value to show current categories (read-only query). | categories unchanged |
 | `--description <TEXT>` | New description or tooltip for the application (short: `-d`; visible aliases: `--comment`, `--desc`). Repeat with `LANG=TEXT` to set per-language descriptions; each `LANG=text` replaces only that language (others are kept), and an empty value (`LANG=`) removes it. | description unchanged |
-| `--sandbox` | Wrap the launcher and terminal symlink in a sandbox (visible alias: `--isolate`). The explicit flag is also the only way to wrap scripts and plain binaries — profiles alone only cover AppImages. | sandbox unchanged |
-| `--no-sandbox` | Keep this application unsandboxed. | sandbox unchanged |
-| `--network <true\|false>` | Enable or disable network access for this app, overriding the profile `network` in either direction. | inherited from the type's profile |
-| `--home-writable <true\|false>` | Mount `$HOME` writable or read-only for this app, overriding the profile `home_writable` in either direction. | inherited from the type's profile |
-| `--hide-path <PATH>` | Hide a path inside the sandbox (repeatable). Replaces the profile `hide_paths` for this app. | inherited from the type's profile |
-| `--extra-rw <PATH>` | Expose an extra path read-write in the sandbox (repeatable). | inherited from the type's profile |
-| `--extra-ro <PATH>` | Expose an extra path read-only in the sandbox (repeatable). | inherited from the type's profile |
 | `--remove-symlink` | Delete the terminal symlink and clear `symlink` in registry. | symlink kept |
 | `--portable` | Save or update `.musu.toml` bundle file in the application's directory. | `false` |
 
 > [!NOTE]
 > Modifying `--target`, `--name`, `--icon`, `--categories`, or `--description` regenerates the `.desktop` file and re-points the terminal symlink automatically when those artifacts exist.
 > `--remove-symlink` deletes the symlink file without touching the desktop launcher, icon, or original binary.
-
-> [!NOTE]
-> Sandbox policy flags (`--network`, `--home-writable`, `--hide-path`, `--extra-rw`, `--extra-ro`) also count as changes: they regenerate the `.desktop` file so the launcher picks up the new wrapper. The app's stored `sandbox_policy` is **replaced** by the flags you pass — flags you omit revert to inheriting the type's profile policy. Passing only `--sandbox`/`--no-sandbox` without any other change is reported as *No changes* and does not regenerate the launcher; combine the flag with another change (e.g. a policy flag) to apply it. To drop a stored per-app policy entirely, delete its `sandbox_policy` table from `apps.toml` and re-register with `musu add --overwrite`.
 
 ### Examples
 
@@ -325,15 +254,6 @@ musu update my-app --categories AudioVideo,Development
 
 # Remove terminal symlink while keeping desktop launcher
 musu update my-app --remove-symlink
-
-# Restrict one app: no network access, launcher regenerated with the new policy
-musu update my-app --network false
-
-# Exempt an app from a restrictive global network policy
-musu update my-app --network true
-
-# Hide an extra folder and expose a shared data directory read-only
-musu update my-app --hide-path ~/Secretos --extra-ro /srv/shared-assets
 ```
 
 ---
@@ -509,7 +429,7 @@ musu doctor [OPTIONS]
 
 | Option | Description |
 | --- | --- |
-| `--fix` | Automatically repair detected issues (prune broken symlinks, clean dead entries, regenerate outdated sandbox launchers for AppImages). |
+| `--fix` | Automatically repair detected issues (prune broken symlinks, clean dead entries). |
 | `-y, --yes` | Confirm `--fix` operations without interactive prompts. |
 
 ### Examples
@@ -521,10 +441,6 @@ musu doctor
 # Auto-repair issues and confirm all prompts
 musu doctor --fix --yes
 ```
-
-`--fix` also re-applies sandbox policy changes to existing apps: the sandbox wrapper is baked into two entry points — the launcher's `Exec=` line and the generated `$PATH` wrapper script — so editing the `[sandbox.appimage]` profile in `config.toml` leaves registered apps running the old command. `musu doctor` flags each **AppImage** whose `Exec` no longer matches the effective policy (the type's profile merged with any per-app override), and `musu doctor --fix` regenerates both the `.desktop` file and the `$PATH` wrapper for those apps, keeping name, icon, categories, and per-app policy overrides intact. Apps that are not AppImages (scripts, extracted binaries) are never detected or regenerated automatically; apply the new policy to them manually with `musu update <app>` or re-register with `musu add --overwrite`. Running `--fix` twice in a row is a no-op once every launcher matches.
-
-`musu doctor` also warns about sandbox profiles that can never fire: a section for an unsupported type (`unknown sandbox profile 'xyz' (supported: appimage)`) and a supported profile without the `enabled` key (`sandbox profile 'appimage' has no 'enabled' key; assuming false`). Warnings are advisory — they never count as issues and never fail the run.
 
 ---
 

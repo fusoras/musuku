@@ -5,14 +5,11 @@ use clap::Parser;
 use musu::{
     categories,
     cli::{Cli, Command},
-    colors, config,
-    config::SandboxPolicy,
-    desktop,
+    colors, config, desktop,
     manager::{AddOptions, Manager, RemoveOptions, UpdateOptions, UpdateOutcome},
     symlink,
 };
 use std::io::{self, IsTerminal, Write};
-use std::path::{Path, PathBuf};
 
 fn main() -> Result<()> {
     let _ = musu::completions::ensure_completions_installed();
@@ -38,14 +35,6 @@ fn main() -> Result<()> {
             warn_unknown_categories(args.categories.as_deref().unwrap_or_default());
             let (description, descriptions) =
                 musu::manager::parse_description_values(args.description)?;
-            let sandbox_policy = build_sandbox_policy(
-                args.network,
-                args.home_writable,
-                &args.hide_path,
-                &args.extra_rw,
-                &args.extra_ro,
-            );
-            warn_sandbox_policy(&manager, Some(&args.executable), sandbox_policy.as_ref());
             manager.add(AddOptions {
                 target: args.executable,
                 name: args.name,
@@ -64,7 +53,6 @@ fn main() -> Result<()> {
                 } else {
                     None
                 },
-                sandbox_policy,
                 overwrite: args.overwrite,
                 portable: args.portable,
             })?;
@@ -131,28 +119,6 @@ fn main() -> Result<()> {
             warn_unknown_categories(args.categories.as_deref().unwrap_or_default());
             let (description, descriptions) =
                 musu::manager::parse_description_values(args.description)?;
-            let sandbox_policy = build_sandbox_policy(
-                args.network,
-                args.home_writable,
-                &args.hide_path,
-                &args.extra_rw,
-                &args.extra_ro,
-            );
-            // Warn against the policy that will actually be in effect: the
-            // CLI policy when given, otherwise the app's stored one. The
-            // target (new or stored) selects the app type, and therefore
-            // the profile whose backend enforces the policy.
-            let stored = manager.get(&args.id_or_name).ok();
-            let effective_app_policy = sandbox_policy.clone().or_else(|| {
-                stored
-                    .as_ref()
-                    .and_then(|entry| entry.sandbox_policy.clone())
-            });
-            let target = args
-                .target
-                .clone()
-                .or_else(|| stored.as_ref().map(|entry| entry.target_bin.clone()));
-            warn_sandbox_policy(&manager, target.as_deref(), effective_app_policy.as_ref());
             let outcome = manager.update(
                 &args.id_or_name,
                 UpdateOptions {
@@ -170,7 +136,6 @@ fn main() -> Result<()> {
                     } else {
                         None
                     },
-                    sandbox_policy,
                     portable: args.portable,
                 },
             )?;
@@ -335,63 +300,5 @@ fn warn_unknown_categories(values: &[String]) {
         if let Some(warning) = categories::unknown_category_warning(value, colors::should_color()) {
             eprintln!("{warning}");
         }
-    }
-}
-
-/// Build the per-app sandbox policy from the CLI flags: `None` when no
-/// policy flag was given (inherit the type profile's policy), otherwise a
-/// policy where every given flag overrides the profile field — in either
-/// direction, so a per-app `--network true` exempts the app from a profile
-/// `network = false` — and the remaining fields stay `None` (inherit).
-fn build_sandbox_policy(
-    network: Option<bool>,
-    home_writable: Option<bool>,
-    hide_path: &[PathBuf],
-    extra_rw: &[PathBuf],
-    extra_ro: &[PathBuf],
-) -> Option<SandboxPolicy> {
-    let any_flag = network.is_some()
-        || home_writable.is_some()
-        || !hide_path.is_empty()
-        || !extra_rw.is_empty()
-        || !extra_ro.is_empty();
-    any_flag.then(|| SandboxPolicy {
-        network,
-        home_writable,
-        hide_paths: (!hide_path.is_empty()).then(|| paths_to_strings(hide_path)),
-        extra_rw: (!extra_rw.is_empty()).then(|| paths_to_strings(extra_rw)),
-        extra_ro: (!extra_ro.is_empty()).then(|| paths_to_strings(extra_ro)),
-    })
-}
-
-fn paths_to_strings(paths: &[PathBuf]) -> Vec<String> {
-    paths
-        .iter()
-        .map(|path| path.to_string_lossy().into_owned())
-        .collect()
-}
-
-/// Emit advisory sandbox-policy warnings for restrictions the resolved
-/// backend cannot enforce, styled like [`warn_unknown_categories`]. Never
-/// fatal, always stderr (stdout stays script-friendly). `target` selects
-/// the app type whose profile applies; without it there is nothing to warn
-/// about yet.
-fn warn_sandbox_policy(
-    manager: &Manager,
-    target: Option<&Path>,
-    app_policy: Option<&SandboxPolicy>,
-) {
-    let (Ok(settings), Some(target)) = (manager.load_settings(), target) else {
-        return;
-    };
-    let kind = musu::sandbox::classify(target);
-    let backend = musu::sandbox::resolve_backend(&settings, kind);
-    let effective = musu::sandbox::effective_settings_policy(&settings, kind, app_policy);
-    let color = colors::should_color();
-    for warning in musu::sandbox::validate_policy(&backend, &effective) {
-        eprintln!(
-            "{}",
-            colors::yellow(color, &format!("musu: warning: {warning}"))
-        );
     }
 }

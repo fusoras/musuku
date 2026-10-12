@@ -38,11 +38,6 @@ pub struct AppEntry {
     /// Whether this app runs sandboxed.
     #[serde(default)]
     pub sandbox: Option<bool>,
-    /// Per-app sandbox policy restrictions; merged over the target's type
-    /// profile (`[sandbox.<type>]` from `config.toml`, see
-    /// [`crate::config::SandboxPolicy`]).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub sandbox_policy: Option<crate::config::SandboxPolicy>,
     /// Registration timestamp.
     pub created_at: DateTime<Utc>,
 }
@@ -70,7 +65,6 @@ impl AppEntry {
             description: None,
             descriptions: None,
             sandbox: None,
-            sandbox_policy: None,
             created_at: Utc::now(),
         }
     }
