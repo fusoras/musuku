@@ -35,9 +35,6 @@ pub struct AppEntry {
     /// `pt_BR`), written as `Comment[es]=...` in the `.desktop` file.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub descriptions: Option<Descriptions>,
-    /// Whether this app runs sandboxed.
-    #[serde(default)]
-    pub sandbox: Option<bool>,
     /// Registration timestamp.
     pub created_at: DateTime<Utc>,
 }
@@ -64,7 +61,6 @@ impl AppEntry {
             categories: None,
             description: None,
             descriptions: None,
-            sandbox: None,
             created_at: Utc::now(),
         }
     }

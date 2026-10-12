@@ -46,13 +46,6 @@ fn main() -> Result<()> {
                 no_desktop: args.no_desktop,
                 no_symlink: args.no_symlink,
                 dest_bin: args.dest_bin,
-                sandbox: if args.sandbox {
-                    Some(true)
-                } else if args.no_sandbox {
-                    Some(false)
-                } else {
-                    None
-                },
                 overwrite: args.overwrite,
                 portable: args.portable,
             })?;
@@ -129,13 +122,6 @@ fn main() -> Result<()> {
                     description,
                     descriptions,
                     remove_symlink: args.remove_symlink,
-                    sandbox: if args.sandbox {
-                        Some(true)
-                    } else if args.no_sandbox {
-                        Some(false)
-                    } else {
-                        None
-                    },
                     portable: args.portable,
                 },
             )?;

@@ -32,7 +32,7 @@ complete -c musu -n "__fish_musu_needs_command" -f -a "update" -d 'Update metada
 complete -c musu -n "__fish_musu_needs_command" -f -a "remove" -d 'Safely remove desktop launcher and symlink (preserves original executable)'
 complete -c musu -n "__fish_musu_needs_command" -f -a "completions" -d 'Generate shell completion script (bash, zsh, fish, elvish, powershell)'
 complete -c musu -n "__fish_musu_needs_command" -f -a "health" -d 'Check system environment and desktop integration health'
-complete -c musu -n "__fish_musu_needs_command" -f -a "doctor" -d 'Audit and auto-repair broken symlinks, orphaned desktop files, and sandbox configuration'
+complete -c musu -n "__fish_musu_needs_command" -f -a "doctor" -d 'Audit and auto-repair broken symlinks and orphaned desktop files'
 complete -c musu -n "__fish_musu_needs_command" -f -a "run" -d 'Launch a registered application in the background'
 complete -c musu -n "__fish_musu_needs_command" -f -a "watch" -d 'Scan and optionally monitor directories for AppImages'
 complete -c musu -n "__fish_musu_needs_command" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
@@ -45,8 +45,6 @@ complete -c musu -n "__fish_musu_using_subcommand add" -s f -l overwrite -l forc
 complete -c musu -n "__fish_musu_using_subcommand add" -l description -l comment -d 'Application description or tooltip (written as Comment in .desktop)' -r
 complete -c musu -n "__fish_musu_using_subcommand add" -l no-desktop -d 'Skip creating a .desktop launcher entry'
 complete -c musu -n "__fish_musu_using_subcommand add" -l no-symlink -d 'Skip creating a terminal $PATH symlink'
-complete -c musu -n "__fish_musu_using_subcommand add" -l sandbox -l isolate -d 'Run the application in an isolated sandbox (bwrap or firejail)'
-complete -c musu -n "__fish_musu_using_subcommand add" -l no-sandbox -d 'Disable sandboxing explicitly'
 complete -c musu -n "__fish_musu_using_subcommand add" -s h -l help -d 'Print help'
 complete -c musu -n "__fish_musu_using_subcommand list" -l category -r
 complete -c musu -n "__fish_musu_using_subcommand list" -l icons -d 'Display application icon previews in compatible terminals'
@@ -77,8 +75,6 @@ complete -c musu -n "__fish_musu_using_subcommand update" -l name -d 'New displa
 complete -c musu -n "__fish_musu_using_subcommand update" -l categories -d 'New desktop categories separated by commas (e.g. AudioVideo,Development). Omit the value to show the current categories without changing anything' -r
 complete -c musu -n "__fish_musu_using_subcommand update" -l description -l comment -d 'New application description or tooltip' -r
 complete -c musu -n "__fish_musu_using_subcommand update" -l remove-symlink -d 'Remove the terminal symlink for this application'
-complete -c musu -n "__fish_musu_using_subcommand update" -l sandbox -l isolate -d 'Run the application in an isolated sandbox (bwrap or firejail)'
-complete -c musu -n "__fish_musu_using_subcommand update" -l no-sandbox -d 'Disable sandboxing explicitly'
 complete -c musu -n "__fish_musu_using_subcommand update" -s h -l help -d 'Print help'
 complete -c musu -n "__fish_musu_using_subcommand remove" -l all -d 'Remove all registered applications from the system'
 complete -c musu -n "__fish_musu_using_subcommand remove" -l delete-target -l delete-appimage -d 'Also delete the original target executable (AppImage or binary) from disk'
@@ -108,7 +104,7 @@ complete -c musu -n "__fish_musu_using_subcommand help; and not __fish_seen_subc
 complete -c musu -n "__fish_musu_using_subcommand help; and not __fish_seen_subcommand_from add list show update remove completions health doctor run watch help" -f -a "remove" -d 'Safely remove desktop launcher and symlink (preserves original executable)'
 complete -c musu -n "__fish_musu_using_subcommand help; and not __fish_seen_subcommand_from add list show update remove completions health doctor run watch help" -f -a "completions" -d 'Generate shell completion script (bash, zsh, fish, elvish, powershell)'
 complete -c musu -n "__fish_musu_using_subcommand help; and not __fish_seen_subcommand_from add list show update remove completions health doctor run watch help" -f -a "health" -d 'Check system environment and desktop integration health'
-complete -c musu -n "__fish_musu_using_subcommand help; and not __fish_seen_subcommand_from add list show update remove completions health doctor run watch help" -f -a "doctor" -d 'Audit and auto-repair broken symlinks, orphaned desktop files, and sandbox configuration'
+complete -c musu -n "__fish_musu_using_subcommand help; and not __fish_seen_subcommand_from add list show update remove completions health doctor run watch help" -f -a "doctor" -d 'Audit and auto-repair broken symlinks and orphaned desktop files'
 complete -c musu -n "__fish_musu_using_subcommand help; and not __fish_seen_subcommand_from add list show update remove completions health doctor run watch help" -f -a "run" -d 'Launch a registered application in the background'
 complete -c musu -n "__fish_musu_using_subcommand help; and not __fish_seen_subcommand_from add list show update remove completions health doctor run watch help" -f -a "watch" -d 'Scan and optionally monitor directories for AppImages'
 complete -c musu -n "__fish_musu_using_subcommand help; and not __fish_seen_subcommand_from add list show update remove completions health doctor run watch help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'

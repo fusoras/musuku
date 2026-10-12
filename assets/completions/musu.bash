@@ -103,7 +103,7 @@ _musu() {
             return 0
             ;;
         musu__subcmd__add)
-            opts="-h --name --icon --categories --bin-name --no-desktop --no-symlink --dest-bin --overwrite --force --comment --description --isolate --sandbox --no-sandbox --help"
+            opts="-h --name --icon --categories --bin-name --no-desktop --no-symlink --dest-bin --overwrite --force --comment --description --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -415,7 +415,7 @@ _musu() {
             return 0
             ;;
         musu__subcmd__update)
-            opts="-h --target --icon --name --categories --remove-symlink --comment --description --isolate --sandbox --no-sandbox --help"
+            opts="-h --target --icon --name --categories --remove-symlink --comment --description --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0

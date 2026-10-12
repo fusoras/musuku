@@ -254,6 +254,60 @@ fn test_config_load_reports_malformed_toml_as_error() {
 }
 
 #[test]
+fn test_config_load_ignores_residual_sandbox_keys_in_apps_toml() {
+    // Registries written by older musu versions may still carry residual
+    // `sandbox` / `sandbox_policy` keys. Removing the sandbox feature must
+    // not break loading them: unknown keys are ignored by serde (no
+    // deny_unknown_fields on AppEntry).
+    let temp = tempdir().unwrap();
+    let path = temp.path().join("apps.toml");
+    std::fs::write(
+        &path,
+        r#"
+[[apps]]
+id = "legacy-app"
+name = "Legacy App"
+target_bin = "/opt/legacy-app/bin"
+desktop_file = "/home/user/.local/share/applications/legacy-app.desktop"
+symlink = "/home/user/.local/bin/legacy-app"
+icon_path = "/home/user/.local/share/icons/legacy-app.png"
+categories = ["Utility"]
+description = "Registered before the sandbox removal"
+sandbox = true
+sandbox_policy = { mode = "strict", network = false }
+created_at = "2024-01-01T00:00:00Z"
+
+[[apps]]
+id = "policy-app"
+name = "Policy App"
+target_bin = "/opt/policy-app/bin"
+desktop_file = "/home/user/.local/share/applications/policy-app.desktop"
+symlink = "/home/user/.local/bin/policy-app"
+icon_path = "/home/user/.local/share/icons/policy-app.png"
+categories = ["Utility"]
+created_at = "2024-01-02T00:00:00Z"
+"#,
+    )
+    .unwrap();
+
+    let registry = config::load(&path)
+        .expect("residual sandbox keys must be ignored instead of failing the parse");
+    assert_eq!(registry.apps.len(), 2);
+    let legacy = registry
+        .find("legacy-app")
+        .expect("legacy entry must be parsed");
+    assert_eq!(legacy.name, "Legacy App");
+    assert_eq!(
+        legacy.description.as_deref(),
+        Some("Registered before the sandbox removal")
+    );
+    let policy = registry
+        .find("policy-app")
+        .expect("policy entry must parse");
+    assert_eq!(policy.name, "Policy App");
+}
+
+#[test]
 fn test_config_loads_all_phase_two_options() {
     let temp = tempdir().unwrap();
     let path = config::settings_path(temp.path());

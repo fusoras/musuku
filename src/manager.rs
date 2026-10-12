@@ -3,7 +3,7 @@
 use crate::{
     config, desktop, extractor, health,
     models::{AppEntry, Descriptions, slugify},
-    sandbox, symlink,
+    symlink,
 };
 use anyhow::{Context, Result, bail};
 use std::fmt::Write;
@@ -25,7 +25,6 @@ pub struct AddOptions {
     pub no_desktop: bool,
     pub no_symlink: bool,
     pub dest_bin: Option<PathBuf>,
-    pub sandbox: Option<bool>,
     /// Replace an existing registration with the same name/ID without
     /// prompting (equivalent to answering "overwrite" in the interactive
     /// collision menu).
@@ -43,7 +42,6 @@ pub struct UpdateOptions {
     /// Per-language descriptions keyed by locale code (e.g. `es`, `fr`).
     pub descriptions: Option<Descriptions>,
     pub remove_symlink: bool,
-    pub sandbox: Option<bool>,
     pub portable: bool,
 }
 
@@ -384,14 +382,13 @@ impl Manager {
         } else {
             None
         };
-        let sandbox_cmd =
-            sandbox::generate_sandbox_exec(&settings, entry.sandbox, &entry.target_bin);
+        let target_exec = entry.target_bin.display().to_string();
         if !options.no_desktop {
             let (desktop_file, icon_path) = desktop::install(
                 &self.data_dir,
                 &entry.id,
                 &entry.name,
-                &sandbox_cmd,
+                &target_exec,
                 options
                     .icon
                     .as_deref()
@@ -432,11 +429,6 @@ impl Manager {
                 destination,
                 &entry.target_bin,
                 options.bin_name.as_deref().unwrap_or(&entry.id),
-                if entry.sandbox.unwrap_or(settings.sandbox.enabled) {
-                    Some(sandbox_cmd.as_str())
-                } else {
-                    None
-                },
             )?);
             check_and_warn_path(destination);
         }
@@ -811,9 +803,6 @@ impl Manager {
                         .collect(),
                 );
             }
-            if options.sandbox.is_some() {
-                entry.sandbox = options.sandbox;
-            }
             if let Some(description) = options.description {
                 entry.description = Some(description);
             } else if extracted_comment.is_some() {
@@ -843,15 +832,14 @@ impl Manager {
                 desktop::remove(None, entry.icon_path.as_deref())?;
                 entry.icon_path = None;
             }
-            let sandbox_cmd =
-                sandbox::generate_sandbox_exec(&settings, entry.sandbox, &entry.target_bin);
+            let target_exec = entry.target_bin.display().to_string();
             if let Some(desktop_file) = old.desktop_file.as_deref() {
                 desktop::remove(Some(desktop_file), None)?;
                 let (new_file, icon) = desktop::install(
                     &self.data_dir,
                     &entry.id,
                     &entry.name,
-                    &sandbox_cmd,
+                    &target_exec,
                     options
                         .icon
                         .as_deref()
@@ -883,11 +871,6 @@ impl Manager {
                     &destination,
                     &entry.target_bin,
                     link_name,
-                    if entry.sandbox.unwrap_or(settings.sandbox.enabled) {
-                        Some(sandbox_cmd.as_str())
-                    } else {
-                        None
-                    },
                 )?);
                 check_and_warn_path(&destination);
             }
@@ -1514,17 +1497,6 @@ pub fn format_visual_diff(old: &AppEntry, new: &AppEntry) -> String {
             arrow,
             format_langs(&new.descriptions)
         ));
-    }
-    if old.sandbox != new.sandbox {
-        let old_val = old
-            .sandbox
-            .map(|s| s.to_string())
-            .unwrap_or_else(|| "none".to_string());
-        let new_val = new
-            .sandbox
-            .map(|s| s.to_string())
-            .unwrap_or_else(|| "none".to_string());
-        out.push_str(&format!("  Sandbox: {} {} {}\n", old_val, arrow, new_val));
     }
     out
 }

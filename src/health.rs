@@ -40,7 +40,6 @@ pub struct HealthReport {
     pub terminal_graphics: TerminalCheck,
     pub svg_tools: Vec<ToolCheck>,
     pub desktop_tools: Vec<ToolCheck>,
-    pub sandbox_tools: Vec<ToolCheck>,
     pub environment_paths: Vec<PathCheck>,
     pub app_summary: RegistrySummary,
 }
@@ -55,11 +54,10 @@ impl HealthReport {
                 std::env::var("TERM_PROGRAM").ok().as_deref(),
                 std::env::var("TERM").ok().as_deref(),
             ),
-            // Only tools musu actually invokes: image.rs (SVG rasterizing),
-            // desktop.rs (launcher/icon cache syncing), and sandbox.rs (isolation).
+            // Only tools musu actually invokes: image.rs (SVG rasterizing)
+            // and desktop.rs (launcher/icon cache syncing).
             svg_tools: check_tools(&["rsvg-convert", "magick", "convert"]),
             desktop_tools: check_tools(&["update-desktop-database", "gtk-update-icon-cache"]),
-            sandbox_tools: check_tools(&["bwrap", "firejail"]),
             environment_paths: vec![
                 PathCheck {
                     name: "PATH".into(),
@@ -148,15 +146,6 @@ impl HealthReport {
             verbose,
             false,
             "no cache utility found — desktop/icon caches won't be refreshed (install update-desktop-database)",
-        );
-        output.push_str("Sandbox backends:\n");
-        write_tool_group(
-            &mut output,
-            &self.sandbox_tools,
-            color,
-            verbose,
-            false,
-            "no sandbox backend found — isolation disabled (install bubblewrap or firejail)",
         );
         output.push_str("Environment paths:\n");
         for path in &self.environment_paths {

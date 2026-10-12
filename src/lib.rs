@@ -14,7 +14,6 @@ pub mod image;
 pub mod manager;
 pub mod matcher;
 pub mod models;
-pub mod sandbox;
 pub mod service;
 pub mod spinner;
 pub mod symlink;

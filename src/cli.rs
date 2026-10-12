@@ -28,7 +28,7 @@ pub enum Command {
     Completions(Completions),
     /// Check system environment and desktop integration health.
     Health(Health),
-    /// Audit and auto-repair broken symlinks, orphaned desktop files, and sandbox configuration.
+    /// Audit and auto-repair broken symlinks and orphaned desktop files.
     Doctor(Doctor),
     /// Launch a registered application in the background.
     Run(Run),
@@ -75,12 +75,6 @@ pub struct Add {
         value_name = "TEXT | LANG=TEXT"
     )]
     pub description: Vec<String>,
-    /// Run the application in an isolated sandbox (bwrap or firejail).
-    #[arg(long, visible_alias = "isolate")]
-    pub sandbox: bool,
-    /// Disable sandboxing explicitly.
-    #[arg(long)]
-    pub no_sandbox: bool,
     /// Save metadata to a portable .musu.toml bundle file alongside the application.
     #[arg(long)]
     pub portable: bool,
@@ -200,12 +194,6 @@ pub struct Update {
         value_name = "TEXT | LANG=TEXT"
     )]
     pub description: Vec<String>,
-    /// Run the application in an isolated sandbox (bwrap or firejail).
-    #[arg(long, visible_alias = "isolate")]
-    pub sandbox: bool,
-    /// Disable sandboxing explicitly.
-    #[arg(long)]
-    pub no_sandbox: bool,
     /// Save metadata to a portable .musu.toml bundle file alongside the application.
     #[arg(long)]
     pub portable: bool,
