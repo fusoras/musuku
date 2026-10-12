@@ -84,8 +84,6 @@
     - Remove dead registry entries or repair invalid symlinks when `--fix` is passed.
 
 ---
-
-
 ### Phase 4: Shell Completions Refresh (`src/cli.rs` / `musu completions`)
 - Place at the end of feature additions to ensure 100% of CLI surface area is covered.
 - Generate and verify completion scripts for:
