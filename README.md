@@ -3,7 +3,7 @@
 Seamless desktop & CLI integration for portable Linux apps
 
 <p align="center">
-  <img alt="musu demo" src="https://github.com/user-attachments/assets/48a2578f-cc07-4fe7-a250-f923db963718" width="800" />
+  <img alt="musu demo" src="https://github.com/user-attachments/assets/f8f16674-1041-4378-ad90-972666e0242a" width="800" />
 </p>
 
 `musu` is a lightweight CLI tool written in Rust that integrates portable
