@@ -9,7 +9,19 @@ if [ -f "$0" ]; then
 else
     SCRIPT_DIR=""
 fi
-BIN_DIR="${MUSU_INSTALL_DIR:-$HOME/.local/bin}"
+
+if [ -n "$TERMUX_VERSION" ] || [ -d "/data/data/com.termux" ]; then
+    IS_TERMUX=1
+    if [ -n "$PREFIX" ] && [ -d "$PREFIX/bin" ]; then
+        DEFAULT_BIN_DIR="$PREFIX/bin"
+    else
+        DEFAULT_BIN_DIR="$HOME/.local/bin"
+    fi
+else
+    IS_TERMUX=0
+    DEFAULT_BIN_DIR="$HOME/.local/bin"
+fi
+BIN_DIR="${MUSU_INSTALL_DIR:-$DEFAULT_BIN_DIR}"
 TARGET_BIN="$BIN_DIR/musu"
 
 mkdir -p "$BIN_DIR"
@@ -37,8 +49,16 @@ else
 
     # Map architecture
     case "$ARCH" in
-        x86_64) ARCH_SUFFIX="x86_64-unknown-linux-gnu" ;;
-        aarch64|arm64) ARCH_SUFFIX="aarch64-unknown-linux-gnu" ;;
+        x86_64|amd64)
+            ARCH_SUFFIX="x86_64-unknown-linux-gnu"
+            ;;
+        aarch64|arm64)
+            if [ "$IS_TERMUX" -eq 1 ]; then
+                ARCH_SUFFIX="aarch64-unknown-linux-musl"
+            else
+                ARCH_SUFFIX="aarch64-unknown-linux-musl"
+            fi
+            ;;
         *)
             echo "Error: unsupported architecture: $ARCH" >&2
             exit 1
@@ -123,8 +143,8 @@ else
     DISPLAY_DIR="$BIN_DIR"
 fi
 
-# 5. Silently create background service unit if systemd is available
-if command -v systemctl >/dev/null 2>&1 && [ -n "$HOME" ]; then
+# 5. Silently create background service unit if systemd is available and not in Termux
+if command -v systemctl >/dev/null 2>&1 && [ -n "$HOME" ] && [ "$IS_TERMUX" -eq 0 ]; then
     SYSTEMD_USER_DIR="$HOME/.config/systemd/user"
     mkdir -p "$SYSTEMD_USER_DIR"
     cat << EOF > "$SYSTEMD_USER_DIR/musu-watch.service"
