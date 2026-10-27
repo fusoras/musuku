@@ -45,7 +45,7 @@ manages, edit it, back it up, or version-control it.
 Run the automated installer script:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/fusoras/musu/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/fusoras/musuku/main/install.sh | sh
 ```
 
 ### Build from source
@@ -55,7 +55,7 @@ Prerequisites:
 - A stable Rust toolchain (`rustup` + `cargo`)
 
 ```bash
-git clone --depth=1 https://github.com/fusoras/musu.git
+git clone --depth=1 https://github.com/fusoras/musuku.git
 cd musu
 cargo install --path .
 ```

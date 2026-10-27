@@ -7,7 +7,7 @@ pub fn generate_systemd_unit(bin_path: &Path) -> String {
     format!(
         r#"[Unit]
 Description=Musu AppImage Folder Watcher & Desktop Integrator
-Documentation=https://github.com/fusoras/musu
+Documentation=https://github.com/fusoras/musuku
 After=default.target
 
 [Service]

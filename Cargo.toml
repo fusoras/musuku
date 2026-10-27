@@ -3,6 +3,7 @@ name = "musu"
 version = "0.1.0"
 edition = "2024"
 description = "Lightweight Linux desktop & CLI integrator for portable executables"
+repository = "https://github.com/fusoras/musuku"
 
 [dependencies]
 anyhow = "1.0"

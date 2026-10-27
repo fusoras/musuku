@@ -4,20 +4,24 @@ set -e
 # musu - installer script
 # Installs musu into user-space (~/.local/bin) and configures completions.
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd || echo "")"
+if [ -f "$0" ]; then
+    SCRIPT_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd || echo "")"
+else
+    SCRIPT_DIR=""
+fi
 BIN_DIR="${MUSU_INSTALL_DIR:-$HOME/.local/bin}"
 TARGET_BIN="$BIN_DIR/musu"
 
 mkdir -p "$BIN_DIR"
 
 # 1. Locate or obtain the musu binary
-if [ -f "$SCRIPT_DIR/target/release/musu" ]; then
+if [ -n "$SCRIPT_DIR" ] && [ -f "$SCRIPT_DIR/target/release/musu" ]; then
     cp "$SCRIPT_DIR/target/release/musu" "$TARGET_BIN"
-elif [ -f "$SCRIPT_DIR/target/debug/musu" ]; then
+elif [ -n "$SCRIPT_DIR" ] && [ -f "$SCRIPT_DIR/target/debug/musu" ]; then
     cp "$SCRIPT_DIR/target/debug/musu" "$TARGET_BIN"
-elif [ -f "$SCRIPT_DIR/musu" ]; then
+elif [ -n "$SCRIPT_DIR" ] && [ -f "$SCRIPT_DIR/musu" ]; then
     cp "$SCRIPT_DIR/musu" "$TARGET_BIN"
-elif [ -f "$SCRIPT_DIR/Cargo.toml" ] && command -v cargo >/dev/null 2>&1; then
+elif [ -n "$SCRIPT_DIR" ] && [ -f "$SCRIPT_DIR/Cargo.toml" ] && command -v cargo >/dev/null 2>&1; then
     cargo build --release --manifest-path "$SCRIPT_DIR/Cargo.toml" --quiet
     cp "$SCRIPT_DIR/target/release/musu" "$TARGET_BIN"
 elif [ -f "$(command -v musu 2>/dev/null)" ] && [ "$(command -v musu)" != "$TARGET_BIN" ]; then
@@ -41,16 +45,22 @@ else
             ;;
     esac
 
-    REPO="fusoras/musu"
-    DOWNLOAD_URL="https://github.com/$REPO/releases/latest/download/musu-$ARCH_SUFFIX.tar.gz"
+    VERSION="${RELEASE_TAG:-v0.1.0}"
+    REPO="fusoras/musuku"
+    DOWNLOAD_URL="https://github.com/$REPO/releases/download/$VERSION/musu-$ARCH_SUFFIX.tar.gz"
+    FALLBACK_URL="https://github.com/$REPO/releases/latest/download/musu-$ARCH_SUFFIX.tar.gz"
 
     TMP_DIR="$(mktemp -d 2>/dev/null || mktemp -d -t 'musu')"
     TARBALL="$TMP_DIR/musu.tar.gz"
 
     if command -v curl >/dev/null 2>&1; then
-        curl -# -fLo "$TARBALL" "$DOWNLOAD_URL"
+        if ! curl -# -fLo "$TARBALL" "$DOWNLOAD_URL"; then
+            curl -# -fLo "$TARBALL" "$FALLBACK_URL"
+        fi
     elif command -v wget >/dev/null 2>&1; then
-        wget -q --show-progress -O "$TARBALL" "$DOWNLOAD_URL"
+        if ! wget -q --show-progress -O "$TARBALL" "$DOWNLOAD_URL"; then
+            wget -q --show-progress -O "$TARBALL" "$FALLBACK_URL"
+        fi
     else
         echo "Error: curl or wget is required to download musu." >&2
         exit 1
@@ -120,7 +130,7 @@ if command -v systemctl >/dev/null 2>&1 && [ -n "$HOME" ]; then
     cat << EOF > "$SYSTEMD_USER_DIR/musu-watch.service"
 [Unit]
 Description=Musu AppImage Folder Watcher & Desktop Integrator
-Documentation=https://github.com/fusoras/musu
+Documentation=https://github.com/fusoras/musuku
 After=default.target
 
 [Service]
